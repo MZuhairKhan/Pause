@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pause</string>
+    <string name="overlay_channel_name">Overlay service</string>
+    <string name="overlay_channel_description">Keeps the floating Pause button alive while you use other apps.</string>
+    <string name="overlay_notification_title">Pause is ready</string>
+    <string name="overlay_notification_text">Tap the floating button to set a timer.</string>
+    <string name="overlay_bubble_description">Pause floating button</string>
+    <string name="overlay_tap_hint">Timer picker coming soon</string>
+</resources>

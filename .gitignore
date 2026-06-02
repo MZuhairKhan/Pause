@@ -1,0 +1,49 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+gradle-app.setting
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Android build outputs
+app/build/
+release/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# Signing
+*.jks
+*.keystore
+keystore.properties
+
+# Logs / OS junk
+*.log
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Claude Code workspace settings
+.claude/
+
+# Kotlin
+.kotlin/
+
+# NDK
+obj/
+
+# Test outputs
+/test-results/
+/coverage/
