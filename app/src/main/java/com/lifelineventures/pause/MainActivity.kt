@@ -1,7 +1,6 @@
 package com.lifelineventures.pause
 
 import android.Manifest
-import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -26,6 +25,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,7 +56,7 @@ private fun OnboardingScreen(modifier: Modifier = Modifier) {
     var overlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var notificationsGranted by remember { mutableStateOf(hasNotificationPermission(context)) }
     var batteryExempt by remember { mutableStateOf(isBatteryOptimizationIgnored(context)) }
-    var serviceRunning by remember { mutableStateOf(isServiceRunning(context)) }
+    val serviceRunning by OverlayService.running.collectAsState()
     var showCountdown by remember { mutableStateOf(SettingsStore.showCountdown(context)) }
 
     val notificationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -69,7 +69,6 @@ private fun OnboardingScreen(modifier: Modifier = Modifier) {
         overlayGranted = Settings.canDrawOverlays(context)
         notificationsGranted = hasNotificationPermission(context)
         batteryExempt = isBatteryOptimizationIgnored(context)
-        serviceRunning = isServiceRunning(context)
     }
 
     Column(
@@ -142,10 +141,8 @@ private fun OnboardingScreen(modifier: Modifier = Modifier) {
             onClick = {
                 if (serviceRunning) {
                     OverlayService.stop(context)
-                    serviceRunning = false
                 } else {
                     OverlayService.start(context)
-                    serviceRunning = true
                 }
             }
         ) {
@@ -173,11 +170,4 @@ private fun hasNotificationPermission(context: Context): Boolean {
 private fun isBatteryOptimizationIgnored(context: Context): Boolean {
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     return pm.isIgnoringBatteryOptimizations(context.packageName)
-}
-
-@Suppress("DEPRECATION")
-private fun isServiceRunning(context: Context): Boolean {
-    val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-    return manager.getRunningServices(Int.MAX_VALUE)
-        .any { it.service.className == OverlayService::class.java.name }
 }

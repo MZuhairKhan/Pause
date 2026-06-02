@@ -21,7 +21,6 @@ class TimerReceiver : BroadcastReceiver() {
         ensureChannel(context)
         notifyTimeToPause(context)
 
-        TimerStore.clear(context)
         OverlayService.reset(context)
     }
 
