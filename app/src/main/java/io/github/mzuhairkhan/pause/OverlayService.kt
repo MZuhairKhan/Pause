@@ -32,8 +32,11 @@ import android.widget.TextView
 import android.widget.TimePicker
 import androidx.core.app.NotificationCompat
 import java.util.Calendar
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 class OverlayService : Service() {
 
@@ -44,6 +47,9 @@ class OverlayService : Service() {
     private var bubbleIcon: ImageView? = null
     private var bubbleCountdown: TextView? = null
     private var pickerView: View? = null
+
+    /** Live "time remaining" label inside the picker's active panel, when shown. */
+    private var pickerRemaining: TextView? = null
 
     /** Wall-clock end time of the active timer, or 0 when idle. */
     private var endTimeMillis = 0L
@@ -73,6 +79,7 @@ class OverlayService : Service() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
+        _running.value = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -88,12 +95,10 @@ class OverlayService : Service() {
         }
 
         showBubble()
-        if (intent?.action == ACTION_RESET) {
-            endTimeMillis = 0L
-            setBubbleIdle()
-        } else {
-            restoreTimerIfAny()
-        }
+        // A new (or restarted) service session always starts idle — a prior timer is not
+        // resumed, and any leftover alarm is cancelled. Only the bubble location persists.
+        hidePicker()
+        resetToIdle()
         return START_STICKY
     }
 
@@ -104,8 +109,7 @@ class OverlayService : Service() {
         val view = bubbleView ?: return
         val params = bubbleParams ?: return
         // Re-clamp on the next frame, once the display metrics have settled for the new
-        // orientation. The bubble keeps its coordinates (or snaps to the nearest edge if
-        // they'd now be off-screen) rather than moving to a proportional spot.
+        // orientation. The bubble keeps the same relative spot rather than drifting.
         view.post {
             if (bubbleView !== view) return@post
             applyBubblePosition(params)
@@ -114,6 +118,9 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        _running.value = false
+        // A manual stop cancels any pending timer so it can't fire after the overlay is gone.
+        cancelPendingAlarm()
         stopTicker()
         hidePicker()
         removeBubble()
@@ -137,6 +144,8 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         ).apply { gravity = Gravity.TOP or Gravity.START }
+        posFractionX = SettingsStore.bubbleFractionX(this)
+        posFractionY = SettingsStore.bubbleFractionY(this)
         applyBubblePosition(params)
 
         view.setOnTouchListener(DragTouchListener(params))
@@ -186,20 +195,31 @@ class OverlayService : Service() {
         if (SettingsStore.showCountdown(this)) {
             bubbleIcon?.visibility = View.GONE
             bubbleCountdown?.visibility = View.VISIBLE
-            updateCountdown((endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0))
-            startTicker()
         } else {
-            // User prefers the static glyph even while a timer runs.
-            stopTicker()
-            bubbleCountdown?.visibility = View.GONE
+            // Countdown number is off: show the distinct "running" glyph instead.
+            bubbleIcon?.setImageResource(R.drawable.ic_hourglass)
             bubbleIcon?.visibility = View.VISIBLE
+            bubbleCountdown?.visibility = View.GONE
         }
+        updateCountdown((endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0))
+        refreshTicker()
     }
 
     private fun setBubbleIdle() {
-        stopTicker()
         bubbleCountdown?.visibility = View.GONE
+        bubbleIcon?.setImageResource(R.drawable.ic_stopwatch)
         bubbleIcon?.visibility = View.VISIBLE
+        refreshTicker()
+    }
+
+    /** Runs the per-second ticker only while it has something to update. */
+    private fun refreshTicker() {
+        val active = endTimeMillis > System.currentTimeMillis()
+        if (active && (SettingsStore.showCountdown(this) || pickerRemaining != null)) {
+            startTicker()
+        } else {
+            stopTicker()
+        }
     }
 
     private fun updateCountdown(remainingMillis: Long) {
@@ -208,6 +228,18 @@ class OverlayService : Service() {
             totalSeconds >= 3600 -> "${(totalSeconds + 3599) / 3600}h"
             totalSeconds >= 60 -> "${(totalSeconds + 59) / 60}m"
             else -> "${totalSeconds}s"
+        }
+        pickerRemaining?.text = formatRemainingLong(totalSeconds)
+    }
+
+    private fun formatRemainingLong(totalSeconds: Int): String {
+        val h = totalSeconds / 3600
+        val m = (totalSeconds % 3600) / 60
+        val s = totalSeconds % 60
+        return if (h > 0) {
+            String.format(Locale.US, "%d:%02d:%02d", h, m, s)
+        } else {
+            String.format(Locale.US, "%d:%02d", m, s)
         }
     }
 
@@ -276,6 +308,7 @@ class OverlayService : Service() {
         val maxY = (screenH - size).coerceAtLeast(1)
         posFractionX = params.x.toFloat() / maxX
         posFractionY = params.y.toFloat() / maxY
+        SettingsStore.saveBubbleFraction(this, posFractionX, posFractionY)
     }
 
     // --- Timer picker ---
@@ -289,10 +322,35 @@ class OverlayService : Service() {
         val themed = ContextThemeWrapper(this, R.style.Theme_Pause_Overlay)
         val view = LayoutInflater.from(themed).inflate(R.layout.timer_picker, null)
 
-        wirePickerModes(view)
-        wireDurationMode(view)
-        wireAlarmMode(view)
-        wireCancel(view)
+        val title = view.findViewById<TextView>(R.id.picker_title)
+        val sectionActive = view.findViewById<View>(R.id.section_active)
+        val sectionSetup = view.findViewById<View>(R.id.section_setup)
+
+        if (endTimeMillis > System.currentTimeMillis()) {
+            // A timer is already running: only show the remaining time and a cancel
+            // action — there is intentionally no way to start a second timer.
+            title.text = getString(R.string.picker_active_title)
+            sectionActive.visibility = View.VISIBLE
+            sectionSetup.visibility = View.GONE
+            pickerRemaining = view.findViewById(R.id.active_remaining)
+            updateCountdown((endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0))
+            view.findViewById<TextView>(R.id.btn_cancel).setOnClickListener {
+                resetToIdle()
+                hidePicker()
+            }
+        } else {
+            title.text = getString(R.string.picker_title)
+            sectionActive.visibility = View.GONE
+            sectionSetup.visibility = View.VISIBLE
+            wirePickerModes(view)
+            wireDurationMode(view)
+            wireAlarmMode(view)
+            view.findViewById<TextView>(R.id.btn_stop_overlay).setOnClickListener {
+                hidePicker()
+                stopSelf()
+            }
+        }
+
         wirePickerDismiss(view)
 
         val params = WindowManager.LayoutParams(
@@ -306,6 +364,7 @@ class OverlayService : Service() {
         windowManager.addView(view, params)
         view.requestFocus()
         pickerView = view
+        refreshTicker()
     }
 
     private fun wirePickerModes(view: View) {
@@ -361,18 +420,6 @@ class OverlayService : Service() {
         }
     }
 
-    private fun wireCancel(view: View) {
-        if (endTimeMillis > System.currentTimeMillis()) {
-            view.findViewById<TextView>(R.id.btn_cancel).apply {
-                visibility = View.VISIBLE
-                setOnClickListener {
-                    cancelTimer()
-                    hidePicker()
-                }
-            }
-        }
-    }
-
     private fun wirePickerDismiss(view: View) {
         // Tap outside the card (the card consumes its own touches) or press BACK.
         view.setOnClickListener { hidePicker() }
@@ -390,6 +437,8 @@ class OverlayService : Service() {
     private fun hidePicker() {
         pickerView?.let { windowManager.removeView(it) }
         pickerView = null
+        pickerRemaining = null
+        refreshTicker()
     }
 
     private fun startDurationAndClose(minutes: Int) {
@@ -425,28 +474,21 @@ class OverlayService : Service() {
             alarmOperation()
         )
 
-        TimerStore.save(this, endMillis)
         setBubbleActive()
+        updateNotification()
     }
 
-    private fun cancelTimer() {
+    /** Cancels any active timer and returns the bubble to its idle glyph. */
+    private fun resetToIdle() {
+        cancelPendingAlarm()
+        endTimeMillis = 0L
+        setBubbleIdle()
+        updateNotification()
+    }
+
+    private fun cancelPendingAlarm() {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         alarmManager.cancel(alarmOperation())
-        endTimeMillis = 0L
-        TimerStore.clear(this)
-        setBubbleIdle()
-    }
-
-    private fun restoreTimerIfAny() {
-        val saved = TimerStore.endTime(this)
-        if (saved > System.currentTimeMillis()) {
-            endTimeMillis = saved
-            setBubbleActive()
-        } else {
-            if (saved != 0L) TimerStore.clear(this)
-            endTimeMillis = 0L
-            setBubbleIdle()
-        }
     }
 
     private fun startTicker() {
@@ -482,16 +524,23 @@ class OverlayService : Service() {
     // --- Notification / foreground service ---
 
     private fun createNotificationChannel() {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        // Drop the louder LOW-importance channel from earlier builds.
+        manager.deleteNotificationChannel(OLD_CHANNEL_ID)
         val channel = NotificationChannel(
             CHANNEL_ID,
             getString(R.string.overlay_channel_name),
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_MIN
         ).apply {
             description = getString(R.string.overlay_channel_description)
             setShowBadge(false)
         }
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.createNotificationChannel(channel)
+    }
+
+    private fun updateNotification() {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(NOTIFICATION_ID, buildNotification())
     }
 
     private fun buildNotification(): Notification {
@@ -505,18 +554,37 @@ class OverlayService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        // Notification follows the timer: the "tap the button" hint whenever idle, and a
+        // "timer running" status while a timer is active.
+        val active = endTimeMillis > System.currentTimeMillis()
+        val titleRes = if (active) {
+            R.string.overlay_notification_title_running
+        } else {
+            R.string.overlay_notification_title
+        }
+        val textRes = if (active) {
+            R.string.overlay_notification_active
+        } else {
+            R.string.overlay_notification_text
+        }
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(R.string.overlay_notification_title))
-            .setContentText(getString(R.string.overlay_notification_text))
+            .setContentTitle(getString(titleRes))
+            .setContentText(getString(textRes))
             .setSmallIcon(R.drawable.ic_launcher)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
             .build()
     }
 
     companion object {
-        private const val CHANNEL_ID = "overlay_service"
+        /** Whether the overlay service is currently running; observed by the setup screen. */
+        private val _running = MutableStateFlow(false)
+        val running: StateFlow<Boolean> = _running
+
+        private const val CHANNEL_ID = "overlay_service_min"
+        private const val OLD_CHANNEL_ID = "overlay_service"
         private const val NOTIFICATION_ID = 1
         private const val BUBBLE_SIZE_DP = 56f
         private const val DEFAULT_X_FRACTION = 1f

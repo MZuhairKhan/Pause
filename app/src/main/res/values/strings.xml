@@ -4,7 +4,9 @@
     <string name="overlay_channel_name">Overlay service</string>
     <string name="overlay_channel_description">Keeps the floating Pause button alive while you use other apps.</string>
     <string name="overlay_notification_title">Pause is ready</string>
+    <string name="overlay_notification_title_running">Pause</string>
     <string name="overlay_notification_text">Tap the floating button to set a timer.</string>
+    <string name="overlay_notification_active">Timer running</string>
     <string name="overlay_bubble_description">Pause floating button</string>
 
     <!-- Timer picker (Phase 3) -->
@@ -16,6 +18,9 @@
     <string name="picker_custom_start">Start</string>
     <string name="picker_set_alarm">Set alarm</string>
     <string name="picker_cancel">Cancel timer</string>
+    <string name="picker_active_title">Pause timer</string>
+    <string name="picker_remaining_label">Time remaining</string>
+    <string name="picker_stop_overlay">Stop overlay</string>
 
     <!-- Timer-finished reminder (Phase 3 placeholder for the Phase 4 nudge) -->
     <string name="reminder_channel_name">Pause reminders</string>
