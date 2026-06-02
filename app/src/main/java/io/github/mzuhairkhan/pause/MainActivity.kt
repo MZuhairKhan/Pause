@@ -15,11 +15,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -53,6 +57,7 @@ private fun OnboardingScreen(modifier: Modifier = Modifier) {
     var notificationsGranted by remember { mutableStateOf(hasNotificationPermission(context)) }
     var batteryExempt by remember { mutableStateOf(isBatteryOptimizationIgnored(context)) }
     var serviceRunning by remember { mutableStateOf(isServiceRunning(context)) }
+    var showCountdown by remember { mutableStateOf(SettingsStore.showCountdown(context)) }
 
     val notificationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -113,6 +118,24 @@ private fun OnboardingScreen(modifier: Modifier = Modifier) {
                 context.startActivity(intent)
             }
         )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Show countdown on the bubble",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Switch(
+                checked = showCountdown,
+                onCheckedChange = {
+                    showCountdown = it
+                    SettingsStore.setShowCountdown(context, it)
+                }
+            )
+        }
 
         Button(
             enabled = overlayGranted && notificationsGranted,

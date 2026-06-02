@@ -6,5 +6,20 @@
     <string name="overlay_notification_title">Pause is ready</string>
     <string name="overlay_notification_text">Tap the floating button to set a timer.</string>
     <string name="overlay_bubble_description">Pause floating button</string>
-    <string name="overlay_tap_hint">Timer picker coming soon</string>
+
+    <!-- Timer picker (Phase 3) -->
+    <string name="picker_title">Set a pause timer</string>
+    <string name="picker_subtitle">Count down a duration, or set a clock alarm</string>
+    <string name="picker_mode_duration">Duration</string>
+    <string name="picker_mode_alarm">Alarm</string>
+    <string name="picker_minutes_label">min</string>
+    <string name="picker_custom_start">Start</string>
+    <string name="picker_set_alarm">Set alarm</string>
+    <string name="picker_cancel">Cancel timer</string>
+
+    <!-- Timer-finished reminder (Phase 3 placeholder for the Phase 4 nudge) -->
+    <string name="reminder_channel_name">Pause reminders</string>
+    <string name="reminder_channel_description">Alerts you when a pause timer finishes.</string>
+    <string name="reminder_title">Time to pause</string>
+    <string name="reminder_text">Your timer\'s up — step away for a moment.</string>
 </resources>

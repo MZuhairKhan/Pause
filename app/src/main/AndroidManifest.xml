@@ -37,6 +37,10 @@
                 android:value="Hosts a translucent draggable overlay so users can set a 'stop using this app' timer from any app. The overlay is the core product feature and must remain alive while other apps are foregrounded." />
         </service>
 
+        <receiver
+            android:name=".TimerReceiver"
+            android:exported="false" />
+
     </application>
 
 </manifest>

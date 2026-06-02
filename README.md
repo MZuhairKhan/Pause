@@ -2,11 +2,11 @@
 
 A small translucent floating button for Android that lets you set a "stop using this app" timer with one tap. Inspired by 4-7-8 breathing wind-downs and other digital-wellbeing rituals.
 
-> Status: **Phase 2** — the draggable translucent button now floats over other apps. Timer picker and stop-mode UX come in later phases (see Roadmap).
+> Status: **Phase 3** — tap the bubble to set a timer two ways: a **duration** (5/10/15-min presets or a 1–120 min scroll wheel) or a **clock alarm** (e.g. 1:00 PM). It counts down inside the bubble — or stays a static glyph if you prefer (toggle in setup) — and fires an `AlarmManager` reminder when time's up. The richer stop-mode nudges come next (see Roadmap).
 
 ## What it does
 
-Tap a draggable bubble that floats over any app. Pick a duration (5 / 10 / 15 / 30 min). When the timer fires, an overlay nudges you to stop. You choose how strict the nudge is — a banner, a notification, a full-screen breathing exercise, or an escalating sequence.
+Tap a draggable bubble that floats over any app. Pick a **duration** (5 / 10 / 15 min presets or a 1–120 min scroll wheel) or set a **clock alarm** for a specific time. When the timer fires, an overlay nudges you to stop. You choose how strict the nudge is — a banner, a notification, a full-screen breathing exercise, or an escalating sequence.
 
 App-agnostic by design: it doesn't track which app you're in, doesn't use the Accessibility Service, doesn't read usage stats. The user decides when to tap it.
 
@@ -40,7 +40,7 @@ The Gradle wrapper is committed, so you can also build straight from the command
 
 - [x] **Phase 1** — Foreground service skeleton, permission onboarding, manifest declarations
 - [x] **Phase 2** — Draggable translucent button via `WindowManager`
-- [ ] **Phase 3** — Inline timer picker (5/10/15/30 min + custom) and `AlarmManager` scheduling
+- [x] **Phase 3** — Inline timer picker with **duration** (5/10/15 + 1–120 min scroll wheel) **and clock-alarm** modes, `AlarmManager` scheduling, and a countdown/static bubble toggle
 - [ ] **Phase 4** — Default stop mode: persistent overlay nudge
 - [ ] **Phase 5** — Settings screen with stop-mode toggle
 - [ ] **Phase 6** — Other three stop modes: full-screen 4-7-8 breathing wind-down, notification-only, escalating
