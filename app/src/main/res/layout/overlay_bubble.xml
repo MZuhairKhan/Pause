@@ -4,11 +4,23 @@
     android:layout_height="match_parent"
     android:background="@drawable/overlay_bubble_bg"
     android:elevation="6dp"
-    android:padding="15dp">
+    android:padding="13dp">
 
     <ImageView
+        android:id="@+id/bubble_icon"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:contentDescription="@string/overlay_bubble_description"
         android:src="@drawable/ic_pause" />
+
+    <TextView
+        android:id="@+id/bubble_countdown"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:maxLines="1"
+        android:textColor="#FFFFFFFF"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
 </FrameLayout>
