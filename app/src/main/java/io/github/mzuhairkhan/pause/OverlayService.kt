@@ -71,6 +71,12 @@ class OverlayService : Service() {
     /** Wall-clock end time of the active timer, or 0 when idle. */
     private var endTimeMillis = 0L
 
+    /** Wall-clock start of the active timer; with [endTimeMillis] it gives the drain fraction. */
+    private var startTimeMillis = 0L
+
+    /** The draining-hourglass glyph shown on the bubble while a timer runs (when the number is off). */
+    private var hourglass: HourglassDrawable? = null
+
     /** Last minutes-remaining value pushed to the notification, to avoid per-second reposts. */
     private var lastNotifiedMinute = -1
 
@@ -180,7 +186,10 @@ class OverlayService : Service() {
         applyBubblePosition(params)
 
         view.setOnTouchListener(DragTouchListener(params))
-        view.setOnClickListener { showPicker() }
+        view.setOnClickListener {
+            Haptics.tap(it)
+            showPicker()
+        }
 
         windowManager.addView(view, params)
         bubbleView = view
@@ -227,8 +236,10 @@ class OverlayService : Service() {
             bubbleIcon?.visibility = View.GONE
             bubbleCountdown?.visibility = View.VISIBLE
         } else {
-            // Countdown number is off: show the distinct "running" glyph instead.
-            bubbleIcon?.setImageResource(R.drawable.ic_hourglass)
+            // Countdown number is off: show the draining hourglass that cycles through
+            // its fill levels as the timer runs down.
+            val glyph = hourglass ?: HourglassDrawable().also { hourglass = it }
+            bubbleIcon?.setImageDrawable(glyph)
             bubbleIcon?.visibility = View.VISIBLE
             bubbleCountdown?.visibility = View.GONE
         }
@@ -238,9 +249,18 @@ class OverlayService : Service() {
 
     private fun setBubbleIdle() {
         bubbleCountdown?.visibility = View.GONE
+        hourglass = null
         bubbleIcon?.setImageResource(R.drawable.ic_stopwatch)
         bubbleIcon?.visibility = View.VISIBLE
         refreshTicker()
+    }
+
+    /** Fraction of the active timer still remaining (1 at the start, 0 at the end). */
+    private fun progressRemaining(): Float {
+        val span = endTimeMillis - startTimeMillis
+        if (span <= 0L) return 0f
+        val left = (endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0L)
+        return (left.toFloat() / span).coerceIn(0f, 1f)
     }
 
     /** Runs the per-second ticker only while it has something to update. */
@@ -255,6 +275,7 @@ class OverlayService : Service() {
     }
 
     private fun updateCountdown(remainingMillis: Long) {
+        hourglass?.setProgress(progressRemaining())
         val totalSeconds = (remainingMillis / 1000L).toInt()
         bubbleCountdown?.text = when {
             totalSeconds >= 3600 -> "${(totalSeconds + 3599) / 3600}h"
@@ -524,6 +545,7 @@ class OverlayService : Service() {
             }
 
             view.findViewById<TextView>(R.id.btn_cancel).setOnClickListener {
+                Haptics.tap(it)
                 resetToIdle()
                 hidePicker()
             }
@@ -535,6 +557,7 @@ class OverlayService : Service() {
             wireDurationMode(view)
             wireAlarmMode(view)
             view.findViewById<TextView>(R.id.btn_stop_overlay).setOnClickListener {
+                Haptics.tap(it)
                 hidePicker()
                 stopSelf()
             }
@@ -574,8 +597,14 @@ class OverlayService : Service() {
             tabAlarm.backgroundTintList = if (duration) null else accentTint
         }
 
-        tabDuration.setOnClickListener { selectMode(true) }
-        tabAlarm.setOnClickListener { selectMode(false) }
+        tabDuration.setOnClickListener {
+            Haptics.tap(it)
+            selectMode(true)
+        }
+        tabAlarm.setOnClickListener {
+            Haptics.tap(it)
+            selectMode(false)
+        }
         selectMode(true)
     }
 
@@ -583,7 +612,10 @@ class OverlayService : Service() {
         listOf(R.id.chip_5 to 5, R.id.chip_10 to 10, R.id.chip_15 to 15).forEach { (id, minutes) ->
             view.findViewById<TextView>(id).apply {
                 text = minutes.toString()
-                setOnClickListener { startDurationAndClose(minutes) }
+                setOnClickListener {
+                    Haptics.tap(it)
+                    startDurationAndClose(minutes)
+                }
             }
         }
 
@@ -599,7 +631,10 @@ class OverlayService : Service() {
         }
         view.findViewById<TextView>(R.id.btn_start_duration).apply {
             backgroundTintList = ColorStateList.valueOf(accentColor())
-            setOnClickListener { startDurationAndClose(wheel.value) }
+            setOnClickListener {
+                Haptics.tap(it)
+                startDurationAndClose(wheel.value)
+            }
         }
     }
 
@@ -610,7 +645,10 @@ class OverlayService : Service() {
         }
         view.findViewById<TextView>(R.id.btn_start_alarm).apply {
             backgroundTintList = ColorStateList.valueOf(accentColor())
-            setOnClickListener { startAlarmAndClose(timePicker.hour, timePicker.minute) }
+            setOnClickListener {
+                Haptics.tap(it)
+                startAlarmAndClose(timePicker.hour, timePicker.minute)
+            }
         }
     }
 
@@ -660,6 +698,7 @@ class OverlayService : Service() {
     // --- Timer scheduling ---
 
     private fun scheduleTimer(endMillis: Long) {
+        startTimeMillis = System.currentTimeMillis()
         endTimeMillis = endMillis
 
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -678,6 +717,7 @@ class OverlayService : Service() {
     private fun resetToIdle() {
         cancelPendingAlarm()
         endTimeMillis = 0L
+        startTimeMillis = 0L
         lastNotifiedMinute = -1
         setBubbleIdle()
         updateNotification()
@@ -731,10 +771,16 @@ class OverlayService : Service() {
         val phase = view.findViewById<TextView>(R.id.breathing_phase)
 
         val actions = view.findViewById<View>(R.id.breathing_actions)
-        view.findViewById<TextView>(R.id.breathing_keep).setOnClickListener { hideBreathing() }
+        view.findViewById<TextView>(R.id.breathing_keep).setOnClickListener {
+            Haptics.tap(it)
+            hideBreathing()
+        }
         view.findViewById<TextView>(R.id.breathing_stop).apply {
             backgroundTintList = ColorStateList.valueOf(accentColor())
-            setOnClickListener { stopSelf() }
+            setOnClickListener {
+                Haptics.tap(it)
+                stopSelf()
+            }
         }
 
         // Not skippable: the full-screen view swallows taps and BACK is consumed. The
@@ -752,6 +798,9 @@ class OverlayService : Service() {
         windowManager.addView(view, params)
         view.requestFocus()
         breathingView = view
+        if (SettingsStore.vibrateOnFinish(this)) {
+            Haptics.timerFinished(this)
+        }
         startBreathingAnimator(circle, phase)
 
         val lockMs = SettingsStore.lockSeconds(this).toLong() * 1000L
