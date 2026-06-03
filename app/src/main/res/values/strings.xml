@@ -32,4 +32,11 @@
     <string name="reminder_channel_description">Alerts you when a pause timer finishes.</string>
     <string name="reminder_title">Time to pause</string>
     <string name="reminder_text">Your timer\'s up — step away for a moment.</string>
+
+    <!-- 4-7-8 breathing wind-down (default stop mode) -->
+    <string name="breathing_in">Breathe in</string>
+    <string name="breathing_hold">Hold</string>
+    <string name="breathing_out">Breathe out</string>
+    <string name="breathing_keep">Keep scrolling</string>
+    <string name="breathing_stop">Stop for now</string>
 </resources>

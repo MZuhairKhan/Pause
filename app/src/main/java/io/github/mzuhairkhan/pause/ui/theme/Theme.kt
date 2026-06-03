@@ -6,15 +6,16 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.core.graphics.ColorUtils
 
 /**
  * @param themeMode 0 = follow system, 1 = light, 2 = dark
- * @param accentIndex index into [Accents.colors]
+ * @param accentColor the accent as an ARGB color int (a preset or a custom pick)
  */
 @Composable
 fun PauseTheme(
     themeMode: Int = 0,
-    accentIndex: Int = Accents.DEFAULT,
+    accentColor: Int = Accents.colors[Accents.DEFAULT],
     content: @Composable () -> Unit
 ) {
     val darkTheme = when (themeMode) {
@@ -23,13 +24,17 @@ fun PauseTheme(
         else -> isSystemInDarkTheme()
     }
 
-    val accent = Color(Accents.colors[Accents.safeIndex(accentIndex)])
+    val accent = Color(accentColor)
+    // Pick black or white text on the accent based on its brightness, so light custom
+    // colors stay readable.
+    val onAccent = if (ColorUtils.calculateLuminance(accentColor) > 0.5) Color.Black else Color.White
+
     val base = if (darkTheme) darkColorScheme() else lightColorScheme()
     val colorScheme = base.copy(
         primary = accent,
-        onPrimary = Color.White,
+        onPrimary = onAccent,
         secondary = accent,
-        onSecondary = Color.White
+        onSecondary = onAccent
     )
 
     MaterialTheme(

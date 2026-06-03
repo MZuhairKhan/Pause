@@ -11,9 +11,10 @@ object Accents {
         0xFF4C8DFF.toInt(), // Blue
         0xFF15B8A6.toInt(), // Teal
         0xFF3FB950.toInt(), // Green
-        0xFFFF8A3D.toInt()  // Orange
+        0xFFFF8A3D.toInt(), // Orange
+        0xFF757575.toInt()  // Mono (grayscale / B&W)
     )
-    val names = arrayOf("Purple", "Blue", "Teal", "Green", "Orange")
+    val names = arrayOf("Purple", "Blue", "Teal", "Green", "Orange", "Mono")
     const val DEFAULT = 0
 
     fun safeIndex(index: Int): Int = if (index in colors.indices) index else DEFAULT
