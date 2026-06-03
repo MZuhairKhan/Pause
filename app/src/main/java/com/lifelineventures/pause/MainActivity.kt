@@ -12,22 +12,32 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,12 +50,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import com.lifelineventures.pause.ui.theme.Accents
 import com.lifelineventures.pause.ui.theme.PauseTheme
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.sin
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,8 +75,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val context = LocalContext.current
             var themeMode by remember { mutableStateOf(SettingsStore.themeMode(context)) }
-            var accentIndex by remember { mutableStateOf(SettingsStore.accentIndex(context)) }
-            PauseTheme(themeMode = themeMode, accentIndex = accentIndex) {
+            var accentColor by remember { mutableStateOf(SettingsStore.accentColor(context)) }
+            PauseTheme(themeMode = themeMode, accentColor = accentColor) {
                 Scaffold { padding ->
                     OnboardingScreen(
                         modifier = Modifier.padding(padding),
@@ -63,10 +85,10 @@ class MainActivity : ComponentActivity() {
                             themeMode = it
                             SettingsStore.setThemeMode(context, it)
                         },
-                        accentIndex = accentIndex,
+                        accentColor = accentColor,
                         onAccentChange = {
-                            accentIndex = it
-                            SettingsStore.setAccentIndex(context, it)
+                            accentColor = it
+                            SettingsStore.setAccentColor(context, it)
                         }
                     )
                 }
@@ -80,7 +102,7 @@ private fun OnboardingScreen(
     modifier: Modifier = Modifier,
     themeMode: Int,
     onThemeModeChange: (Int) -> Unit,
-    accentIndex: Int,
+    accentColor: Int,
     onAccentChange: (Int) -> Unit
 ) {
     val context = LocalContext.current
@@ -89,6 +111,11 @@ private fun OnboardingScreen(
     var batteryExempt by remember { mutableStateOf(isBatteryOptimizationIgnored(context)) }
     val serviceRunning by OverlayService.running.collectAsState()
     var showCountdown by remember { mutableStateOf(SettingsStore.showCountdown(context)) }
+    var inhale by remember { mutableStateOf(SettingsStore.inhaleSeconds(context)) }
+    var hold by remember { mutableStateOf(SettingsStore.holdSeconds(context)) }
+    var exhale by remember { mutableStateOf(SettingsStore.exhaleSeconds(context)) }
+    var lockSec by remember { mutableStateOf(SettingsStore.lockSeconds(context)) }
+    var showColorDialog by remember { mutableStateOf(false) }
 
     val notificationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -102,117 +129,25 @@ private fun OnboardingScreen(
         batteryExempt = isBatteryOptimizationIgnored(context)
     }
 
+    val allPermissionsGranted = overlayGranted && notificationsGranted && batteryExempt
+
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Text("Pause", style = MaterialTheme.typography.headlineMedium)
-        Text(
-            "Three quick permissions and the floating button is ready to host a timer.",
-            style = MaterialTheme.typography.bodyMedium
-        )
-
-        PermissionRow(
-            label = "Display over other apps",
-            granted = overlayGranted,
-            onClick = {
-                val intent = Intent(
-                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:${context.packageName}")
-                )
-                context.startActivity(intent)
-            }
-        )
-
-        PermissionRow(
-            label = "Post notifications",
-            granted = notificationsGranted,
-            onClick = {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    notificationsGranted = true
-                }
-            }
-        )
-
-        PermissionRow(
-            label = "Ignore battery optimization",
-            granted = batteryExempt,
-            onClick = {
-                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                    data = Uri.parse("package:${context.packageName}")
-                }
-                context.startActivity(intent)
-            }
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Pause", style = MaterialTheme.typography.headlineMedium)
             Text(
-                "Show countdown on the bubble",
-                modifier = Modifier.weight(1f),
+                "A floating button you tap to set a \"stop using this app\" timer.",
                 style = MaterialTheme.typography.bodyMedium
             )
-            Switch(
-                checked = showCountdown,
-                onCheckedChange = {
-                    showCountdown = it
-                    SettingsStore.setShowCountdown(context, it)
-                }
-            )
-        }
-
-        Text("Appearance", style = MaterialTheme.typography.titleMedium)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf("System", "Light", "Dark").forEachIndexed { index, label ->
-                if (index == themeMode) {
-                    Button(
-                        onClick = { onThemeModeChange(index) },
-                        modifier = Modifier.weight(1f)
-                    ) { Text(label) }
-                } else {
-                    OutlinedButton(
-                        onClick = { onThemeModeChange(index) },
-                        modifier = Modifier.weight(1f)
-                    ) { Text(label) }
-                }
-            }
-        }
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Accents.colors.forEachIndexed { index, colorInt ->
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color(colorInt))
-                        .border(
-                            width = if (index == accentIndex) 3.dp else 1.dp,
-                            color = if (index == accentIndex) {
-                                MaterialTheme.colorScheme.onBackground
-                            } else {
-                                MaterialTheme.colorScheme.outline
-                            },
-                            shape = CircleShape
-                        )
-                        .clickable { onAccentChange(index) }
-                )
-            }
         }
 
         Button(
+            modifier = Modifier.fillMaxWidth(),
             enabled = overlayGranted && notificationsGranted,
             onClick = {
                 if (serviceRunning) {
@@ -224,14 +159,356 @@ private fun OnboardingScreen(
         ) {
             Text(if (serviceRunning) "Stop overlay service" else "Start overlay service")
         }
+
+        SettingsSection("Permissions", initiallyExpanded = !allPermissionsGranted) {
+            PermissionRow(
+                label = "Display over other apps",
+                granted = overlayGranted,
+                onClick = {
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:${context.packageName}")
+                    )
+                    context.startActivity(intent)
+                }
+            )
+            PermissionRow(
+                label = "Post notifications",
+                granted = notificationsGranted,
+                onClick = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        notificationsGranted = true
+                    }
+                }
+            )
+            PermissionRow(
+                label = "Ignore battery optimization",
+                granted = batteryExempt,
+                onClick = {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:${context.packageName}")
+                    }
+                    context.startActivity(intent)
+                }
+            )
+        }
+
+        SettingsSection("Bubble") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Show countdown on the bubble",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Switch(
+                    checked = showCountdown,
+                    onCheckedChange = {
+                        showCountdown = it
+                        SettingsStore.setShowCountdown(context, it)
+                    }
+                )
+            }
+        }
+
+        SettingsSection("Appearance") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("System", "Light", "Dark").forEachIndexed { index, label ->
+                    val labelText = @Composable {
+                        Text(label, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
+                    }
+                    if (index == themeMode) {
+                        Button(
+                            onClick = { onThemeModeChange(index) },
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+                        ) { labelText() }
+                    } else {
+                        OutlinedButton(
+                            onClick = { onThemeModeChange(index) },
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+                        ) { labelText() }
+                    }
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Accents.colors.forEach { colorInt ->
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(Color(colorInt))
+                            .border(
+                                width = if (colorInt == accentColor) 3.dp else 1.dp,
+                                color = if (colorInt == accentColor) {
+                                    MaterialTheme.colorScheme.onBackground
+                                } else {
+                                    MaterialTheme.colorScheme.outline
+                                },
+                                shape = CircleShape
+                            )
+                            .clickable { onAccentChange(colorInt) }
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Color(accentColor))
+                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                )
+                Text(
+                    "Custom color",
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 12.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedButton(onClick = { showColorDialog = true }) { Text("Pick…") }
+            }
+        }
+
+        SettingsSection("Breathing wind-down") {
+            StepperRow("Breathe in", inhale) {
+                inhale = it
+                SettingsStore.setInhaleSeconds(context, it)
+            }
+            StepperRow("Hold", hold) {
+                hold = it
+                SettingsStore.setHoldSeconds(context, it)
+            }
+            StepperRow("Breathe out", exhale) {
+                exhale = it
+                SettingsStore.setExhaleSeconds(context, it)
+            }
+            StepperRow("No-skip lock", lockSec, min = 0, max = 60) {
+                lockSec = it
+                SettingsStore.setLockSeconds(context, it)
+            }
+        }
     }
+
+    if (showColorDialog) {
+        CustomColorDialog(
+            initial = accentColor,
+            onPick = onAccentChange,
+            onDismiss = { showColorDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    title: String,
+    initiallyExpanded: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    var expanded by remember { mutableStateOf(initiallyExpanded) }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            Text(if (expanded) "▾" else "▸", style = MaterialTheme.typography.titleMedium)
+        }
+        if (expanded) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    content = content
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CustomColorDialog(initial: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
+    val seed = remember { FloatArray(3).also { android.graphics.Color.colorToHSV(initial, it) } }
+    var hue by remember { mutableStateOf(seed[0]) }
+    var sat by remember { mutableStateOf(seed[1]) }
+    var value by remember { mutableStateOf(seed[2]) }
+
+    fun emit() = onPick(Color.hsv(hue, sat, value).toArgb())
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("Custom color", style = MaterialTheme.typography.titleMedium)
+                ColorWheel(
+                    hue = hue,
+                    saturation = sat,
+                    value = value,
+                    modifier = Modifier.size(240.dp)
+                ) { h, s ->
+                    hue = h
+                    sat = s
+                    emit()
+                }
+                Slider(
+                    value = value,
+                    valueRange = 0f..1f,
+                    onValueChange = {
+                        value = it
+                        emit()
+                    }
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color.hsv(hue, sat, value))
+                            .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+                    )
+                    Text(
+                        "Preview",
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 12.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Button(onClick = onDismiss) { Text("Done") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ColorWheel(
+    hue: Float,
+    saturation: Float,
+    value: Float,
+    modifier: Modifier = Modifier,
+    onChange: (Float, Float) -> Unit
+) {
+    Box(
+        modifier = modifier
+            .pointerInput(Unit) {
+                detectTapGestures { offset -> emitWheel(offset, size, onChange) }
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(onDragStart = { emitWheel(it, size, onChange) }) { change, _ ->
+                    change.consume()
+                    emitWheel(change.position, size, onChange)
+                }
+            }
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val r = size.minDimension / 2f
+            val c = Offset(size.width / 2f, size.height / 2f)
+            drawCircle(
+                brush = Brush.sweepGradient(
+                    listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red),
+                    center = c
+                ),
+                radius = r,
+                center = c
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(Color.White, Color.Transparent),
+                    center = c,
+                    radius = r
+                ),
+                radius = r,
+                center = c
+            )
+            if (value < 1f) {
+                drawCircle(color = Color.Black.copy(alpha = 1f - value), radius = r, center = c)
+            }
+            val angle = Math.toRadians(hue.toDouble())
+            val selR = saturation * r
+            val sel = Offset(
+                c.x + (cos(angle) * selR).toFloat(),
+                c.y + (sin(angle) * selR).toFloat()
+            )
+            drawCircle(color = Color.White, radius = 9f, center = sel, style = Stroke(width = 4f))
+            drawCircle(color = Color.Black, radius = 11f, center = sel, style = Stroke(width = 1.5f))
+        }
+    }
+}
+
+private fun emitWheel(offset: Offset, size: IntSize, onChange: (Float, Float) -> Unit) {
+    val cx = size.width / 2f
+    val cy = size.height / 2f
+    val dx = offset.x - cx
+    val dy = offset.y - cy
+    val maxR = minOf(cx, cy)
+    val dist = hypot(dx.toDouble(), dy.toDouble()).toFloat()
+    var angle = Math.toDegrees(atan2(dy.toDouble(), dx.toDouble())).toFloat()
+    if (angle < 0f) angle += 360f
+    val sat = (dist / maxR).coerceIn(0f, 1f)
+    onChange(angle, sat)
 }
 
 @Composable
 private fun PermissionRow(label: String, granted: Boolean, onClick: () -> Unit) {
     val status = if (granted) "granted" else "needed"
-    Button(onClick = onClick, enabled = !granted) {
+    Button(
+        onClick = onClick,
+        enabled = !granted,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Text("$label — $status")
+    }
+}
+
+@Composable
+private fun StepperRow(
+    label: String,
+    value: Int,
+    min: Int = 1,
+    max: Int = 20,
+    onChange: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        OutlinedButton(onClick = { onChange((value - 1).coerceAtLeast(min)) }) { Text("−") }
+        Text(
+            "${value}s",
+            modifier = Modifier.padding(horizontal = 16.dp),
+            style = MaterialTheme.typography.titleMedium
+        )
+        OutlinedButton(onClick = { onChange((value + 1).coerceAtMost(max)) }) { Text("+") }
     }
 }
 

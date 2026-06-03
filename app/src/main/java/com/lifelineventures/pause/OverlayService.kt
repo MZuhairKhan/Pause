@@ -30,13 +30,13 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import android.widget.NumberPicker
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.TimePicker
 import androidx.core.app.NotificationCompat
-import com.lifelineventures.pause.ui.theme.Accents
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
@@ -63,6 +63,10 @@ class OverlayService : Service() {
     private var dismissTargetView: View? = null
     private var overDismiss = false
     private var snapAnimator: ValueAnimator? = null
+
+    /** Full-screen breathing wind-down shown when a timer fires (the default stop mode). */
+    private var breathingView: View? = null
+    private var breathingAnimator: ValueAnimator? = null
 
     /** Wall-clock end time of the active timer, or 0 when idle. */
     private var endTimeMillis = 0L
@@ -120,6 +124,9 @@ class OverlayService : Service() {
         // resumed, and any leftover alarm is cancelled. Only the bubble location persists.
         hidePicker()
         resetToIdle()
+        if (intent?.action == ACTION_TIMER_FIRED) {
+            showBreathing()
+        }
         return START_STICKY
     }
 
@@ -146,6 +153,7 @@ class OverlayService : Service() {
         stopTicker()
         hidePicker()
         hideDismissTarget()
+        hideBreathing()
         removeBubble()
         super.onDestroy()
     }
@@ -606,7 +614,7 @@ class OverlayService : Service() {
         }
     }
 
-    private fun accentColor(): Int = Accents.colors[Accents.safeIndex(SettingsStore.accentIndex(this))]
+    private fun accentColor(): Int = SettingsStore.accentColor(this)
 
     private fun wirePickerDismiss(view: View) {
         // Tap outside the card (the card consumes its own touches) or press BACK.
@@ -710,6 +718,88 @@ class OverlayService : Service() {
         )
     }
 
+    // --- Breathing wind-down (default stop mode) ---
+
+    @SuppressLint("InflateParams")
+    private fun showBreathing() {
+        if (breathingView != null) return
+        if (!Settings.canDrawOverlays(this)) return
+
+        val view = LayoutInflater.from(this).inflate(R.layout.breathing, null)
+        val circle = view.findViewById<View>(R.id.breathing_circle)
+        circle.backgroundTintList = ColorStateList.valueOf(accentColor())
+        val phase = view.findViewById<TextView>(R.id.breathing_phase)
+
+        val actions = view.findViewById<View>(R.id.breathing_actions)
+        view.findViewById<TextView>(R.id.breathing_keep).setOnClickListener { hideBreathing() }
+        view.findViewById<TextView>(R.id.breathing_stop).apply {
+            backgroundTintList = ColorStateList.valueOf(accentColor())
+            setOnClickListener { stopSelf() }
+        }
+
+        // Not skippable: the full-screen view swallows taps and BACK is consumed. The
+        // action buttons, revealed after the lock window, are the only way out.
+        view.isFocusableInTouchMode = true
+        view.setOnKeyListener { _, keyCode, _ -> keyCode == KeyEvent.KEYCODE_BACK }
+
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+            PixelFormat.TRANSLUCENT
+        )
+        windowManager.addView(view, params)
+        view.requestFocus()
+        breathingView = view
+        startBreathingAnimator(circle, phase)
+
+        val lockMs = SettingsStore.lockSeconds(this).toLong() * 1000L
+        view.postDelayed({
+            if (breathingView === view) {
+                actions.alpha = 0f
+                actions.visibility = View.VISIBLE
+                actions.animate().alpha(1f).setDuration(250L).start()
+            }
+        }, lockMs)
+    }
+
+    private fun hideBreathing() {
+        breathingAnimator?.cancel()
+        breathingAnimator = null
+        breathingView?.let { windowManager.removeView(it) }
+        breathingView = null
+    }
+
+    /** Loops a 4-7-8 cycle: grow on inhale (4s), hold (7s), shrink on exhale (8s). No numbers. */
+    private fun startBreathingAnimator(circle: View, phase: TextView) {
+        breathingAnimator?.cancel()
+        val inhaleMs = SettingsStore.inhaleSeconds(this) * 1000f
+        val holdMs = SettingsStore.holdSeconds(this) * 1000f
+        val exhaleMs = SettingsStore.exhaleSeconds(this) * 1000f
+        val cycle = inhaleMs + holdMs + exhaleMs
+        breathingAnimator = ValueAnimator.ofFloat(0f, cycle).apply {
+            duration = cycle.toLong()
+            interpolator = LinearInterpolator()
+            repeatCount = ValueAnimator.INFINITE
+            addUpdateListener { animation ->
+                val t = animation.animatedValue as Float
+                val (scale, label) = when {
+                    t < inhaleMs ->
+                        (BREATH_MIN + (1f - BREATH_MIN) * (t / inhaleMs)) to getString(R.string.breathing_in)
+                    t < inhaleMs + holdMs ->
+                        1f to getString(R.string.breathing_hold)
+                    else ->
+                        (1f - (1f - BREATH_MIN) * ((t - inhaleMs - holdMs) / exhaleMs)) to getString(R.string.breathing_out)
+                }
+                circle.scaleX = scale
+                circle.scaleY = scale
+                if (phase.text != label) phase.text = label
+            }
+            start()
+        }
+    }
+
     // --- Notification / foreground service ---
 
     private fun createNotificationChannel() {
@@ -802,8 +892,9 @@ class OverlayService : Service() {
         private const val CUSTOM_MAX = 120
         private const val REQ_ALARM = 100
         private const val REQ_SHOW = 101
+        private const val BREATH_MIN = 0.35f
 
-        const val ACTION_RESET = "com.lifelineventures.pause.action.RESET"
+        const val ACTION_TIMER_FIRED = "com.lifelineventures.pause.action.TIMER_FIRED"
 
         fun start(context: Context) {
             val intent = Intent(context, OverlayService::class.java)
@@ -815,9 +906,9 @@ class OverlayService : Service() {
             context.stopService(intent)
         }
 
-        fun reset(context: Context) {
+        fun timerFired(context: Context) {
             val intent = Intent(context, OverlayService::class.java).apply {
-                action = ACTION_RESET
+                action = ACTION_TIMER_FIRED
             }
             context.startForegroundService(intent)
         }

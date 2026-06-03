@@ -1,6 +1,7 @@
 package com.lifelineventures.pause
 
 import android.content.Context
+import com.lifelineventures.pause.ui.theme.Accents
 
 /** User preferences for the overlay. */
 object SettingsStore {
@@ -11,7 +12,15 @@ object SettingsStore {
     private const val DEFAULT_POS_X = 1f
     private const val DEFAULT_POS_Y = 0.33f
     private const val KEY_THEME_MODE = "theme_mode"
-    private const val KEY_ACCENT = "accent_index"
+    private const val KEY_ACCENT_COLOR = "accent_color"
+    private const val KEY_INHALE = "breath_inhale"
+    private const val KEY_HOLD = "breath_hold"
+    private const val KEY_EXHALE = "breath_exhale"
+    private const val KEY_LOCK = "breath_lock"
+    private const val DEFAULT_INHALE = 4
+    private const val DEFAULT_HOLD = 7
+    private const val DEFAULT_EXHALE = 8
+    private const val DEFAULT_LOCK = 15
 
     /** When true the active bubble shows a live countdown; when false it keeps the static glyph. */
     fun showCountdown(context: Context): Boolean =
@@ -37,11 +46,36 @@ object SettingsStore {
         context.prefs().edit().putInt(KEY_THEME_MODE, mode).apply()
     }
 
-    /** Index into the accent palette ([com.lifelineventures.pause.ui.theme.Accents]). */
-    fun accentIndex(context: Context): Int = context.prefs().getInt(KEY_ACCENT, 0)
+    /** The chosen accent as an ARGB color int (a preset from [Accents] or a custom pick). */
+    fun accentColor(context: Context): Int =
+        context.prefs().getInt(KEY_ACCENT_COLOR, Accents.colors[Accents.DEFAULT])
 
-    fun setAccentIndex(context: Context, index: Int) {
-        context.prefs().edit().putInt(KEY_ACCENT, index).apply()
+    fun setAccentColor(context: Context, color: Int) {
+        context.prefs().edit().putInt(KEY_ACCENT_COLOR, color).apply()
+    }
+
+    /** Breathing wind-down phase durations in seconds (default 4-7-8: in 4, hold 7, out 8). */
+    fun inhaleSeconds(context: Context): Int = context.prefs().getInt(KEY_INHALE, DEFAULT_INHALE)
+    fun holdSeconds(context: Context): Int = context.prefs().getInt(KEY_HOLD, DEFAULT_HOLD)
+    fun exhaleSeconds(context: Context): Int = context.prefs().getInt(KEY_EXHALE, DEFAULT_EXHALE)
+
+    fun setInhaleSeconds(context: Context, value: Int) {
+        context.prefs().edit().putInt(KEY_INHALE, value).apply()
+    }
+
+    fun setHoldSeconds(context: Context, value: Int) {
+        context.prefs().edit().putInt(KEY_HOLD, value).apply()
+    }
+
+    fun setExhaleSeconds(context: Context, value: Int) {
+        context.prefs().edit().putInt(KEY_EXHALE, value).apply()
+    }
+
+    /** Seconds the breathing wind-down stays non-skippable before the action buttons appear. */
+    fun lockSeconds(context: Context): Int = context.prefs().getInt(KEY_LOCK, DEFAULT_LOCK)
+
+    fun setLockSeconds(context: Context, value: Int) {
+        context.prefs().edit().putInt(KEY_LOCK, value).apply()
     }
 
     private fun Context.prefs() = getSharedPreferences(PREFS, Context.MODE_PRIVATE)

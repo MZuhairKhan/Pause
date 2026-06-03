@@ -2,7 +2,7 @@
 
 A small translucent floating button for Android that lets you set a "stop using this app" timer with one tap. Inspired by 4-7-8 breathing wind-downs and other digital-wellbeing rituals.
 
-> Status: **Phase 3** — tap the bubble to set a timer two ways: a **duration** (5/10/15-min presets or a 1–120 min scroll wheel) or a **clock alarm** (e.g. 1:00 PM). It counts down inside the bubble — or stays a static glyph if you prefer (toggle in setup) — and fires an `AlarmManager` reminder when time's up. The richer stop-mode nudges come next (see Roadmap).
+> Status: **Phase 4** — when a timer fires, the default stop mode opens: a full-screen **4-7-8 breathing wind-down** (a circle grows on the inhale, holds, then shrinks on the exhale; tap anywhere to finish). Builds on the draggable bubble, duration/clock-alarm picker, live countdown, theming, and drag-to-dismiss from earlier phases.
 
 ## What it does
 
@@ -41,9 +41,9 @@ The Gradle wrapper is committed, so you can also build straight from the command
 - [x] **Phase 1** — Foreground service skeleton, permission onboarding, manifest declarations
 - [x] **Phase 2** — Draggable translucent button via `WindowManager`
 - [x] **Phase 3** — Inline timer picker with **duration** (5/10/15 + 1–120 min scroll wheel) **and clock-alarm** modes, `AlarmManager` scheduling, and a countdown/static bubble toggle
-- [ ] **Phase 4** — Default stop mode: persistent overlay nudge
+- [x] **Phase 4** — Default stop mode: full-screen **4-7-8 breathing wind-down** (circle grows on inhale, holds, shrinks on exhale; no numbers)
 - [ ] **Phase 5** — Settings screen with stop-mode toggle
-- [ ] **Phase 6** — Other three stop modes: full-screen 4-7-8 breathing wind-down, notification-only, escalating
+- [ ] **Phase 6** — Other stop modes: notification-only, escalating sequence
 - [ ] **Phase 7** — Polish (animations, haptics, button positioning memory)
 - [ ] **Phase 8** — Play Store prep (privacy policy, permission declarations, listing copy)
 
