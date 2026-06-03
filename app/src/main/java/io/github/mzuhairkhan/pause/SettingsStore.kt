@@ -17,10 +17,13 @@ object SettingsStore {
     private const val KEY_HOLD = "breath_hold"
     private const val KEY_EXHALE = "breath_exhale"
     private const val KEY_LOCK = "breath_lock"
+    private const val KEY_BLOCKED_APPS = "blocked_apps"
+    private const val KEY_BLOCK_MINUTES = "block_minutes"
     private const val DEFAULT_INHALE = 4
     private const val DEFAULT_HOLD = 7
     private const val DEFAULT_EXHALE = 8
     private const val DEFAULT_LOCK = 15
+    private const val DEFAULT_BLOCK_MINUTES = 5
 
     /** When true the active bubble shows a live countdown; when false it keeps the static glyph. */
     fun showCountdown(context: Context): Boolean =
@@ -76,6 +79,23 @@ object SettingsStore {
 
     fun setLockSeconds(context: Context, value: Int) {
         context.prefs().edit().putInt(KEY_LOCK, value).apply()
+    }
+
+    /** Package names the "Stop for now" break should cover when they're opened. */
+    fun blockedApps(context: Context): Set<String> =
+        context.prefs().getStringSet(KEY_BLOCKED_APPS, emptySet())?.toSet() ?: emptySet()
+
+    fun setBlockedApps(context: Context, packages: Set<String>) {
+        // Store a fresh copy; the Set returned by getStringSet must not be mutated in place.
+        context.prefs().edit().putStringSet(KEY_BLOCKED_APPS, HashSet(packages)).apply()
+    }
+
+    /** How many minutes a "Stop for now" break keeps the chosen apps covered. */
+    fun blockMinutes(context: Context): Int =
+        context.prefs().getInt(KEY_BLOCK_MINUTES, DEFAULT_BLOCK_MINUTES)
+
+    fun setBlockMinutes(context: Context, value: Int) {
+        context.prefs().edit().putInt(KEY_BLOCK_MINUTES, value).apply()
     }
 
     private fun Context.prefs() = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
