@@ -5,6 +5,23 @@ All notable changes to Pause are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-06-03
+
+### Added
+- **App-blocking break** — "Stop for now" can now start a timed break that covers
+  chosen apps (e.g. TikTok, Instagram, YouTube) with a full-screen "Taking a break"
+  screen whenever they're opened, showing the time left and a button to the home
+  screen. The app also goes quiet (audio focus) while it's covered.
+- **App-blocking setup** — a new section to pick which apps to block, set the break
+  length (default 5 minutes), and grant the **Usage Access** permission that lets the
+  break detect which app is in the foreground. The app picker lists installed apps
+  via a manifest `<queries>` declaration (no `QUERY_ALL_PACKAGES`).
+
+### Notes
+- App blocking is a soft block by design: it detects (with ~1s latency) and covers a
+  blocked app, rather than force-killing it. Requires Usage Access; with no apps
+  chosen, "Stop for now" still simply tears the overlay down.
+
 ## [0.2.0] — 2026-06-03
 
 ### Added

@@ -5,13 +5,17 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.AlarmManager
+import android.app.AppOpsManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.content.res.ColorStateList
 import android.content.res.Configuration
@@ -73,6 +77,39 @@ class OverlayService : Service() {
 
     /** Held while the wind-down is up, to pause other apps' media; null when not muting. */
     private var audioFocusRequest: AudioFocusRequest? = null
+
+    /** Full-screen cover shown over a blocked app during a "Stop for now" break. */
+    private var blockView: View? = null
+    private var blockRemaining: TextView? = null
+    private var blockSubtitle: TextView? = null
+
+    /** Wall-clock end of the active app-blocking break, or 0 when no break is running. */
+    private var blockUntilMillis = 0L
+
+    /** Packages covered for the duration of the current break. */
+    private var blockedPackages: Set<String> = emptySet()
+
+    /** Package currently shown on the cover, to avoid relabelling it every poll. */
+    private var coveredPackage: String? = null
+
+    private val blockHandler = Handler(Looper.getMainLooper())
+    private val blockRunnable = object : Runnable {
+        override fun run() {
+            val remaining = blockUntilMillis - System.currentTimeMillis()
+            if (remaining <= 0L) {
+                stopBreak()
+                return
+            }
+            val foreground = currentForegroundApp()
+            if (foreground != null && foreground in blockedPackages) {
+                showBlockOverlay(foreground)
+            } else {
+                hideBlockOverlay()
+            }
+            updateBlockCountdown(remaining)
+            blockHandler.postDelayed(this, BLOCK_POLL_MS)
+        }
+    }
 
     /** Wall-clock end time of the active timer, or 0 when idle. */
     private var endTimeMillis = 0L
@@ -163,6 +200,7 @@ class OverlayService : Service() {
         cancelPendingAlarm()
         snapAnimator?.cancel()
         stopTicker()
+        stopBreak()
         hidePicker()
         hideDismissTarget()
         hideBreathing()
@@ -785,7 +823,7 @@ class OverlayService : Service() {
             backgroundTintList = ColorStateList.valueOf(accentColor())
             setOnClickListener {
                 Haptics.tap(it)
-                stopSelf()
+                stopForNow()
             }
         }
 
@@ -852,6 +890,137 @@ class OverlayService : Service() {
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         audioManager.abandonAudioFocusRequest(request)
         audioFocusRequest = null
+    }
+
+    // --- "Stop for now" app-blocking break ---
+
+    /**
+     * The "Stop for now" action. If the user has chosen apps to block and granted usage
+     * access, this starts a timed break that covers those apps when opened; otherwise it
+     * just tears the overlay down (the original behaviour).
+     */
+    private fun stopForNow() {
+        val apps = SettingsStore.blockedApps(this)
+        if (apps.isEmpty() || !hasUsageAccess()) {
+            stopSelf()
+            return
+        }
+        hideBreathing()
+        // The fired timer is done; return the bubble to idle while the break runs.
+        resetToIdle()
+        blockedPackages = apps
+        blockUntilMillis = System.currentTimeMillis() + SettingsStore.blockMinutes(this) * 60_000L
+        coveredPackage = null
+        blockHandler.removeCallbacks(blockRunnable)
+        blockHandler.post(blockRunnable)
+    }
+
+    private fun stopBreak() {
+        blockHandler.removeCallbacks(blockRunnable)
+        blockUntilMillis = 0L
+        blockedPackages = emptySet()
+        hideBlockOverlay()
+    }
+
+    /** The package of the app currently in the foreground, via usage events (null if unknown). */
+    @Suppress("DEPRECATION") // MOVE_TO_FOREGROUND is the constant that works back to API 26.
+    private fun currentForegroundApp(): String? {
+        val usage = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
+        val now = System.currentTimeMillis()
+        val events = usage.queryEvents(now - FOREGROUND_LOOKBACK_MS, now)
+        val event = UsageEvents.Event()
+        var latest: String? = null
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                latest = event.packageName
+            }
+        }
+        return latest
+    }
+
+    private fun hasUsageAccess(): Boolean {
+        val appOps = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), packageName
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(
+                AppOpsManager.OPSTR_GET_USAGE_STATS, android.os.Process.myUid(), packageName
+            )
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    @SuppressLint("InflateParams")
+    private fun showBlockOverlay(pkg: String) {
+        // Cover the app (and mute it) if not already, then keep the subtitle current.
+        if (blockView == null) {
+            if (!Settings.canDrawOverlays(this)) return
+            val view = LayoutInflater.from(this).inflate(R.layout.block_overlay, null)
+            view.findViewById<TextView>(R.id.block_home).apply {
+                backgroundTintList = ColorStateList.valueOf(accentColor())
+                setOnClickListener {
+                    Haptics.tap(it)
+                    goHome()
+                    hideBlockOverlay()
+                }
+            }
+            view.isFocusableInTouchMode = true
+            view.setOnKeyListener { _, keyCode, _ -> keyCode == KeyEvent.KEYCODE_BACK }
+
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                0,
+                PixelFormat.OPAQUE
+            )
+            windowManager.addView(view, params)
+            view.requestFocus()
+            blockView = view
+            blockRemaining = view.findViewById(R.id.block_remaining)
+            blockSubtitle = view.findViewById(R.id.block_subtitle)
+            muteMedia()
+        }
+        if (coveredPackage != pkg) {
+            coveredPackage = pkg
+            blockSubtitle?.text = getString(R.string.block_subtitle, appLabel(pkg))
+        }
+    }
+
+    private fun hideBlockOverlay() {
+        blockView?.let { windowManager.removeView(it) }
+        blockView = null
+        blockRemaining = null
+        blockSubtitle = null
+        coveredPackage = null
+        unmuteMedia()
+    }
+
+    private fun updateBlockCountdown(remainingMillis: Long) {
+        val totalSeconds = (remainingMillis / 1000L).toInt()
+        blockRemaining?.text = formatRemainingLong(totalSeconds)
+    }
+
+    /** A human label for [pkg], falling back to a generic string if it can't be resolved. */
+    private fun appLabel(pkg: String): String {
+        return try {
+            val info = packageManager.getApplicationInfo(pkg, 0)
+            packageManager.getApplicationLabel(info).toString()
+        } catch (e: PackageManager.NameNotFoundException) {
+            getString(R.string.block_subtitle_generic)
+        }
+    }
+
+    private fun goHome() {
+        val home = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        startActivity(home)
     }
 
     /** Loops a 4-7-8 cycle: grow on inhale (4s), hold (7s), shrink on exhale (8s). No numbers. */
@@ -976,6 +1145,11 @@ class OverlayService : Service() {
         private const val REQ_ALARM = 100
         private const val REQ_SHOW = 101
         private const val BREATH_MIN = 0.35f
+
+        /** How often the active break checks the foreground app. */
+        private const val BLOCK_POLL_MS = 1000L
+        /** How far back to scan usage events when resolving the foreground app. */
+        private const val FOREGROUND_LOOKBACK_MS = 10_000L
 
         const val ACTION_TIMER_FIRED = "com.lifelineventures.pause.action.TIMER_FIRED"
 

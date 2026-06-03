@@ -44,13 +44,14 @@ The Gradle wrapper is committed, so you can also build straight from the command
 - [x] **Phase 4** — Default stop mode: full-screen **4-7-8 breathing wind-down** (circle grows on inhale, holds, shrinks on exhale; no numbers)
 - [ ] **Phase 5** — Settings screen with stop-mode toggle
 - [ ] **Phase 6** — Other stop modes: notification-only, escalating sequence
-- [x] **Phase 7** — Polish: draining-hourglass bubble glyph, haptics (tap feedback + a distinct buzz when a timer ends), animated setup screen with live bubble preview, button positioning memory
+- [x] **Phase 7** — Polish: draining-hourglass bubble glyph, haptics (tap feedback), the breathing wind-down silences background media, animated setup screen, button positioning memory
+- [x] **Phase 7b** — **App-blocking break**: "Stop for now" covers chosen apps (TikTok/Instagram/YouTube/…) for a configurable window via Usage Access + a full-screen cover
 - [ ] **Phase 8** — Play Store prep (privacy policy, permission declarations, listing copy)
 
 ## Design decisions (and what we deliberately ruled out)
 
-- **No `BIND_ACCESSIBILITY_SERVICE`** — Google rejects non-accessibility apps that use it. We don't need it.
-- **No `PACKAGE_USAGE_STATS`** in v1 — keeps the permission onboarding short and ships faster. May revisit if users want per-app behavior.
+- **No `BIND_ACCESSIBILITY_SERVICE`** — Google rejects non-accessibility apps that use it. The app-blocking break detects the foreground app via Usage Access instead.
+- **`PACKAGE_USAGE_STATS` (Usage Access)** — added for the opt-in app-blocking break, to read only the current foreground package. It stays optional: skip it and everything else still works.
 - **`AlarmManager.setAlarmClock()`** rather than `setExactAndAllowWhileIdle()` — avoids the restricted `SCHEDULE_EXACT_ALARM` permission on Android 13+.
 - **Compose** for UI — only the overlay itself uses classic `View` (Compose-in-overlay is awkward).
 

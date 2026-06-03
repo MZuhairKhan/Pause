@@ -1,6 +1,7 @@
 package com.lifelineventures.pause
 
 import android.Manifest
+import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.Process
 import android.provider.Settings
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
@@ -35,16 +37,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -55,6 +62,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,6 +89,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import com.lifelineventures.pause.ui.theme.Accents
 import com.lifelineventures.pause.ui.theme.PauseTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -135,7 +145,11 @@ private fun OnboardingScreen(
     var hold by remember { mutableStateOf(SettingsStore.holdSeconds(context)) }
     var exhale by remember { mutableStateOf(SettingsStore.exhaleSeconds(context)) }
     var lockSec by remember { mutableStateOf(SettingsStore.lockSeconds(context)) }
+    var blockMinutes by remember { mutableStateOf(SettingsStore.blockMinutes(context)) }
+    var blockedApps by remember { mutableStateOf(SettingsStore.blockedApps(context)) }
+    var usageAccessGranted by remember { mutableStateOf(hasUsageAccess(context)) }
     var showColorDialog by remember { mutableStateOf(false) }
+    var showAppPicker by remember { mutableStateOf(false) }
 
     val notificationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -147,6 +161,7 @@ private fun OnboardingScreen(
         overlayGranted = Settings.canDrawOverlays(context)
         notificationsGranted = hasNotificationPermission(context)
         batteryExempt = isBatteryOptimizationIgnored(context)
+        usageAccessGranted = hasUsageAccess(context)
     }
 
     val allPermissionsGranted = overlayGranted && notificationsGranted && batteryExempt
@@ -298,6 +313,37 @@ private fun OnboardingScreen(
                 SettingsStore.setLockSeconds(context, it)
             }
         }
+
+        SettingsSection("App blocking", initiallyExpanded = false) {
+            Text(
+                "\"Stop for now\" covers these apps if you open them during the break.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            PermissionRow(
+                label = "Usage access",
+                granted = usageAccessGranted,
+                onClick = {
+                    context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                }
+            )
+            StepperRow("Break length", blockMinutes, min = 1, max = 120, unit = " min") {
+                blockMinutes = it
+                SettingsStore.setBlockMinutes(context, it)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    if (blockedApps.isEmpty()) "No apps chosen"
+                    else "${blockedApps.size} app${if (blockedApps.size == 1) "" else "s"} chosen",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                OutlinedButton(onClick = { showAppPicker = true }) { Text("Choose…") }
+            }
+        }
     }
 
     if (showColorDialog) {
@@ -305,6 +351,18 @@ private fun OnboardingScreen(
             initial = accentColor,
             onPick = onAccentChange,
             onDismiss = { showColorDialog = false }
+        )
+    }
+
+    if (showAppPicker) {
+        AppPickerDialog(
+            selected = blockedApps,
+            onToggle = { pkg, on ->
+                val next = if (on) blockedApps + pkg else blockedApps - pkg
+                blockedApps = next
+                SettingsStore.setBlockedApps(context, next)
+            },
+            onDismiss = { showAppPicker = false }
         )
     }
 }
@@ -710,6 +768,7 @@ private fun StepperRow(
     value: Int,
     min: Int = 1,
     max: Int = 20,
+    unit: String = "s",
     onChange: (Int) -> Unit
 ) {
     Row(
@@ -719,12 +778,115 @@ private fun StepperRow(
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         OutlinedButton(onClick = { onChange((value - 1).coerceAtLeast(min)) }) { Text("−") }
         Text(
-            "${value}s",
+            "$value$unit",
             modifier = Modifier.padding(horizontal = 16.dp),
             style = MaterialTheme.typography.titleMedium
         )
         OutlinedButton(onClick = { onChange((value + 1).coerceAtMost(max)) }) { Text("+") }
     }
+}
+
+/** A package + display label for an installed, launchable app. */
+private data class AppEntry(val packageName: String, val label: String)
+
+/** Loads launchable apps (excluding this one) off the main thread, sorted by label. */
+@Composable
+private fun rememberLaunchableApps(): List<AppEntry> {
+    val context = LocalContext.current
+    val apps by produceState(initialValue = emptyList<AppEntry>(), context) {
+        value = withContext(Dispatchers.IO) {
+            val pm = context.packageManager
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            pm.queryIntentActivities(intent, 0)
+                .map { AppEntry(it.activityInfo.packageName, it.loadLabel(pm).toString()) }
+                .filter { it.packageName != context.packageName }
+                .distinctBy { it.packageName }
+                .sortedBy { it.label.lowercase() }
+        }
+    }
+    return apps
+}
+
+@Composable
+private fun AppPickerDialog(
+    selected: Set<String>,
+    onToggle: (String, Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val apps = rememberLaunchableApps()
+    var query by remember { mutableStateOf("") }
+    val filtered = remember(apps, query) {
+        if (query.isBlank()) apps else apps.filter { it.label.contains(query, ignoreCase = true) }
+    }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Apps to block", style = MaterialTheme.typography.titleMedium)
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("Search") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (apps.isEmpty()) {
+                    Text(
+                        "Loading apps…",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                        items(filtered, key = { it.packageName }) { app ->
+                            val checked = app.packageName in selected
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(MaterialTheme.shapes.small)
+                                    .clickable { onToggle(app.packageName, !checked) }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = checked,
+                                    onCheckedChange = { onToggle(app.packageName, it) }
+                                )
+                                Text(
+                                    app.label,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(start = 8.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Spacer(Modifier.weight(1f))
+                    Button(onClick = onDismiss) { Text("Done") }
+                }
+            }
+        }
+    }
+}
+
+private fun hasUsageAccess(context: Context): Boolean {
+    val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+    val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        appOps.unsafeCheckOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName
+        )
+    } else {
+        @Suppress("DEPRECATION")
+        appOps.checkOpNoThrow(
+            AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), context.packageName
+        )
+    }
+    return mode == AppOpsManager.MODE_ALLOWED
 }
 
 private fun hasNotificationPermission(context: Context): Boolean {
