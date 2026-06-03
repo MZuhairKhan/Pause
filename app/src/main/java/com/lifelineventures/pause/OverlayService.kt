@@ -1,5 +1,8 @@
 package com.lifelineventures.pause
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.Notification
@@ -10,6 +13,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.PixelFormat
 import android.os.Build
@@ -28,12 +32,16 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.NumberPicker
+import android.widget.Switch
 import android.widget.TextView
 import android.widget.TimePicker
 import androidx.core.app.NotificationCompat
+import com.lifelineventures.pause.ui.theme.Accents
 import java.util.Calendar
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,8 +59,16 @@ class OverlayService : Service() {
     /** Live "time remaining" label inside the picker's active panel, when shown. */
     private var pickerRemaining: TextView? = null
 
+    /** Drag-to-dismiss target shown while the bubble is being dragged. */
+    private var dismissTargetView: View? = null
+    private var overDismiss = false
+    private var snapAnimator: ValueAnimator? = null
+
     /** Wall-clock end time of the active timer, or 0 when idle. */
     private var endTimeMillis = 0L
+
+    /** Last minutes-remaining value pushed to the notification, to avoid per-second reposts. */
+    private var lastNotifiedMinute = -1
 
     /** Last duration chosen on the custom scroll wheel. */
     private var customMinutes = 20
@@ -69,8 +85,13 @@ class OverlayService : Service() {
     private val tickHandler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
         override fun run() {
-            val remaining = endTimeMillis - System.currentTimeMillis()
-            updateCountdown(remaining.coerceAtLeast(0))
+            val remaining = (endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0)
+            updateCountdown(remaining)
+            val minutesLeft = ceil(remaining / 60000.0).toInt()
+            if (minutesLeft != lastNotifiedMinute) {
+                lastNotifiedMinute = minutesLeft
+                updateNotification()
+            }
             if (remaining > 0) tickHandler.postDelayed(this, 1000L)
         }
     }
@@ -121,8 +142,10 @@ class OverlayService : Service() {
         _running.value = false
         // A manual stop cancels any pending timer so it can't fire after the overlay is gone.
         cancelPendingAlarm()
+        snapAnimator?.cancel()
         stopTicker()
         hidePicker()
+        hideDismissTarget()
         removeBubble()
         super.onDestroy()
     }
@@ -214,8 +237,9 @@ class OverlayService : Service() {
 
     /** Runs the per-second ticker only while it has something to update. */
     private fun refreshTicker() {
-        val active = endTimeMillis > System.currentTimeMillis()
-        if (active && (SettingsStore.showCountdown(this) || pickerRemaining != null)) {
+        // Run while a timer is active so the notification countdown stays current, even
+        // when the bubble shows the static icon and the picker is closed.
+        if (endTimeMillis > System.currentTimeMillis()) {
             startTicker()
         } else {
             stopTicker()
@@ -262,6 +286,7 @@ class OverlayService : Service() {
         override fun onTouch(view: View, event: MotionEvent): Boolean {
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    snapAnimator?.cancel()
                     startX = params.x
                     startY = params.y
                     startTouchX = event.rawX
@@ -275,6 +300,7 @@ class OverlayService : Service() {
                     val dy = event.rawY - startTouchY
                     if (!dragging && (abs(dx) > touchSlop || abs(dy) > touchSlop)) {
                         dragging = true
+                        showDismissTarget()
                     }
                     if (dragging) {
                         val (screenW, screenH) = screenSize()
@@ -283,13 +309,24 @@ class OverlayService : Service() {
                         params.x = (startX + dx.roundToInt()).coerceIn(0, maxX)
                         params.y = (startY + dy.roundToInt()).coerceIn(0, maxY)
                         windowManager.updateViewLayout(view, params)
+                        updateDismissProximity()
                     }
                     return true
                 }
 
                 MotionEvent.ACTION_UP -> {
                     if (dragging) {
-                        saveBubblePosition()
+                        val dismiss = overDismiss
+                        // Evaluate the spring-back zone while the target is still on-screen.
+                        val nearZone = isNearDismissZone()
+                        hideDismissTarget()
+                        when {
+                            dismiss -> stopSelf()
+                            // A near-miss springs back home rather than snapping to a low edge,
+                            // so "home" never drifts to the bottom.
+                            nearZone -> springBackToHome(startX, startY)
+                            else -> snapToEdge()
+                        }
                     } else {
                         view.performClick()
                     }
@@ -309,6 +346,141 @@ class OverlayService : Service() {
         posFractionX = params.x.toFloat() / maxX
         posFractionY = params.y.toFloat() / maxY
         SettingsStore.saveBubbleFraction(this, posFractionX, posFractionY)
+    }
+
+    // --- Drag-to-dismiss target + edge snap ---
+
+    @SuppressLint("InflateParams")
+    private fun showDismissTarget() {
+        if (dismissTargetView != null) return
+        val view = LayoutInflater.from(this).inflate(R.layout.dismiss_target, null)
+        val size = dismissTargetSizePx()
+        val params = WindowManager.LayoutParams(
+            size,
+            size,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = dismissMarginPx()
+        }
+        windowManager.addView(view, params)
+        view.alpha = 0f
+        view.animate().alpha(1f).setDuration(120L).start()
+        dismissTargetView = view
+        overDismiss = false
+    }
+
+    private fun hideDismissTarget() {
+        dismissTargetView?.let { windowManager.removeView(it) }
+        dismissTargetView = null
+        overDismiss = false
+    }
+
+    /**
+     * Distance in screen pixels between the bubble's center and the dismiss target's center,
+     * using each view's actual on-screen location so the activation circle is centered on the
+     * ✕ exactly as drawn (independent of system-bar insets and window gravity).
+     */
+    private fun bubbleToDismissDistance(): Float {
+        val target = dismissTargetView ?: return Float.MAX_VALUE
+        val bubble = bubbleView ?: return Float.MAX_VALUE
+        if (target.width == 0 || bubble.width == 0) return Float.MAX_VALUE
+        val targetLoc = IntArray(2)
+        val bubbleLoc = IntArray(2)
+        target.getLocationOnScreen(targetLoc)
+        bubble.getLocationOnScreen(bubbleLoc)
+        val targetCenterX = targetLoc[0] + target.width / 2f
+        val targetCenterY = targetLoc[1] + target.height / 2f
+        val bubbleCenterX = bubbleLoc[0] + bubble.width / 2f
+        val bubbleCenterY = bubbleLoc[1] + bubble.height / 2f
+        return hypot(
+            (bubbleCenterX - targetCenterX).toDouble(),
+            (bubbleCenterY - targetCenterY).toDouble()
+        ).toFloat()
+    }
+
+    /** Highlights the target (red) when the bubble is close enough to drop on it. */
+    private fun updateDismissProximity() {
+        val target = dismissTargetView ?: return
+        val near = bubbleToDismissDistance() < dismissActivationPx()
+        if (near != overDismiss) {
+            overDismiss = near
+            target.backgroundTintList =
+                if (near) ColorStateList.valueOf(0xE0F44336.toInt()) else null
+        }
+    }
+
+    /** Glides the bubble to the nearest left/right edge, then persists the resting spot. */
+    private fun snapToEdge() {
+        val params = bubbleParams ?: return
+        val view = bubbleView ?: return
+        val (screenW, _) = screenSize()
+        val maxX = (screenW - bubbleSizePx()).coerceAtLeast(0)
+        val targetX = if (params.x + bubbleSizePx() / 2 < screenW / 2) 0 else maxX
+
+        snapAnimator?.cancel()
+        snapAnimator = ValueAnimator.ofInt(params.x, targetX).apply {
+            duration = 180L
+            addUpdateListener { animation ->
+                if (bubbleView !== view) return@addUpdateListener
+                params.x = animation.animatedValue as Int
+                windowManager.updateViewLayout(view, params)
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    saveBubblePosition()
+                }
+            })
+            start()
+        }
+    }
+
+    private fun dismissTargetSizePx(): Int =
+        (DISMISS_SIZE_DP * resources.displayMetrics.density).roundToInt()
+
+    private fun dismissMarginPx(): Int =
+        (DISMISS_MARGIN_DP * resources.displayMetrics.density).roundToInt()
+
+    private fun dismissActivationPx(): Float =
+        dismissTargetSizePx() / 2f + bubbleSizePx() / 2f + DISMISS_SLOP_DP * resources.displayMetrics.density
+
+    /** A wider zone around the ✕ that counts as "aiming to dismiss"; a miss here springs home. */
+    private fun dismissCancelPx(): Float =
+        dismissActivationPx() + DISMISS_CANCEL_EXTRA_DP * resources.displayMetrics.density
+
+    private fun isNearDismissZone(): Boolean = bubbleToDismissDistance() < dismissCancelPx()
+
+    /** Animates the bubble back to where it was grabbed (used for a missed dismiss). */
+    private fun springBackToHome(targetX: Int, targetY: Int) {
+        val params = bubbleParams ?: return
+        val view = bubbleView ?: return
+        val fromX = params.x
+        val fromY = params.y
+        snapAnimator?.cancel()
+        snapAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 180L
+            addUpdateListener { animation ->
+                if (bubbleView !== view) return@addUpdateListener
+                val fraction = animation.animatedValue as Float
+                params.x = (fromX + (targetX - fromX) * fraction).roundToInt()
+                params.y = (fromY + (targetY - fromY) * fraction).roundToInt()
+                windowManager.updateViewLayout(view, params)
+            }
+            start()
+        }
+    }
+
+    private fun tintSwitch(switch: Switch) {
+        val accent = accentColor()
+        val states = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
+        switch.thumbTintList = ColorStateList(states, intArrayOf(accent, 0xFFECECEC.toInt()))
+        switch.trackTintList = ColorStateList(
+            states,
+            intArrayOf((accent and 0x00FFFFFF) or 0x99000000.toInt(), 0x61FFFFFF)
+        )
     }
 
     // --- Timer picker ---
@@ -334,6 +506,15 @@ class OverlayService : Service() {
             sectionSetup.visibility = View.GONE
             pickerRemaining = view.findViewById(R.id.active_remaining)
             updateCountdown((endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0))
+
+            val countdownSwitch = view.findViewById<Switch>(R.id.show_countdown_switch)
+            tintSwitch(countdownSwitch)
+            countdownSwitch.isChecked = SettingsStore.showCountdown(this)
+            countdownSwitch.setOnCheckedChangeListener { _, checked ->
+                SettingsStore.setShowCountdown(this, checked)
+                setBubbleActive()
+            }
+
             view.findViewById<TextView>(R.id.btn_cancel).setOnClickListener {
                 resetToIdle()
                 hidePicker()
@@ -375,11 +556,14 @@ class OverlayService : Service() {
         tabDuration.text = getString(R.string.picker_mode_duration)
         tabAlarm.text = getString(R.string.picker_mode_alarm)
 
+        val accentTint = ColorStateList.valueOf(accentColor())
         fun selectMode(duration: Boolean) {
             sectionDuration.visibility = if (duration) View.VISIBLE else View.GONE
             sectionAlarm.visibility = if (duration) View.GONE else View.VISIBLE
             tabDuration.setBackgroundResource(if (duration) R.drawable.chip_accent_bg else R.drawable.chip_bg)
             tabAlarm.setBackgroundResource(if (duration) R.drawable.chip_bg else R.drawable.chip_accent_bg)
+            tabDuration.backgroundTintList = if (duration) accentTint else null
+            tabAlarm.backgroundTintList = if (duration) null else accentTint
         }
 
         tabDuration.setOnClickListener { selectMode(true) }
@@ -405,8 +589,9 @@ class OverlayService : Service() {
             descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
             setOnValueChangedListener { _, _, newVal -> customMinutes = newVal }
         }
-        view.findViewById<TextView>(R.id.btn_start_duration).setOnClickListener {
-            startDurationAndClose(wheel.value)
+        view.findViewById<TextView>(R.id.btn_start_duration).apply {
+            backgroundTintList = ColorStateList.valueOf(accentColor())
+            setOnClickListener { startDurationAndClose(wheel.value) }
         }
     }
 
@@ -415,10 +600,13 @@ class OverlayService : Service() {
             setIs24HourView(false)
             descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         }
-        view.findViewById<TextView>(R.id.btn_start_alarm).setOnClickListener {
-            startAlarmAndClose(timePicker.hour, timePicker.minute)
+        view.findViewById<TextView>(R.id.btn_start_alarm).apply {
+            backgroundTintList = ColorStateList.valueOf(accentColor())
+            setOnClickListener { startAlarmAndClose(timePicker.hour, timePicker.minute) }
         }
     }
+
+    private fun accentColor(): Int = Accents.colors[Accents.safeIndex(SettingsStore.accentIndex(this))]
 
     private fun wirePickerDismiss(view: View) {
         // Tap outside the card (the card consumes its own touches) or press BACK.
@@ -482,6 +670,7 @@ class OverlayService : Service() {
     private fun resetToIdle() {
         cancelPendingAlarm()
         endTimeMillis = 0L
+        lastNotifiedMinute = -1
         setBubbleIdle()
         updateNotification()
     }
@@ -543,6 +732,22 @@ class OverlayService : Service() {
         manager.notify(NOTIFICATION_ID, buildNotification())
     }
 
+    /** Formats the remaining time as e.g. "Alarm in 25 min" / "Alarm in 2h 5m". */
+    private fun formatAlarmIn(remainingMillis: Long): String {
+        if (remainingMillis / 1000L < 60) {
+            return getString(R.string.overlay_notification_active_soon)
+        }
+        val totalMinutes = ceil(remainingMillis / 60000.0).toInt()
+        return when {
+            totalMinutes < 60 ->
+                getString(R.string.overlay_notification_active_minutes, totalMinutes)
+            totalMinutes % 60 == 0 ->
+                getString(R.string.overlay_notification_active_hours, totalMinutes / 60)
+            else ->
+                getString(R.string.overlay_notification_active_hm, totalMinutes / 60, totalMinutes % 60)
+        }
+    }
+
     private fun buildNotification(): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -554,22 +759,22 @@ class OverlayService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // Notification follows the timer: the "tap the button" hint whenever idle, and a
-        // "timer running" status while a timer is active.
+        // Notification follows the timer: a "tap the button" hint while idle, and a live
+        // "Alarm in X" countdown while a timer is active.
         val active = endTimeMillis > System.currentTimeMillis()
-        val titleRes = if (active) {
-            R.string.overlay_notification_title_running
+        val title = if (active) {
+            getString(R.string.overlay_notification_title_running)
         } else {
-            R.string.overlay_notification_title
+            getString(R.string.overlay_notification_title)
         }
-        val textRes = if (active) {
-            R.string.overlay_notification_active
+        val text = if (active) {
+            formatAlarmIn((endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0))
         } else {
-            R.string.overlay_notification_text
+            getString(R.string.overlay_notification_text)
         }
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(getString(titleRes))
-            .setContentText(getString(textRes))
+            .setContentTitle(title)
+            .setContentText(text)
             .setSmallIcon(R.drawable.ic_launcher)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -587,6 +792,10 @@ class OverlayService : Service() {
         private const val OLD_CHANNEL_ID = "overlay_service"
         private const val NOTIFICATION_ID = 1
         private const val BUBBLE_SIZE_DP = 56f
+        private const val DISMISS_SIZE_DP = 64f
+        private const val DISMISS_MARGIN_DP = 48f
+        private const val DISMISS_SLOP_DP = 16f
+        private const val DISMISS_CANCEL_EXTRA_DP = 48f
         private const val DEFAULT_X_FRACTION = 1f
         private const val DEFAULT_Y_FRACTION = 0.33f
         private const val CUSTOM_MIN = 1

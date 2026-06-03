@@ -6,8 +6,12 @@
     <string name="overlay_notification_title">Pause is ready</string>
     <string name="overlay_notification_title_running">Pause</string>
     <string name="overlay_notification_text">Tap the floating button to set a timer.</string>
-    <string name="overlay_notification_active">Timer running</string>
+    <string name="overlay_notification_active_soon">Alarm in under a minute</string>
+    <string name="overlay_notification_active_minutes">Alarm in %1$d min</string>
+    <string name="overlay_notification_active_hours">Alarm in %1$dh</string>
+    <string name="overlay_notification_active_hm">Alarm in %1$dh %2$dm</string>
     <string name="overlay_bubble_description">Pause floating button</string>
+    <string name="dismiss_description">Drag here to stop the overlay</string>
 
     <!-- Timer picker (Phase 3) -->
     <string name="picker_title">Set a pause timer</string>
@@ -20,6 +24,7 @@
     <string name="picker_cancel">Cancel timer</string>
     <string name="picker_active_title">Pause timer</string>
     <string name="picker_remaining_label">Time remaining</string>
+    <string name="picker_show_countdown">Show countdown</string>
     <string name="picker_stop_overlay">Stop overlay</string>
 
     <!-- Timer-finished reminder (Phase 3 placeholder for the Phase 4 nudge) -->

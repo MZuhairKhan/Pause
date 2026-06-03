@@ -10,6 +10,8 @@ object SettingsStore {
     private const val KEY_POS_Y = "bubble_pos_y"
     private const val DEFAULT_POS_X = 1f
     private const val DEFAULT_POS_Y = 0.33f
+    private const val KEY_THEME_MODE = "theme_mode"
+    private const val KEY_ACCENT = "accent_index"
 
     /** When true the active bubble shows a live countdown; when false it keeps the static glyph. */
     fun showCountdown(context: Context): Boolean =
@@ -26,6 +28,20 @@ object SettingsStore {
 
     fun saveBubbleFraction(context: Context, x: Float, y: Float) {
         context.prefs().edit().putFloat(KEY_POS_X, x).putFloat(KEY_POS_Y, y).apply()
+    }
+
+    /** 0 = follow system, 1 = light, 2 = dark. */
+    fun themeMode(context: Context): Int = context.prefs().getInt(KEY_THEME_MODE, 0)
+
+    fun setThemeMode(context: Context, mode: Int) {
+        context.prefs().edit().putInt(KEY_THEME_MODE, mode).apply()
+    }
+
+    /** Index into the accent palette ([com.lifelineventures.pause.ui.theme.Accents]). */
+    fun accentIndex(context: Context): Int = context.prefs().getInt(KEY_ACCENT, 0)
+
+    fun setAccentIndex(context: Context, index: Int) {
+        context.prefs().edit().putInt(KEY_ACCENT, index).apply()
     }
 
     private fun Context.prefs() = getSharedPreferences(PREFS, Context.MODE_PRIVATE)

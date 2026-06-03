@@ -12,14 +12,21 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -32,18 +39,36 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.lifelineventures.pause.ui.theme.Accents
 import com.lifelineventures.pause.ui.theme.PauseTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            PauseTheme {
+            val context = LocalContext.current
+            var themeMode by remember { mutableStateOf(SettingsStore.themeMode(context)) }
+            var accentIndex by remember { mutableStateOf(SettingsStore.accentIndex(context)) }
+            PauseTheme(themeMode = themeMode, accentIndex = accentIndex) {
                 Scaffold { padding ->
-                    OnboardingScreen(modifier = Modifier.padding(padding))
+                    OnboardingScreen(
+                        modifier = Modifier.padding(padding),
+                        themeMode = themeMode,
+                        onThemeModeChange = {
+                            themeMode = it
+                            SettingsStore.setThemeMode(context, it)
+                        },
+                        accentIndex = accentIndex,
+                        onAccentChange = {
+                            accentIndex = it
+                            SettingsStore.setAccentIndex(context, it)
+                        }
+                    )
                 }
             }
         }
@@ -51,7 +76,13 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun OnboardingScreen(modifier: Modifier = Modifier) {
+private fun OnboardingScreen(
+    modifier: Modifier = Modifier,
+    themeMode: Int,
+    onThemeModeChange: (Int) -> Unit,
+    accentIndex: Int,
+    onAccentChange: (Int) -> Unit
+) {
     val context = LocalContext.current
     var overlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
     var notificationsGranted by remember { mutableStateOf(hasNotificationPermission(context)) }
@@ -134,6 +165,51 @@ private fun OnboardingScreen(modifier: Modifier = Modifier) {
                     SettingsStore.setShowCountdown(context, it)
                 }
             )
+        }
+
+        Text("Appearance", style = MaterialTheme.typography.titleMedium)
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("System", "Light", "Dark").forEachIndexed { index, label ->
+                if (index == themeMode) {
+                    Button(
+                        onClick = { onThemeModeChange(index) },
+                        modifier = Modifier.weight(1f)
+                    ) { Text(label) }
+                } else {
+                    OutlinedButton(
+                        onClick = { onThemeModeChange(index) },
+                        modifier = Modifier.weight(1f)
+                    ) { Text(label) }
+                }
+            }
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Accents.colors.forEachIndexed { index, colorInt ->
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(colorInt))
+                        .border(
+                            width = if (index == accentIndex) 3.dp else 1.dp,
+                            color = if (index == accentIndex) {
+                                MaterialTheme.colorScheme.onBackground
+                            } else {
+                                MaterialTheme.colorScheme.outline
+                            },
+                            shape = CircleShape
+                        )
+                        .clickable { onAccentChange(index) }
+                )
+            }
         }
 
         Button(

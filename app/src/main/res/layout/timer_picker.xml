@@ -53,6 +53,27 @@
                 android:textSize="40sp"
                 android:textStyle="bold" />
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingBottom="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/picker_show_countdown"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="14sp" />
+
+                <Switch
+                    android:id="@+id/show_countdown_switch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/btn_cancel"
                 android:layout_width="match_parent"
