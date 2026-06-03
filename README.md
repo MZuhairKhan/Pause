@@ -44,7 +44,7 @@ The Gradle wrapper is committed, so you can also build straight from the command
 - [x] **Phase 4** — Default stop mode: full-screen **4-7-8 breathing wind-down** (circle grows on inhale, holds, shrinks on exhale; no numbers)
 - [ ] **Phase 5** — Settings screen with stop-mode toggle
 - [ ] **Phase 6** — Other stop modes: notification-only, escalating sequence
-- [ ] **Phase 7** — Polish (animations, haptics, button positioning memory)
+- [x] **Phase 7** — Polish: draining-hourglass bubble glyph, haptics (tap feedback + a distinct buzz when a timer ends), animated setup screen with live bubble preview, button positioning memory
 - [ ] **Phase 8** — Play Store prep (privacy policy, permission declarations, listing copy)
 
 ## Design decisions (and what we deliberately ruled out)

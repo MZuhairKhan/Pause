@@ -9,9 +9,23 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,11 +69,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import com.lifelineventures.pause.ui.theme.Accents
@@ -115,6 +133,7 @@ private fun OnboardingScreen(
     var hold by remember { mutableStateOf(SettingsStore.holdSeconds(context)) }
     var exhale by remember { mutableStateOf(SettingsStore.exhaleSeconds(context)) }
     var lockSec by remember { mutableStateOf(SettingsStore.lockSeconds(context)) }
+    var vibrateOnFinish by remember { mutableStateOf(SettingsStore.vibrateOnFinish(context)) }
     var showColorDialog by remember { mutableStateOf(false) }
 
     val notificationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -138,13 +157,7 @@ private fun OnboardingScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Pause", style = MaterialTheme.typography.headlineMedium)
-            Text(
-                "A floating button you tap to set a \"stop using this app\" timer.",
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
+        Hero()
 
         Button(
             modifier = Modifier.fillMaxWidth(),
@@ -196,22 +209,9 @@ private fun OnboardingScreen(
         }
 
         SettingsSection("Bubble") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Show countdown on the bubble",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Switch(
-                    checked = showCountdown,
-                    onCheckedChange = {
-                        showCountdown = it
-                        SettingsStore.setShowCountdown(context, it)
-                    }
-                )
+            SwitchRow("Show countdown on the bubble", showCountdown) {
+                showCountdown = it
+                SettingsStore.setShowCountdown(context, it)
             }
         }
 
@@ -245,21 +245,10 @@ private fun OnboardingScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Accents.colors.forEach { colorInt ->
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(Color(colorInt))
-                            .border(
-                                width = if (colorInt == accentColor) 3.dp else 1.dp,
-                                color = if (colorInt == accentColor) {
-                                    MaterialTheme.colorScheme.onBackground
-                                } else {
-                                    MaterialTheme.colorScheme.outline
-                                },
-                                shape = CircleShape
-                            )
-                            .clickable { onAccentChange(colorInt) }
+                    AccentChip(
+                        color = colorInt,
+                        selected = colorInt == accentColor,
+                        onClick = { onAccentChange(colorInt) }
                     )
                 }
             }
@@ -303,6 +292,10 @@ private fun OnboardingScreen(
                 lockSec = it
                 SettingsStore.setLockSeconds(context, it)
             }
+            SwitchRow("Vibrate when the timer ends", vibrateOnFinish) {
+                vibrateOnFinish = it
+                SettingsStore.setVibrateOnFinish(context, it)
+            }
         }
     }
 
@@ -316,23 +309,91 @@ private fun OnboardingScreen(
 }
 
 @Composable
+private fun Hero() {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        BubblePreview()
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "Pause",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                "A floating button you tap to set a \"stop using this app\" timer.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+/** A live preview of the on-screen bubble: a draining hourglass that loops full → empty. */
+@Composable
+private fun BubblePreview() {
+    val drawable = remember { HourglassDrawable() }
+    val transition = rememberInfiniteTransition(label = "hourglass")
+    val progress by transition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 5000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "drain"
+    )
+    Box(
+        modifier = Modifier
+            .size(96.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF101014))
+            .border(1.dp, Color.White.copy(alpha = 0.20f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        AndroidView(
+            factory = { ctx -> ImageView(ctx).apply { setImageDrawable(drawable) } },
+            update = { drawable.setProgress(progress) },
+            modifier = Modifier.size(54.dp)
+        )
+    }
+}
+
+@Composable
 private fun SettingsSection(
     title: String,
     initiallyExpanded: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     var expanded by remember { mutableStateOf(initiallyExpanded) }
+    val chevronRotation by animateFloatAsState(if (expanded) 90f else 0f, label = "chevron")
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { expanded = !expanded },
+                .clip(MaterialTheme.shapes.small)
+                .clickable { expanded = !expanded }
+                .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            Text(if (expanded) "▾" else "▸", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "▸",
+                modifier = Modifier.rotate(chevronRotation),
+                style = MaterialTheme.typography.titleMedium
+            )
         }
-        if (expanded) {
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier
@@ -343,6 +404,40 @@ private fun SettingsSection(
                 )
             }
         }
+    }
+}
+
+/** A circular accent swatch whose ring grows and brightens with a spring when selected. */
+@Composable
+private fun AccentChip(color: Int, selected: Boolean, onClick: () -> Unit) {
+    val borderWidth by animateDpAsState(if (selected) 3.dp else 1.dp, label = "accentBorder")
+    val chipSize by animateDpAsState(if (selected) 38.dp else 34.dp, label = "accentSize")
+    Box(
+        modifier = Modifier
+            .size(chipSize)
+            .clip(CircleShape)
+            .background(Color(color))
+            .border(
+                width = borderWidth,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onBackground
+                } else {
+                    MaterialTheme.colorScheme.outline
+                },
+                shape = CircleShape
+            )
+            .clickable { onClick() }
+    )
+}
+
+@Composable
+private fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
@@ -479,13 +574,44 @@ private fun emitWheel(offset: Offset, size: IntSize, onChange: (Float, Float) ->
 
 @Composable
 private fun PermissionRow(label: String, granted: Boolean, onClick: () -> Unit) {
-    val status = if (granted) "granted" else "needed"
-    Button(
-        onClick = onClick,
-        enabled = !granted,
-        modifier = Modifier.fillMaxWidth()
+    val accent = MaterialTheme.colorScheme.primary
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .then(if (granted) Modifier else Modifier.clickable { onClick() })
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("$label — $status")
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(
+                    if (granted) accent.copy(alpha = 0.18f)
+                    else MaterialTheme.colorScheme.errorContainer
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                if (granted) "✓" else "!",
+                color = if (granted) accent else MaterialTheme.colorScheme.onErrorContainer,
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
+        Text(
+            label,
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 12.dp),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Text(
+            if (granted) "Granted" else "Grant",
+            color = if (granted) accent else MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (granted) FontWeight.Normal else FontWeight.SemiBold
+        )
     }
 }
 
