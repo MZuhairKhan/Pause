@@ -222,6 +222,13 @@ private fun OnboardingScreen(
                     context.startActivity(intent)
                 }
             )
+            PermissionRow(
+                label = "Usage access (optional)",
+                granted = usageAccessGranted,
+                onClick = {
+                    context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                }
+            )
         }
 
         SettingsSection("Bubble") {
@@ -320,13 +327,13 @@ private fun OnboardingScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            PermissionRow(
-                label = "Usage access",
-                granted = usageAccessGranted,
-                onClick = {
-                    context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                }
-            )
+            if (!usageAccessGranted) {
+                Text(
+                    "Needs the Usage access permission above to detect blocked apps.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
             StepperRow("Break length", blockMinutes, min = 1, max = 120, unit = " min") {
                 blockMinutes = it
                 SettingsStore.setBlockMinutes(context, it)
