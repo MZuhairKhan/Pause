@@ -14,14 +14,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -38,10 +32,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -67,6 +63,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.draw.rotate
@@ -86,6 +85,9 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
+
+/** A clear success green for granted-permission affordances, readable on light or dark. */
+private val GrantedGreen = Color(0xFF2EBD6B)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -133,7 +135,6 @@ private fun OnboardingScreen(
     var hold by remember { mutableStateOf(SettingsStore.holdSeconds(context)) }
     var exhale by remember { mutableStateOf(SettingsStore.exhaleSeconds(context)) }
     var lockSec by remember { mutableStateOf(SettingsStore.lockSeconds(context)) }
-    var vibrateOnFinish by remember { mutableStateOf(SettingsStore.vibrateOnFinish(context)) }
     var showColorDialog by remember { mutableStateOf(false) }
 
     val notificationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -157,7 +158,7 @@ private fun OnboardingScreen(
             .padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Hero()
+        Hero(accentColor)
 
         Button(
             modifier = Modifier.fillMaxWidth(),
@@ -173,7 +174,7 @@ private fun OnboardingScreen(
             Text(if (serviceRunning) "Stop overlay service" else "Start overlay service")
         }
 
-        SettingsSection("Permissions", initiallyExpanded = !allPermissionsGranted) {
+        PermissionsSection(allGranted = allPermissionsGranted) {
             PermissionRow(
                 label = "Display over other apps",
                 granted = overlayGranted,
@@ -209,7 +210,11 @@ private fun OnboardingScreen(
         }
 
         SettingsSection("Bubble") {
-            SwitchRow("Show countdown on the bubble", showCountdown) {
+            SwitchRow(
+                "Show countdown on the bubble",
+                showCountdown,
+                subtitle = "Off shows a draining hourglass instead."
+            ) {
                 showCountdown = it
                 SettingsStore.setShowCountdown(context, it)
             }
@@ -292,10 +297,6 @@ private fun OnboardingScreen(
                 lockSec = it
                 SettingsStore.setLockSeconds(context, it)
             }
-            SwitchRow("Vibrate when the timer ends", vibrateOnFinish) {
-                vibrateOnFinish = it
-                SettingsStore.setVibrateOnFinish(context, it)
-            }
         }
     }
 
@@ -309,13 +310,13 @@ private fun OnboardingScreen(
 }
 
 @Composable
-private fun Hero() {
+private fun Hero(accentColor: Int) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        BubblePreview()
+        BubblePreview(accentColor)
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -335,33 +336,37 @@ private fun Hero() {
     }
 }
 
-/** A live preview of the on-screen bubble: a draining hourglass that loops full → empty. */
+/** A static hourglass logo (mostly-full, not animated) on a soft accent glow. */
 @Composable
-private fun BubblePreview() {
-    val drawable = remember { HourglassDrawable() }
-    val transition = rememberInfiniteTransition(label = "hourglass")
-    val progress by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 5000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "drain"
-    )
+private fun BubblePreview(accentColor: Int) {
+    val drawable = remember { HourglassDrawable().apply { setProgress(1f) } }
+    val accent = Color(accentColor)
     Box(
-        modifier = Modifier
-            .size(96.dp)
-            .clip(CircleShape)
-            .background(Color(0xFF101014))
-            .border(1.dp, Color.White.copy(alpha = 0.20f), CircleShape),
+        modifier = Modifier.size(132.dp),
         contentAlignment = Alignment.Center
     ) {
-        AndroidView(
-            factory = { ctx -> ImageView(ctx).apply { setImageDrawable(drawable) } },
-            update = { drawable.setProgress(progress) },
-            modifier = Modifier.size(54.dp)
+        // Soft accent halo behind the bubble so the glyph reads against a dark background.
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    Brush.radialGradient(listOf(accent.copy(alpha = 0.30f), Color.Transparent)),
+                    CircleShape
+                )
         )
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF101014))
+                .border(1.5.dp, accent.copy(alpha = 0.55f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            AndroidView(
+                factory = { ctx -> ImageView(ctx).apply { setImageDrawable(drawable) } },
+                modifier = Modifier.size(54.dp)
+            )
+        }
     }
 }
 
@@ -372,7 +377,6 @@ private fun SettingsSection(
     content: @Composable ColumnScope.() -> Unit
 ) {
     var expanded by remember { mutableStateOf(initiallyExpanded) }
-    val chevronRotation by animateFloatAsState(if (expanded) 90f else 0f, label = "chevron")
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             modifier = Modifier
@@ -383,11 +387,7 @@ private fun SettingsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            Text(
-                "▸",
-                modifier = Modifier.rotate(chevronRotation),
-                style = MaterialTheme.typography.titleMedium
-            )
+            Chevron(expanded, MaterialTheme.colorScheme.onSurfaceVariant)
         }
         AnimatedVisibility(
             visible = expanded,
@@ -404,6 +404,81 @@ private fun SettingsSection(
                 )
             }
         }
+    }
+}
+
+/**
+ * Permissions get their own section: it auto-collapses to a green "All set" summary
+ * once every permission is granted, and re-expands if one is later revoked.
+ */
+@Composable
+private fun PermissionsSection(allGranted: Boolean, content: @Composable ColumnScope.() -> Unit) {
+    var expanded by remember { mutableStateOf(!allGranted) }
+    LaunchedEffect(allGranted) { expanded = !allGranted }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.small)
+                .clickable { expanded = !expanded }
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Permissions",
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium
+            )
+            if (allGranted) {
+                Text(
+                    "All set ✓",
+                    color = GrantedGreen,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            Chevron(expanded, MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    content = content
+                )
+            }
+        }
+    }
+}
+
+/** A crisp Canvas chevron that rotates from ▸ (collapsed) to ▾ (expanded). */
+@Composable
+private fun Chevron(expanded: Boolean, tint: Color) {
+    val rotation by animateFloatAsState(if (expanded) 0f else -90f, label = "chevron")
+    Canvas(
+        modifier = Modifier
+            .size(18.dp)
+            .rotate(rotation)
+    ) {
+        val w = size.width
+        val h = size.height
+        val path = Path().apply {
+            moveTo(w * 0.28f, h * 0.40f)
+            lineTo(w * 0.50f, h * 0.62f)
+            lineTo(w * 0.72f, h * 0.40f)
+        }
+        drawPath(
+            path,
+            color = tint,
+            style = Stroke(width = w * 0.11f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
     }
 }
 
@@ -431,12 +506,26 @@ private fun AccentChip(color: Int, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+private fun SwitchRow(
+    label: String,
+    checked: Boolean,
+    subtitle: String? = null,
+    onCheckedChange: (Boolean) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
@@ -574,7 +663,6 @@ private fun emitWheel(offset: Offset, size: IntSize, onChange: (Float, Float) ->
 
 @Composable
 private fun PermissionRow(label: String, granted: Boolean, onClick: () -> Unit) {
-    val accent = MaterialTheme.colorScheme.primary
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -588,15 +676,16 @@ private fun PermissionRow(label: String, granted: Boolean, onClick: () -> Unit) 
                 .size(26.dp)
                 .clip(CircleShape)
                 .background(
-                    if (granted) accent.copy(alpha = 0.18f)
+                    if (granted) GrantedGreen.copy(alpha = 0.20f)
                     else MaterialTheme.colorScheme.errorContainer
                 ),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 if (granted) "✓" else "!",
-                color = if (granted) accent else MaterialTheme.colorScheme.onErrorContainer,
-                style = MaterialTheme.typography.labelLarge
+                color = if (granted) GrantedGreen else MaterialTheme.colorScheme.onErrorContainer,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold
             )
         }
         Text(
@@ -608,7 +697,7 @@ private fun PermissionRow(label: String, granted: Boolean, onClick: () -> Unit) 
         )
         Text(
             if (granted) "Granted" else "Grant",
-            color = if (granted) accent else MaterialTheme.colorScheme.primary,
+            color = if (granted) GrantedGreen else MaterialTheme.colorScheme.primary,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = if (granted) FontWeight.Normal else FontWeight.SemiBold
         )

@@ -17,7 +17,6 @@ object SettingsStore {
     private const val KEY_HOLD = "breath_hold"
     private const val KEY_EXHALE = "breath_exhale"
     private const val KEY_LOCK = "breath_lock"
-    private const val KEY_VIBRATE = "vibrate_on_finish"
     private const val DEFAULT_INHALE = 4
     private const val DEFAULT_HOLD = 7
     private const val DEFAULT_EXHALE = 8
@@ -77,14 +76,6 @@ object SettingsStore {
 
     fun setLockSeconds(context: Context, value: Int) {
         context.prefs().edit().putInt(KEY_LOCK, value).apply()
-    }
-
-    /** When true the phone vibrates as the wind-down opens (i.e. when the timer ends). */
-    fun vibrateOnFinish(context: Context): Boolean =
-        context.prefs().getBoolean(KEY_VIBRATE, true)
-
-    fun setVibrateOnFinish(context: Context, enabled: Boolean) {
-        context.prefs().edit().putBoolean(KEY_VIBRATE, enabled).apply()
     }
 
     private fun Context.prefs() = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
