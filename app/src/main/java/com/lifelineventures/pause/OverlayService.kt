@@ -16,6 +16,9 @@ import android.content.pm.ServiceInfo
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.PixelFormat
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -67,6 +70,9 @@ class OverlayService : Service() {
     /** Full-screen breathing wind-down shown when a timer fires (the default stop mode). */
     private var breathingView: View? = null
     private var breathingAnimator: ValueAnimator? = null
+
+    /** Held while the wind-down is up, to pause other apps' media; null when not muting. */
+    private var audioFocusRequest: AudioFocusRequest? = null
 
     /** Wall-clock end time of the active timer, or 0 when idle. */
     private var endTimeMillis = 0L
@@ -798,9 +804,9 @@ class OverlayService : Service() {
         windowManager.addView(view, params)
         view.requestFocus()
         breathingView = view
-        if (SettingsStore.vibrateOnFinish(this)) {
-            Haptics.timerFinished(this)
-        }
+        // Silence whatever was playing (a video, music) so the wind-down isn't competing
+        // with background media; focus is handed back when the wind-down closes.
+        muteMedia()
         startBreathingAnimator(circle, phase)
 
         val lockMs = SettingsStore.lockSeconds(this).toLong() * 1000L
@@ -818,6 +824,34 @@ class OverlayService : Service() {
         breathingAnimator = null
         breathingView?.let { windowManager.removeView(it) }
         breathingView = null
+        unmuteMedia()
+    }
+
+    /**
+     * Requests exclusive transient audio focus so other apps pause their media for the
+     * duration of the wind-down — any video or music in the background goes quiet.
+     */
+    private fun muteMedia() {
+        if (audioFocusRequest != null) return
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+            .setAudioAttributes(attributes)
+            .setOnAudioFocusChangeListener { }
+            .build()
+        audioManager.requestAudioFocus(request)
+        audioFocusRequest = request
+    }
+
+    /** Hands audio focus back so paused media can resume after the wind-down. */
+    private fun unmuteMedia() {
+        val request = audioFocusRequest ?: return
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.abandonAudioFocusRequest(request)
+        audioFocusRequest = null
     }
 
     /** Loops a 4-7-8 cycle: grow on inhale (4s), hold (7s), shrink on exhale (8s). No numbers. */

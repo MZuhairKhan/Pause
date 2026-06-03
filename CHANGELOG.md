@@ -10,23 +10,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Draining hourglass bubble glyph** — a custom `HourglassDrawable` renders sand
   falling from the top bulb to the bottom, driven by the per-second ticker so the
-  bubble cycles through every fill level (full → trickle → empty) as the timer runs
-  down. Shown when the countdown number is turned off.
+  bubble cycles through fill levels as the timer runs down. It starts a touch below
+  full, stops just shy of empty, and (because the bulbs are conical) the sand surface
+  drops slowly at first and rushes as it nears the neck. Shown when the countdown
+  number is turned off.
 - **Haptics** — a light confirmation tick on the bubble, picker tabs, quick chips,
-  and start/cancel/stop buttons, plus a distinct rising three-pulse buzz when a
-  timer ends (so the wind-down is felt even with the screen off).
-- **"Vibrate when the timer ends" setting** (default on), exposed in the
-  Breathing wind-down section of the setup screen.
-- **Live bubble preview** on the setup screen — the real draining hourglass looping
-  full → empty inside a bubble-styled circle, so the on-screen result is visible
-  before starting the service.
-- `VIBRATE` permission.
+  and start/cancel/stop buttons.
+- **Quiet wind-down** — when a timer fires, the breathing exercise grabs exclusive
+  audio focus so any background media (a video, music) pauses for its duration and
+  resumes when it closes.
+- **Hourglass logo** on the setup screen — a static glyph inside a bubble-styled
+  circle on a soft accent glow.
 
 ### Changed
 - **Setup screen polish** — centered hero header, expand/collapse sections with an
   animated chevron and fade/expand transitions, permission rows with status badges
-  (✓ granted / ! needed) replacing disabled buttons, and accent swatches that
-  animate their ring on selection.
+  that auto-collapse to an "All set ✓" summary once everything is granted, and accent
+  swatches that animate their ring on selection.
 
 ## [0.1.0]
 

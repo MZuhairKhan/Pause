@@ -8,13 +8,19 @@ import android.graphics.PixelFormat
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import kotlin.math.min
+import kotlin.math.sqrt
 
 /**
  * An hourglass that drains as a timer runs down. [progress] is the fraction of time
- * *remaining* (1 = just started, the top bulb is full; 0 = finished, all the sand has
- * fallen to the bottom). Driving it from the per-second ticker makes the bubble cycle
- * smoothly through every fill level — full, three-quarters, half, a trickle, empty —
- * without needing a frame for each.
+ * *remaining* (1 = just started, 0 = finished). Driving it from the per-second ticker
+ * makes the bubble cycle smoothly through every fill level without a frame for each.
+ *
+ * Two touches make it read as a real hourglass rather than a progress bar:
+ *  - The visible fill is remapped to [[END_FILL], [START_FILL]] — it starts a touch
+ *    below full and stops just shy of empty, so it never looks like a static glyph.
+ *  - The bulbs are conical (wide at the cap, narrow at the neck), so for a steady flow
+ *    the sand *surface* tracks the square root of the remaining volume: it falls slowly
+ *    while the wide part drains, then rushes as it nears the neck.
  *
  * Drawn mono (white with the same ~0.55 glass / brighter sand alphas as the other
  * bubble glyphs) so it stays consistent with the deliberately un-accented icon set.
@@ -101,18 +107,21 @@ class HourglassDrawable : Drawable() {
         val glassBottom = b.bottom - capInset
         val neckY = (glassTop + glassBottom) / 2f
 
-        // Top sand settles at the bottom of the upper bulb and shrinks toward the neck.
-        val topSurfaceY = glassTop + (1f - progress) * (neckY - glassTop)
+        // Remaining volume in the top bulb, remapped so it never reads as fully
+        // full or fully empty; the surface tracks its square root for the conical taper.
+        val fill = END_FILL + (START_FILL - END_FILL) * progress
+        val surface = sqrt(fill)
+
+        // Top sand settles against the neck; its surface descends toward it.
+        val topSurfaceY = neckY - surface * (neckY - glassTop)
         fillBulb(canvas, topGlass, topSurfaceY, neckY)
 
-        // Bottom sand piles up from the base as the top empties.
-        val bottomSurfaceY = glassBottom - (1f - progress) * (glassBottom - neckY)
+        // Bottom sand piles up from the base as the top empties (its void is the mirror).
+        val bottomSurfaceY = neckY + surface * (glassBottom - neckY)
         fillBulb(canvas, bottomGlass, bottomSurfaceY, glassBottom)
 
-        // A falling stream while sand is mid-flight.
-        if (progress in 0.001f..0.999f) {
-            canvas.drawLine(cx, neckY, cx, bottomSurfaceY, streamPaint)
-        }
+        // A falling stream — the glyph is always mid-flow now, so always draw it.
+        canvas.drawLine(cx, neckY, cx, bottomSurfaceY, streamPaint)
 
         // Glass outline + caps on top so the sand reads as contained.
         canvas.drawPath(topGlass, glassPaint)
@@ -140,4 +149,11 @@ class HourglassDrawable : Drawable() {
 
     @Deprecated("Deprecated in Java", ReplaceWith("PixelFormat.TRANSLUCENT"))
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+
+    private companion object {
+        /** Top-bulb fill at the start of a timer — just below full so it looks settling, not frozen. */
+        const val START_FILL = 0.80f
+        /** Top-bulb fill at the end — a sliver remains so it stops "right before" empty. */
+        const val END_FILL = 0.06f
+    }
 }
