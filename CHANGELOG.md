@@ -5,6 +5,38 @@ All notable changes to Pause are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Snooze** — the breathing wind-down now offers a "Snooze N min" action that dismisses
+  the wind-down and re-arms the timer, with a configurable snooze length (default 5 min)
+  in the setup screen's *Breathing wind-down* section.
+- **Stronger media muting** — the wind-down and app-blocking break now also zero the
+  media-stream volume (and restore it afterwards), so apps that ignore audio-focus loss
+  (TikTok, Instagram Reels) actually go quiet instead of playing through the pause.
+- **Unit tests** — a JVM test suite (`PauseLogicTest`) covering time formatting, the
+  hourglass fill remap, bubble-position round-tripping, and settings clamping.
+- **Continuous integration** — a GitHub Actions workflow that runs lint, unit tests, and
+  a debug build on every push and pull request, and blocks PRs that don't update this file.
+
+### Changed
+- Pure overlay logic (time formatting, hourglass math, bubble placement, settings ranges)
+  moved into a testable `PauseLogic.kt` with no Android dependencies.
+- **Smoother app-blocking break** — the foreground-app usage query now runs on a
+  background thread, so the per-second poll no longer risks janking the UI on slow devices.
+
+### Fixed
+- **No more silent timer misses** — if the scheduled alarm is dropped (some OEMs do this
+  under battery management), the per-second ticker now fires the wind-down itself.
+- **Overlay crash hardening** — adding/removing overlay views is now guarded, so a
+  permission revoked mid-session or a teardown racing a delayed callback can no longer
+  crash the service.
+- **Pref validation** — values read back from storage are clamped to their valid ranges,
+  so a corrupt or restored preference can't feed a bad value into an animation or alarm.
+- **No stranded mute** — the pre-mute media volume is now persisted, so if the app is
+  killed mid-pause (force-stop, low memory) the next launch restores the volume instead
+  of leaving the user stuck at zero.
+
 ## [0.3.0] — 2026-06-03
 
 ### Added

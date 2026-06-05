@@ -39,6 +39,7 @@
     <string name="breathing_out">Breathe out</string>
     <string name="breathing_keep">Keep scrolling</string>
     <string name="breathing_stop">Stop for now</string>
+    <string name="breathing_snooze">Snooze %1$d min</string>
 
     <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
     <string name="block_title">Taking a break</string>
