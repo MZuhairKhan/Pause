@@ -25,6 +25,7 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
@@ -45,7 +46,6 @@ import android.widget.TextView
 import android.widget.TimePicker
 import androidx.core.app.NotificationCompat
 import java.util.Calendar
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.hypot
@@ -78,6 +78,9 @@ class OverlayService : Service() {
     /** Held while the wind-down is up, to pause other apps' media; null when not muting. */
     private var audioFocusRequest: AudioFocusRequest? = null
 
+    /** Media-stream volume saved before we zero it; -1 when we aren't hard-muting. */
+    private var savedMusicVolume = -1
+
     /** Full-screen cover shown over a blocked app during a "Stop for now" break. */
     private var blockView: View? = null
     private var blockRemaining: TextView? = null
@@ -93,6 +96,11 @@ class OverlayService : Service() {
     private var coveredPackage: String? = null
 
     private val blockHandler = Handler(Looper.getMainLooper())
+
+    /** Background looper for the usage-stats query, which can be slow enough to jank the UI. */
+    private var pollThread: HandlerThread? = null
+    private var pollHandler: Handler? = null
+
     private val blockRunnable = object : Runnable {
         override fun run() {
             val remaining = blockUntilMillis - System.currentTimeMillis()
@@ -100,14 +108,31 @@ class OverlayService : Service() {
                 stopBreak()
                 return
             }
-            val foreground = currentForegroundApp()
-            if (foreground != null && foreground in blockedPackages) {
-                showBlockOverlay(foreground)
-            } else {
-                hideBlockOverlay()
-            }
             updateBlockCountdown(remaining)
+            // Resolve the foreground app off the main thread (the usage query can take tens
+            // of ms), then apply the cover/uncover decision back on the main thread, where
+            // all WindowManager work must happen.
+            val poll = pollHandler
+            if (poll != null) {
+                poll.post {
+                    val foreground = currentForegroundApp()
+                    blockHandler.post { applyForeground(foreground) }
+                }
+            } else {
+                applyForeground(currentForegroundApp())
+            }
             blockHandler.postDelayed(this, BLOCK_POLL_MS)
+        }
+    }
+
+    /** Covers a blocked foreground app or removes the cover; main-thread only. */
+    private fun applyForeground(foreground: String?) {
+        // The break may have ended while the background query was in flight.
+        if (blockUntilMillis == 0L) return
+        if (foreground != null && foreground in blockedPackages) {
+            showBlockOverlay(foreground)
+        } else {
+            hideBlockOverlay()
         }
     }
 
@@ -138,14 +163,25 @@ class OverlayService : Service() {
     private val tickHandler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
         override fun run() {
-            val remaining = (endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0)
+            val rawRemaining = endTimeMillis - System.currentTimeMillis()
+            val remaining = rawRemaining.coerceAtLeast(0)
             updateCountdown(remaining)
             val minutesLeft = ceil(remaining / 60000.0).toInt()
             if (minutesLeft != lastNotifiedMinute) {
                 lastNotifiedMinute = minutesLeft
                 updateNotification()
             }
-            if (remaining > 0) tickHandler.postDelayed(this, 1000L)
+            when {
+                rawRemaining > 0 -> tickHandler.postDelayed(this, 1000L)
+                // The scheduled alarm should have fired the wind-down by now. If it didn't
+                // (some OEMs silently drop alarms under battery management), fire it here so
+                // the timer never just expires unnoticed. resetToIdle() clears the timer the
+                // same way the real fired path does, and showBreathing() no-ops if it's up.
+                endTimeMillis > 0L && breathingView == null && blockUntilMillis == 0L -> {
+                    resetToIdle()
+                    showBreathing()
+                }
+            }
         }
     }
 
@@ -153,7 +189,25 @@ class OverlayService : Service() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         createNotificationChannel()
+        restoreStrandedVolume()
         _running.value = true
+    }
+
+    /**
+     * If a previous session muted media and was killed before it could restore the volume
+     * (force-stop, low memory), the pre-mute level is still recorded — put it back now so
+     * the user isn't left at zero. Runs before any new mute, so it can't clobber a fresh one.
+     */
+    private fun restoreStrandedVolume() {
+        val stranded = SettingsStore.mutedVolume(this)
+        if (stranded < 0) return
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        try {
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, stranded, 0)
+        } catch (e: SecurityException) {
+            // Leave the volume as-is; the user can adjust it manually.
+        }
+        SettingsStore.setMutedVolume(this, -1)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -205,7 +259,38 @@ class OverlayService : Service() {
         hideDismissTarget()
         hideBreathing()
         removeBubble()
+        pollThread?.quitSafely()
+        pollThread = null
+        pollHandler = null
         super.onDestroy()
+    }
+
+    // --- Overlay view helpers ---
+
+    /**
+     * Adds an overlay view, returning false (instead of crashing the service) if the
+     * overlay permission was revoked between the caller's check and this call, or the
+     * window token is otherwise rejected. Callers must not retain the view on false.
+     */
+    private fun safeAddView(view: View, params: WindowManager.LayoutParams): Boolean {
+        return try {
+            windowManager.addView(view, params)
+            true
+        } catch (e: WindowManager.BadTokenException) {
+            false
+        } catch (e: IllegalStateException) {
+            // View was already added to a window manager.
+            false
+        }
+    }
+
+    /** Removes an overlay view, tolerating the case where it was already detached. */
+    private fun safeRemoveView(view: View) {
+        try {
+            windowManager.removeView(view)
+        } catch (e: IllegalArgumentException) {
+            // View not attached — a teardown likely raced a delayed runnable; nothing to do.
+        }
     }
 
     // --- Overlay bubble ---
@@ -235,7 +320,7 @@ class OverlayService : Service() {
             showPicker()
         }
 
-        windowManager.addView(view, params)
+        if (!safeAddView(view, params)) return
         bubbleView = view
         bubbleParams = params
         bubbleIcon = view.findViewById(R.id.bubble_icon)
@@ -243,7 +328,7 @@ class OverlayService : Service() {
     }
 
     private fun removeBubble() {
-        bubbleView?.let { windowManager.removeView(it) }
+        bubbleView?.let { safeRemoveView(it) }
         bubbleView = null
         bubbleParams = null
         bubbleIcon = null
@@ -259,10 +344,8 @@ class OverlayService : Service() {
     private fun applyBubblePosition(params: WindowManager.LayoutParams) {
         val (screenW, screenH) = screenSize()
         val size = bubbleSizePx()
-        val maxX = (screenW - size).coerceAtLeast(0)
-        val maxY = (screenH - size).coerceAtLeast(0)
-        params.x = (posFractionX * maxX).roundToInt().coerceIn(0, maxX)
-        params.y = (posFractionY * maxY).roundToInt().coerceIn(0, maxY)
+        params.x = BubblePosition.toPixels(posFractionX, (screenW - size).coerceAtLeast(0))
+        params.y = BubblePosition.toPixels(posFractionY, (screenH - size).coerceAtLeast(0))
     }
 
     private fun screenSize(): Pair<Int, Int> {
@@ -329,16 +412,7 @@ class OverlayService : Service() {
         pickerRemaining?.text = formatRemainingLong(totalSeconds)
     }
 
-    private fun formatRemainingLong(totalSeconds: Int): String {
-        val h = totalSeconds / 3600
-        val m = (totalSeconds % 3600) / 60
-        val s = totalSeconds % 60
-        return if (h > 0) {
-            String.format(Locale.US, "%d:%02d:%02d", h, m, s)
-        } else {
-            String.format(Locale.US, "%d:%02d", m, s)
-        }
-    }
+    private fun formatRemainingLong(totalSeconds: Int): String = TimeFormat.remainingLong(totalSeconds)
 
     /**
      * Lets the user drag the bubble anywhere on screen. A press that moves less than
@@ -414,10 +488,8 @@ class OverlayService : Service() {
         val params = bubbleParams ?: return
         val (screenW, screenH) = screenSize()
         val size = bubbleSizePx()
-        val maxX = (screenW - size).coerceAtLeast(1)
-        val maxY = (screenH - size).coerceAtLeast(1)
-        posFractionX = params.x.toFloat() / maxX
-        posFractionY = params.y.toFloat() / maxY
+        posFractionX = BubblePosition.toFraction(params.x, screenW - size)
+        posFractionY = BubblePosition.toFraction(params.y, screenH - size)
         SettingsStore.saveBubbleFraction(this, posFractionX, posFractionY)
     }
 
@@ -439,7 +511,7 @@ class OverlayService : Service() {
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
             y = dismissMarginPx()
         }
-        windowManager.addView(view, params)
+        if (!safeAddView(view, params)) return
         view.alpha = 0f
         view.animate().alpha(1f).setDuration(120L).start()
         dismissTargetView = view
@@ -447,7 +519,7 @@ class OverlayService : Service() {
     }
 
     private fun hideDismissTarget() {
-        dismissTargetView?.let { windowManager.removeView(it) }
+        dismissTargetView?.let { safeRemoveView(it) }
         dismissTargetView = null
         overDismiss = false
     }
@@ -617,7 +689,7 @@ class OverlayService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply { dimAmount = 0.5f }
 
-        windowManager.addView(view, params)
+        if (!safeAddView(view, params)) return
         view.requestFocus()
         pickerView = view
         refreshTicker()
@@ -713,7 +785,7 @@ class OverlayService : Service() {
     }
 
     private fun hidePicker() {
-        pickerView?.let { windowManager.removeView(it) }
+        pickerView?.let { safeRemoveView(it) }
         pickerView = null
         pickerRemaining = null
         refreshTicker()
@@ -748,10 +820,14 @@ class OverlayService : Service() {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         // setAlarmClock() is treated as exact without needing the SCHEDULE_EXACT_ALARM
         // permission, and it briefly allowlists us so the broadcast delivers on time.
-        alarmManager.setAlarmClock(
-            AlarmManager.AlarmClockInfo(endMillis, showActivityIntent()),
-            alarmOperation()
-        )
+        try {
+            alarmManager.setAlarmClock(
+                AlarmManager.AlarmClockInfo(endMillis, showActivityIntent()),
+                alarmOperation()
+            )
+        } catch (e: SecurityException) {
+            // Some OEMs restrict alarm scheduling; the per-second ticker fallback fires instead.
+        }
 
         setBubbleActive()
         updateNotification()
@@ -826,6 +902,14 @@ class OverlayService : Service() {
                 stopForNow()
             }
         }
+        val snoozeMinutes = SettingsStore.snoozeMinutes(this)
+        view.findViewById<TextView>(R.id.breathing_snooze).apply {
+            text = getString(R.string.breathing_snooze, snoozeMinutes)
+            setOnClickListener {
+                Haptics.tap(it)
+                snoozeTimer(snoozeMinutes)
+            }
+        }
 
         // Not skippable: the full-screen view swallows taps and BACK is consumed. The
         // action buttons, revealed after the lock window, are the only way out.
@@ -839,7 +923,7 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
             PixelFormat.TRANSLUCENT
         )
-        windowManager.addView(view, params)
+        if (!safeAddView(view, params)) return
         view.requestFocus()
         breathingView = view
         // Silence whatever was playing (a video, music) so the wind-down isn't competing
@@ -860,14 +944,22 @@ class OverlayService : Service() {
     private fun hideBreathing() {
         breathingAnimator?.cancel()
         breathingAnimator = null
-        breathingView?.let { windowManager.removeView(it) }
+        breathingView?.let { safeRemoveView(it) }
         breathingView = null
         unmuteMedia()
     }
 
+    /** Dismisses the wind-down and re-arms the timer so it fires again in [minutes]. */
+    private fun snoozeTimer(minutes: Int) {
+        hideBreathing()
+        scheduleTimer(System.currentTimeMillis() + minutes * 60_000L)
+    }
+
     /**
-     * Requests exclusive transient audio focus so other apps pause their media for the
-     * duration of the wind-down — any video or music in the background goes quiet.
+     * Requests exclusive transient audio focus so well-behaved apps pause their media for
+     * the duration of the wind-down, and also zeroes the media stream directly. The latter
+     * is what silences apps that ignore audio-focus loss (TikTok, Instagram Reels) and keep
+     * playing regardless — the saved volume is restored when the wind-down closes.
      */
     private fun muteMedia() {
         if (audioFocusRequest != null) return
@@ -882,12 +974,33 @@ class OverlayService : Service() {
             .build()
         audioManager.requestAudioFocus(request)
         audioFocusRequest = request
+
+        if (savedMusicVolume < 0) {
+            try {
+                savedMusicVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+                // Persist the pre-mute volume so a process kill mid-pause can't strand
+                // the user at zero — onCreate() restores it on the next launch.
+                SettingsStore.setMutedVolume(this, savedMusicVolume)
+            } catch (e: SecurityException) {
+                savedMusicVolume = -1
+            }
+        }
     }
 
-    /** Hands audio focus back so paused media can resume after the wind-down. */
+    /** Restores media volume and hands audio focus back so media can resume after the wind-down. */
     private fun unmuteMedia() {
-        val request = audioFocusRequest ?: return
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (savedMusicVolume >= 0) {
+            try {
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, savedMusicVolume, 0)
+            } catch (e: SecurityException) {
+                // Leave the volume as-is; the user can adjust it manually.
+            }
+            savedMusicVolume = -1
+            SettingsStore.setMutedVolume(this, -1)
+        }
+        val request = audioFocusRequest ?: return
         audioManager.abandonAudioFocusRequest(request)
         audioFocusRequest = null
     }
@@ -911,8 +1024,18 @@ class OverlayService : Service() {
         blockedPackages = apps
         blockUntilMillis = System.currentTimeMillis() + SettingsStore.blockMinutes(this) * 60_000L
         coveredPackage = null
+        ensurePollThread()
         blockHandler.removeCallbacks(blockRunnable)
         blockHandler.post(blockRunnable)
+    }
+
+    /** Spins up the background looper for usage queries on first use; reused across breaks. */
+    private fun ensurePollThread() {
+        if (pollThread != null) return
+        pollThread = HandlerThread("pause-fg-poll").also {
+            it.start()
+            pollHandler = Handler(it.looper)
+        }
     }
 
     private fun stopBreak() {
@@ -978,7 +1101,7 @@ class OverlayService : Service() {
                 0,
                 PixelFormat.OPAQUE
             )
-            windowManager.addView(view, params)
+            if (!safeAddView(view, params)) return
             view.requestFocus()
             blockView = view
             blockRemaining = view.findViewById(R.id.block_remaining)
@@ -992,7 +1115,7 @@ class OverlayService : Service() {
     }
 
     private fun hideBlockOverlay() {
-        blockView?.let { windowManager.removeView(it) }
+        blockView?.let { safeRemoveView(it) }
         blockView = null
         blockRemaining = null
         blockSubtitle = null

@@ -1,6 +1,7 @@
 package com.lifelineventures.pause
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
@@ -145,6 +146,7 @@ private fun OnboardingScreen(
     var hold by remember { mutableStateOf(SettingsStore.holdSeconds(context)) }
     var exhale by remember { mutableStateOf(SettingsStore.exhaleSeconds(context)) }
     var lockSec by remember { mutableStateOf(SettingsStore.lockSeconds(context)) }
+    var snoozeMin by remember { mutableStateOf(SettingsStore.snoozeMinutes(context)) }
     var blockMinutes by remember { mutableStateOf(SettingsStore.blockMinutes(context)) }
     var blockedApps by remember { mutableStateOf(SettingsStore.blockedApps(context)) }
     var usageAccessGranted by remember { mutableStateOf(hasUsageAccess(context)) }
@@ -315,9 +317,24 @@ private fun OnboardingScreen(
                 exhale = it
                 SettingsStore.setExhaleSeconds(context, it)
             }
-            StepperRow("No-skip lock", lockSec, min = 0, max = 60) {
+            StepperRow(
+                "No-skip lock",
+                lockSec,
+                min = SettingsRanges.LOCK_MIN_SECONDS,
+                max = SettingsRanges.LOCK_MAX_SECONDS
+            ) {
                 lockSec = it
                 SettingsStore.setLockSeconds(context, it)
+            }
+            StepperRow(
+                "Snooze length",
+                snoozeMin,
+                min = SettingsRanges.SNOOZE_MIN_MINUTES,
+                max = SettingsRanges.SNOOZE_MAX_MINUTES,
+                unit = " min"
+            ) {
+                snoozeMin = it
+                SettingsStore.setSnoozeMinutes(context, it)
             }
         }
 
@@ -797,6 +814,9 @@ private fun StepperRow(
 private data class AppEntry(val packageName: String, val label: String)
 
 /** Loads launchable apps (excluding this one) off the main thread, sorted by label. */
+// produceState does assign value below; the lint check is a known false positive when
+// the assignment's source is a withContext { } call (issuetracker.google.com/265036856).
+@SuppressLint("ProduceStateDoesNotAssignValue")
 @Composable
 private fun rememberLaunchableApps(): List<AppEntry> {
     val context = LocalContext.current

@@ -1,5 +1,6 @@
 package com.lifelineventures.pause
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.lifelineventures.pause.ui.theme.Accents
 
@@ -17,6 +18,8 @@ object SettingsStore {
     private const val KEY_HOLD = "breath_hold"
     private const val KEY_EXHALE = "breath_exhale"
     private const val KEY_LOCK = "breath_lock"
+    private const val KEY_SNOOZE_MINUTES = "snooze_minutes"
+    private const val KEY_MUTED_VOLUME = "muted_music_volume"
     private const val KEY_BLOCKED_APPS = "blocked_apps"
     private const val KEY_BLOCK_MINUTES = "block_minutes"
     private const val DEFAULT_INHALE = 4
@@ -24,6 +27,7 @@ object SettingsStore {
     private const val DEFAULT_EXHALE = 8
     private const val DEFAULT_LOCK = 15
     private const val DEFAULT_BLOCK_MINUTES = 5
+    private const val DEFAULT_SNOOZE_MINUTES = 5
 
     /** When true the active bubble shows a live countdown; when false it keeps the static glyph. */
     fun showCountdown(context: Context): Boolean =
@@ -34,16 +38,19 @@ object SettingsStore {
     }
 
     /** Bubble position as a fraction (0..1) of the draggable area — the one thing kept across sessions. */
-    fun bubbleFractionX(context: Context): Float = context.prefs().getFloat(KEY_POS_X, DEFAULT_POS_X)
+    fun bubbleFractionX(context: Context): Float =
+        SettingsRanges.fraction(context.prefs().getFloat(KEY_POS_X, DEFAULT_POS_X))
 
-    fun bubbleFractionY(context: Context): Float = context.prefs().getFloat(KEY_POS_Y, DEFAULT_POS_Y)
+    fun bubbleFractionY(context: Context): Float =
+        SettingsRanges.fraction(context.prefs().getFloat(KEY_POS_Y, DEFAULT_POS_Y))
 
     fun saveBubbleFraction(context: Context, x: Float, y: Float) {
         context.prefs().edit().putFloat(KEY_POS_X, x).putFloat(KEY_POS_Y, y).apply()
     }
 
     /** 0 = follow system, 1 = light, 2 = dark. */
-    fun themeMode(context: Context): Int = context.prefs().getInt(KEY_THEME_MODE, 0)
+    fun themeMode(context: Context): Int =
+        SettingsRanges.themeMode(context.prefs().getInt(KEY_THEME_MODE, 0))
 
     fun setThemeMode(context: Context, mode: Int) {
         context.prefs().edit().putInt(KEY_THEME_MODE, mode).apply()
@@ -58,9 +65,12 @@ object SettingsStore {
     }
 
     /** Breathing wind-down phase durations in seconds (default 4-7-8: in 4, hold 7, out 8). */
-    fun inhaleSeconds(context: Context): Int = context.prefs().getInt(KEY_INHALE, DEFAULT_INHALE)
-    fun holdSeconds(context: Context): Int = context.prefs().getInt(KEY_HOLD, DEFAULT_HOLD)
-    fun exhaleSeconds(context: Context): Int = context.prefs().getInt(KEY_EXHALE, DEFAULT_EXHALE)
+    fun inhaleSeconds(context: Context): Int =
+        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_INHALE, DEFAULT_INHALE))
+    fun holdSeconds(context: Context): Int =
+        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_HOLD, DEFAULT_HOLD))
+    fun exhaleSeconds(context: Context): Int =
+        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_EXHALE, DEFAULT_EXHALE))
 
     fun setInhaleSeconds(context: Context, value: Int) {
         context.prefs().edit().putInt(KEY_INHALE, value).apply()
@@ -75,10 +85,19 @@ object SettingsStore {
     }
 
     /** Seconds the breathing wind-down stays non-skippable before the action buttons appear. */
-    fun lockSeconds(context: Context): Int = context.prefs().getInt(KEY_LOCK, DEFAULT_LOCK)
+    fun lockSeconds(context: Context): Int =
+        SettingsRanges.lockSeconds(context.prefs().getInt(KEY_LOCK, DEFAULT_LOCK))
 
     fun setLockSeconds(context: Context, value: Int) {
         context.prefs().edit().putInt(KEY_LOCK, value).apply()
+    }
+
+    /** Minutes the wind-down's "Snooze" action re-arms the timer for. */
+    fun snoozeMinutes(context: Context): Int =
+        SettingsRanges.snoozeMinutes(context.prefs().getInt(KEY_SNOOZE_MINUTES, DEFAULT_SNOOZE_MINUTES))
+
+    fun setSnoozeMinutes(context: Context, value: Int) {
+        context.prefs().edit().putInt(KEY_SNOOZE_MINUTES, value).apply()
     }
 
     /** Package names the "Stop for now" break should cover when they're opened. */
@@ -92,10 +111,22 @@ object SettingsStore {
 
     /** How many minutes a "Stop for now" break keeps the chosen apps covered. */
     fun blockMinutes(context: Context): Int =
-        context.prefs().getInt(KEY_BLOCK_MINUTES, DEFAULT_BLOCK_MINUTES)
+        SettingsRanges.blockMinutes(context.prefs().getInt(KEY_BLOCK_MINUTES, DEFAULT_BLOCK_MINUTES))
 
     fun setBlockMinutes(context: Context, value: Int) {
         context.prefs().edit().putInt(KEY_BLOCK_MINUTES, value).apply()
+    }
+
+    /**
+     * The media-stream volume saved when a pause muted it, or -1 when nothing is muted.
+     * Persisted so that if the process is killed mid-pause (force-stop, low memory) the
+     * next launch can restore the volume instead of leaving the user stranded at zero.
+     */
+    fun mutedVolume(context: Context): Int = context.prefs().getInt(KEY_MUTED_VOLUME, -1)
+
+    @SuppressLint("ApplySharedPref") // committed synchronously so it survives an imminent kill
+    fun setMutedVolume(context: Context, volume: Int) {
+        context.prefs().edit().putInt(KEY_MUTED_VOLUME, volume).commit()
     }
 
     private fun Context.prefs() = getSharedPreferences(PREFS, Context.MODE_PRIVATE)

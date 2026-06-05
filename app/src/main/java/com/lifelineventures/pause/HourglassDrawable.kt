@@ -8,7 +8,6 @@ import android.graphics.PixelFormat
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import kotlin.math.min
-import kotlin.math.sqrt
 
 /**
  * An hourglass that drains as a timer runs down. [progress] is the fraction of time
@@ -109,8 +108,7 @@ class HourglassDrawable : Drawable() {
 
         // Remaining volume in the top bulb, remapped so it never reads as fully
         // full or fully empty; the surface tracks its square root for the conical taper.
-        val fill = END_FILL + (START_FILL - END_FILL) * progress
-        val surface = sqrt(fill)
+        val surface = HourglassMath.surface(progress)
 
         // Top sand settles against the neck; its surface descends toward it.
         val topSurfaceY = neckY - surface * (neckY - glassTop)
@@ -149,11 +147,4 @@ class HourglassDrawable : Drawable() {
 
     @Deprecated("Deprecated in Java", ReplaceWith("PixelFormat.TRANSLUCENT"))
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
-
-    private companion object {
-        /** Top-bulb fill at the start of a timer — just below full so it looks settling, not frozen. */
-        const val START_FILL = 0.80f
-        /** Top-bulb fill at the end — a sliver remains so it stops "right before" empty. */
-        const val END_FILL = 0.06f
-    }
 }
