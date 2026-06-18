@@ -21,8 +21,8 @@ import kotlin.math.min
  *    the sand *surface* tracks the square root of the remaining volume: it falls slowly
  *    while the wide part drains, then rushes as it nears the neck.
  *
- * Drawn mono (white with the same ~0.55 glass / brighter sand alphas as the other
- * bubble glyphs) so it stays consistent with the deliberately un-accented icon set.
+ * Drawn pure white to match the rest of the bubble icon set; legibility over light
+ * backgrounds comes from the soft drop shadow [ShadowDrawable] paints beneath it.
  */
 class HourglassDrawable : Drawable() {
 
@@ -31,19 +31,16 @@ class HourglassDrawable : Drawable() {
     private val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         color = 0xFFFFFFFF.toInt()
-        alpha = (0.65f * 255).toInt()
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
     private val sandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         color = 0xFFFFFFFF.toInt()
-        alpha = (0.92f * 255).toInt()
     }
     private val streamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         color = 0xFFFFFFFF.toInt()
-        alpha = (0.92f * 255).toInt()
         strokeCap = Paint.Cap.ROUND
     }
 

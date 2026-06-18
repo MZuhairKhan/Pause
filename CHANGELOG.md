@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   moved into a testable `PauseLogic.kt` with no Android dependencies.
 - **Smoother app-blocking break** — the foreground-app usage query now runs on a
   background thread, so the per-second poll no longer risks janking the UI on slow devices.
+- **Visible floating bubble** — the bubble glyph is now pure white with a soft drop shadow
+  (Instagram-style) instead of a translucent plate, so the icon and countdown stay legible
+  over light *and* dark content. A new `ShadowDrawable` bakes the blurred silhouette shadow
+  for the stopwatch and hourglass; the countdown number uses a text shadow.
 
 ### Fixed
 - **No more silent timer misses** — if the scheduled alarm is dropped (some OEMs do this
