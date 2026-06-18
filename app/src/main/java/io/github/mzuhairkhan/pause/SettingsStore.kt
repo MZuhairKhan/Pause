@@ -11,7 +11,16 @@ object SettingsStore {
     private const val KEY_POS_X = "bubble_pos_x"
     private const val KEY_POS_Y = "bubble_pos_y"
     private const val DEFAULT_POS_X = 1f
-    private const val DEFAULT_POS_Y = 0.33f
+    // First-run vertical spot, as a window-TOP fraction of the draggable area. Tuned so the
+    // bubble's center lands exactly one rail-slot above Instagram's heart, so the gap above the
+    // heart matches the gaps between the native icons. Measured from a 1080×2340 Reels screenshot:
+    // heart center ~0.335 of height, rail spacing ~0.086 → target center ~0.249; with the
+    // Instagram-preset bubble (~132px) that is a top fraction of ~0.234. Only affects fresh
+    // installs (a saved position wins).
+    private const val DEFAULT_POS_Y = 0.234f
+    private const val KEY_BUBBLE_PRESET = "bubble_preset"
+    private const val KEY_BUBBLE_CUSTOM_SIZE = "bubble_custom_size"
+    private const val KEY_BUBBLE_CUSTOM_EDGE = "bubble_custom_edge"
     private const val KEY_THEME_MODE = "theme_mode"
     private const val KEY_ACCENT_COLOR = "accent_color"
     private const val KEY_INHALE = "breath_inhale"
@@ -47,6 +56,34 @@ object SettingsStore {
     fun saveBubbleFraction(context: Context, x: Float, y: Float) {
         context.prefs().edit().putFloat(KEY_POS_X, x).putFloat(KEY_POS_Y, y).apply()
     }
+
+    /** Which app's action rail the bubble's size/offset matches (see [BubblePresets]). */
+    fun bubblePreset(context: Context): Int =
+        context.prefs().getInt(KEY_BUBBLE_PRESET, BubblePresets.INSTAGRAM)
+            .coerceIn(BubblePresets.INSTAGRAM, BubblePresets.CUSTOM)
+
+    fun setBubblePreset(context: Context, preset: Int) {
+        context.prefs().edit().putInt(KEY_BUBBLE_PRESET, preset).apply()
+    }
+
+    /** Custom (slider) size/edge fractions, used when the preset is [BubblePresets.CUSTOM]. */
+    fun customBubbleSize(context: Context): Float =
+        context.prefs().getFloat(KEY_BUBBLE_CUSTOM_SIZE, BubblePresets.DEFAULT_CUSTOM.sizeFraction)
+
+    fun setCustomBubbleSize(context: Context, value: Float) {
+        context.prefs().edit().putFloat(KEY_BUBBLE_CUSTOM_SIZE, value).apply()
+    }
+
+    fun customBubbleEdge(context: Context): Float =
+        context.prefs().getFloat(KEY_BUBBLE_CUSTOM_EDGE, BubblePresets.DEFAULT_CUSTOM.edgeFraction)
+
+    fun setCustomBubbleEdge(context: Context, value: Float) {
+        context.prefs().edit().putFloat(KEY_BUBBLE_CUSTOM_EDGE, value).apply()
+    }
+
+    /** The resolved bubble size/edge fractions for the current preset (and custom values). */
+    fun bubbleMetrics(context: Context): BubbleMetrics =
+        BubblePresets.metrics(bubblePreset(context), customBubbleSize(context), customBubbleEdge(context))
 
     /** 0 = follow system, 1 = light, 2 = dark. */
     fun themeMode(context: Context): Int =
