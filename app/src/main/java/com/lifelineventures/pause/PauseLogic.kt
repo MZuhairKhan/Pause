@@ -81,3 +81,48 @@ object SettingsRanges {
     fun themeMode(value: Int): Int = value.coerceIn(THEME_MIN, THEME_MAX)
     fun fraction(value: Float): Float = if (value.isNaN()) 0f else value.coerceIn(0f, 1f)
 }
+
+/**
+ * Bubble geometry as fractions of the screen's shorter side. [sizeFraction] is the bubble
+ * window (and thus the glyph) size; [edgeFraction] is the margin between the bubble and the
+ * screen edge when snapped — raising it moves the bubble inward without changing its size.
+ */
+data class BubbleMetrics(val sizeFraction: Float, val edgeFraction: Float)
+
+/**
+ * Per-app presets for the floating bubble, so it lines up with the chosen app's action rail.
+ * Calibrated to the like/comment icons in 1080×2340 screenshots — tune via the in-app preview.
+ * Preset indices: 0 = Instagram (default), 1 = TikTok, 2 = Shorts, 3 = Custom (slider values).
+ */
+object BubblePresets {
+    const val INSTAGRAM = 0
+    const val TIKTOK = 1
+    const val SHORTS = 2
+    const val CUSTOM = 3
+
+    const val SIZE_MIN = 0.10f
+    const val SIZE_MAX = 0.22f
+    const val EDGE_MIN = 0.0f
+    const val EDGE_MAX = 0.060f
+
+    // Anchored to a measured Instagram rail: 44dp glyph, 8dp from the edge on a 1080px/360dp
+    // screen → fractions 44/360 and 8/360. TikTok/Shorts keep their relative offsets (TikTok
+    // sits a touch further in; Shorts runs slightly larger).
+    private val TABLE = mapOf(
+        INSTAGRAM to BubbleMetrics(0.122f, 0.022f),
+        TIKTOK to BubbleMetrics(0.122f, 0.033f),
+        SHORTS to BubbleMetrics(0.130f, 0.027f),
+    )
+
+    /** Default custom values start where the Instagram preset sits. */
+    val DEFAULT_CUSTOM: BubbleMetrics = TABLE.getValue(INSTAGRAM)
+
+    /** Resolves metrics for [preset], using [customSize]/[customEdge] (clamped) when Custom. */
+    fun metrics(preset: Int, customSize: Float, customEdge: Float): BubbleMetrics = when (preset) {
+        CUSTOM -> BubbleMetrics(
+            customSize.coerceIn(SIZE_MIN, SIZE_MAX),
+            customEdge.coerceIn(EDGE_MIN, EDGE_MAX)
+        )
+        else -> TABLE[preset] ?: TABLE.getValue(INSTAGRAM)
+    }
+}

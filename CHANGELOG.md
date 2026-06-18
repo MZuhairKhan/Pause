@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Per-app bubble alignment** — the floating bubble now scales with the screen and offers
+  **Instagram / TikTok / Shorts / Custom** presets that match each app's action rail, with a
+  live in-app preview (showing the real dp size + edge offset) and 0.1%-precision Custom
+  size/edge sliders. Size and edge gap are independent: size resizes the glyph; edge gap
+  slides it inward without resizing. It also spawns one rail-slot above the like button.
 - **Snooze** — the breathing wind-down now offers a "Snooze N min" action that dismisses
   the wind-down and re-arms the timer, with a configurable snooze length (default 5 min)
   in the setup screen's *Breathing wind-down* section.

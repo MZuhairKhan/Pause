@@ -234,6 +234,13 @@ class OverlayService : Service() {
             return START_NOT_STICKY
         }
 
+        // A bubble-metrics refresh (alignment preset changed in the app) just re-applies size
+        // and padding to the live bubble, without disturbing a running timer.
+        if (intent?.action == ACTION_REFRESH_BUBBLE && bubbleView != null) {
+            applyBubbleMetrics()
+            return START_STICKY
+        }
+
         showBubble()
         // A new (or restarted) service session always starts idle — a prior timer is not
         // resumed, and any leftover alarm is cancelled. Only the bubble location persists.
@@ -256,7 +263,7 @@ class OverlayService : Service() {
         view.post {
             if (bubbleView !== view) return@post
             applyBubblePosition(params)
-            windowManager.updateViewLayout(view, params)
+            safeUpdateViewLayout(view, params)
         }
     }
 
@@ -309,6 +316,17 @@ class OverlayService : Service() {
         }
     }
 
+    /** Updates an overlay view's layout, tolerating a revoked permission or a detached view. */
+    private fun safeUpdateViewLayout(view: View, params: WindowManager.LayoutParams) {
+        try {
+            windowManager.updateViewLayout(view, params)
+        } catch (e: IllegalArgumentException) {
+            // View no longer attached (teardown raced a drag/animation frame); ignore.
+        } catch (e: WindowManager.BadTokenException) {
+            // Overlay permission revoked mid-gesture; ignore rather than crash.
+        }
+    }
+
     // --- Overlay bubble ---
 
     @SuppressLint("ClickableViewAccessibility")
@@ -319,6 +337,8 @@ class OverlayService : Service() {
         if (!Settings.canDrawOverlays(this)) return
 
         val view = LayoutInflater.from(this).inflate(R.layout.overlay_bubble, null)
+        // No inner padding: the glyph fills the window (its own shadow/cap insets give margin).
+        // The gap from the screen edge is the snap margin, not padding — see applyBubblePosition.
         val params = WindowManager.LayoutParams(
             bubbleSizePx(),
             bubbleSizePx(),
@@ -351,7 +371,37 @@ class OverlayService : Service() {
         bubbleCountdown = null
     }
 
-    private fun bubbleSizePx(): Int = (BUBBLE_SIZE_DP * resources.displayMetrics.density).roundToInt()
+    /** Bubble window size: a fraction of the screen's shorter side (per the chosen app preset),
+     *  clamped to a sane dp range. */
+    private fun bubbleSizePx(): Int {
+        val (w, h) = screenSize()
+        val basis = minOf(w, h).toFloat()
+        val d = resources.displayMetrics.density
+        return (SettingsStore.bubbleMetrics(this).sizeFraction * basis)
+            .coerceIn(BUBBLE_MIN_DP * d, BUBBLE_MAX_DP * d).roundToInt()
+    }
+
+    /**
+     * Margin between the bubble window and the screen edge when snapped — proportional to the
+     * screen. Independent of [bubbleSizePx]: raising it moves the whole bubble inward without
+     * resizing it (the glyph fills the window).
+     */
+    private fun bubbleEdgeMarginPx(): Int {
+        val (w, h) = screenSize()
+        val basis = minOf(w, h).toFloat()
+        return (SettingsStore.bubbleMetrics(this).edgeFraction * basis).coerceAtLeast(0f).roundToInt()
+    }
+
+    /** Re-applies size + edge offset to a live bubble after the user changes the alignment. */
+    private fun applyBubbleMetrics() {
+        val view = bubbleView ?: return
+        val params = bubbleParams ?: return
+        params.width = bubbleSizePx()
+        params.height = bubbleSizePx()
+        applyBubblePosition(params)   // re-snaps to the edge with the new size + margin
+        safeUpdateViewLayout(view, params)
+        saveBubblePosition()
+    }
 
     /**
      * Places the bubble at its stored fractional position against the current screen,
@@ -360,7 +410,11 @@ class OverlayService : Service() {
     private fun applyBubblePosition(params: WindowManager.LayoutParams) {
         val (screenW, screenH) = screenSize()
         val size = bubbleSizePx()
-        params.x = BubblePosition.toPixels(posFractionX, (screenW - size).coerceAtLeast(0))
+        val maxX = (screenW - size).coerceAtLeast(0)
+        val margin = bubbleEdgeMarginPx().coerceAtMost(maxX / 2)
+        // The bubble always rests against the left or right edge (which side is kept in the
+        // stored fraction), inset by the edge margin. Vertical stays a free fraction.
+        params.x = if (posFractionX < 0.5f) margin else maxX - margin
         params.y = BubblePosition.toPixels(posFractionY, (screenH - size).coerceAtLeast(0))
     }
 
@@ -484,7 +538,7 @@ class OverlayService : Service() {
                         val maxY = (screenH - view.height).coerceAtLeast(0)
                         params.x = (startX + dx.roundToInt()).coerceIn(0, maxX)
                         params.y = (startY + dy.roundToInt()).coerceIn(0, maxY)
-                        windowManager.updateViewLayout(view, params)
+                        safeUpdateViewLayout(view, params)
                         updateDismissProximity()
                     }
                     return true
@@ -592,8 +646,10 @@ class OverlayService : Service() {
         val params = bubbleParams ?: return
         val view = bubbleView ?: return
         val (screenW, _) = screenSize()
-        val maxX = (screenW - bubbleSizePx()).coerceAtLeast(0)
-        val targetX = if (params.x + bubbleSizePx() / 2 < screenW / 2) 0 else maxX
+        val size = bubbleSizePx()
+        val maxX = (screenW - size).coerceAtLeast(0)
+        val margin = bubbleEdgeMarginPx().coerceAtMost(maxX / 2)
+        val targetX = if (params.x + size / 2 < screenW / 2) margin else maxX - margin
 
         snapAnimator?.cancel()
         snapAnimator = ValueAnimator.ofInt(params.x, targetX).apply {
@@ -601,7 +657,7 @@ class OverlayService : Service() {
             addUpdateListener { animation ->
                 if (bubbleView !== view) return@addUpdateListener
                 params.x = animation.animatedValue as Int
-                windowManager.updateViewLayout(view, params)
+                safeUpdateViewLayout(view, params)
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
@@ -641,7 +697,7 @@ class OverlayService : Service() {
                 val fraction = animation.animatedValue as Float
                 params.x = (fromX + (targetX - fromX) * fraction).roundToInt()
                 params.y = (fromY + (targetY - fromY) * fraction).roundToInt()
-                windowManager.updateViewLayout(view, params)
+                safeUpdateViewLayout(view, params)
             }
             start()
         }
@@ -1145,12 +1201,32 @@ class OverlayService : Service() {
         if (blockView == null) {
             if (!Settings.canDrawOverlays(this)) return
             val view = LayoutInflater.from(overlayContext()).inflate(R.layout.block_overlay, null)
+            val actions = view.findViewById<View>(R.id.block_actions)
+            val confirm = view.findViewById<View>(R.id.block_confirm)
             view.findViewById<TextView>(R.id.block_home).apply {
                 backgroundTintList = ColorStateList.valueOf(accentColor())
                 setOnClickListener {
                     Haptics.tap(it)
                     goHome()
                     hideBlockOverlay()
+                }
+            }
+            // Exitable, but gated by an "Are you sure?" so it isn't a one-tap escape.
+            view.findViewById<TextView>(R.id.block_end).setOnClickListener {
+                Haptics.tap(it)
+                actions.visibility = View.GONE
+                confirm.visibility = View.VISIBLE
+            }
+            view.findViewById<TextView>(R.id.block_confirm_keep).setOnClickListener {
+                Haptics.tap(it)
+                confirm.visibility = View.GONE
+                actions.visibility = View.VISIBLE
+            }
+            view.findViewById<TextView>(R.id.block_confirm_end).apply {
+                backgroundTintList = ColorStateList.valueOf(accentColor())
+                setOnClickListener {
+                    Haptics.tap(it)
+                    stopBreak()
                 }
             }
             view.isFocusableInTouchMode = true
@@ -1303,7 +1379,11 @@ class OverlayService : Service() {
         private const val CHANNEL_ID = "pause_status"
         private val LEGACY_CHANNELS = listOf("overlay_service", "overlay_service_min")
         private const val NOTIFICATION_ID = 1
-        private const val BUBBLE_SIZE_DP = 56f
+        // The floating bubble is sized and spaced as a fraction of the screen's shorter side
+        // (the exact fractions come from the chosen app preset in SettingsStore), so it holds
+        // the same look across devices. These dp bounds just keep it sane on extreme screens.
+        private const val BUBBLE_MIN_DP = 40f
+        private const val BUBBLE_MAX_DP = 96f
 
         /** Soft drop shadow that keeps the pure-white bubble glyph legible on any background. */
         private const val ICON_SHADOW_BLUR_DP = 4f
@@ -1314,7 +1394,7 @@ class OverlayService : Service() {
         private const val DISMISS_SLOP_DP = 16f
         private const val DISMISS_CANCEL_EXTRA_DP = 48f
         private const val DEFAULT_X_FRACTION = 1f
-        private const val DEFAULT_Y_FRACTION = 0.33f
+        private const val DEFAULT_Y_FRACTION = 0.234f
         private const val CUSTOM_MIN = 1
         private const val CUSTOM_MAX = 120
         private const val REQ_ALARM = 100
@@ -1329,6 +1409,16 @@ class OverlayService : Service() {
         private const val FOREGROUND_LOOKBACK_MS = 10_000L
 
         const val ACTION_TIMER_FIRED = "com.lifelineventures.pause.action.TIMER_FIRED"
+        const val ACTION_REFRESH_BUBBLE = "com.lifelineventures.pause.action.REFRESH_BUBBLE"
+
+        /** Re-applies the bubble's size/offset to a running overlay (no-op if not running). */
+        fun refreshBubble(context: Context) {
+            if (!_running.value) return
+            val intent = Intent(context, OverlayService::class.java).apply {
+                action = ACTION_REFRESH_BUBBLE
+            }
+            context.startForegroundService(intent)
+        }
 
         fun start(context: Context) {
             val intent = Intent(context, OverlayService::class.java)

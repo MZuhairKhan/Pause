@@ -94,6 +94,32 @@ class BubblePositionTest {
     }
 }
 
+class BubblePresetsTest {
+    @Test fun fixedPresetsIgnoreCustomValues() {
+        assertEquals(0.122f, BubblePresets.metrics(BubblePresets.INSTAGRAM, 0.5f, 0.5f).sizeFraction, 1e-6f)
+        assertEquals(0.033f, BubblePresets.metrics(BubblePresets.TIKTOK, 0.5f, 0.5f).edgeFraction, 1e-6f)
+    }
+
+    @Test fun customUsesSliderValues() {
+        val m = BubblePresets.metrics(BubblePresets.CUSTOM, 0.18f, 0.05f)
+        assertEquals(0.18f, m.sizeFraction, 1e-6f)
+        assertEquals(0.05f, m.edgeFraction, 1e-6f)
+    }
+
+    @Test fun customClampsOutOfRange() {
+        assertEquals(BubblePresets.SIZE_MAX, BubblePresets.metrics(BubblePresets.CUSTOM, 9f, 0.03f).sizeFraction, 1e-6f)
+        assertEquals(BubblePresets.EDGE_MIN, BubblePresets.metrics(BubblePresets.CUSTOM, 0.15f, 0f).edgeFraction, 1e-6f)
+    }
+
+    @Test fun unknownPresetFallsBackToInstagram() {
+        assertEquals(
+            BubblePresets.metrics(BubblePresets.INSTAGRAM, 0f, 0f).sizeFraction,
+            BubblePresets.metrics(99, 0f, 0f).sizeFraction,
+            1e-6f
+        )
+    }
+}
+
 class SettingsRangesTest {
     @Test fun breathSecondsClampToOneToTwenty() {
         assertEquals(1, SettingsRanges.breathSeconds(0))

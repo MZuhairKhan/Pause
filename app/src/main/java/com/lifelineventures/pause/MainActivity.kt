@@ -81,6 +81,16 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.res.painterResource
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlin.math.roundToInt
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -146,6 +156,9 @@ private fun OnboardingScreen(
     var batteryExempt by remember { mutableStateOf(isBatteryOptimizationIgnored(context)) }
     val serviceRunning by OverlayService.running.collectAsState()
     var showCountdown by remember { mutableStateOf(SettingsStore.showCountdown(context)) }
+    var bubblePreset by remember { mutableStateOf(SettingsStore.bubblePreset(context)) }
+    var customBubbleSize by remember { mutableStateOf(SettingsStore.customBubbleSize(context)) }
+    var customBubbleEdge by remember { mutableStateOf(SettingsStore.customBubbleEdge(context)) }
     var inhale by remember { mutableStateOf(SettingsStore.inhaleSeconds(context)) }
     var hold by remember { mutableStateOf(SettingsStore.holdSeconds(context)) }
     var exhale by remember { mutableStateOf(SettingsStore.exhaleSeconds(context)) }
@@ -267,6 +280,58 @@ private fun OnboardingScreen(
             ) {
                 showCountdown = it
                 SettingsStore.setShowCountdown(context, it)
+            }
+
+            Text(
+                "Match the action rail of:",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("Instagram", "TikTok", "Shorts", "Custom").forEachIndexed { index, label ->
+                    val onPick = {
+                        bubblePreset = index
+                        SettingsStore.setBubblePreset(context, index)
+                        OverlayService.refreshBubble(context)
+                    }
+                    val content = @Composable {
+                        Text(
+                            label,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Clip,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                    val contentPad = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                    if (index == bubblePreset) {
+                        Button(onPick, Modifier.weight(1f), contentPadding = contentPad) { content() }
+                    } else {
+                        OutlinedButton(onPick, Modifier.weight(1f), contentPadding = contentPad) { content() }
+                    }
+                }
+            }
+
+            val metrics = BubblePresets.metrics(bubblePreset, customBubbleSize, customBubbleEdge)
+            BubbleAlignmentPreview(metrics.sizeFraction, metrics.edgeFraction, flashKey = bubblePreset)
+
+            if (bubblePreset == BubblePresets.CUSTOM) {
+                LabeledSlider(
+                    "Size", customBubbleSize, BubblePresets.SIZE_MIN..BubblePresets.SIZE_MAX,
+                    onChange = { customBubbleSize = it },
+                    onCommit = {
+                        SettingsStore.setCustomBubbleSize(context, customBubbleSize)
+                        OverlayService.refreshBubble(context)
+                    }
+                )
+                LabeledSlider(
+                    "Edge gap", customBubbleEdge, BubblePresets.EDGE_MIN..BubblePresets.EDGE_MAX,
+                    onChange = { customBubbleEdge = it },
+                    onCommit = {
+                        SettingsStore.setCustomBubbleEdge(context, customBubbleEdge)
+                        OverlayService.refreshBubble(context)
+                    }
+                )
             }
         }
 
@@ -649,6 +714,76 @@ private fun SwitchRow(
             }
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/**
+ * Previews the floating bubble at its real dp size and edge offset for the current alignment,
+ * on a screen-width strip — 1:1 with how it lands on this device. Size sets the glyph size;
+ * the edge gap moves it inward (it doesn't resize). Pops briefly when [flashKey] changes.
+ */
+@Composable
+private fun BubbleAlignmentPreview(sizeFraction: Float, edgeFraction: Float, flashKey: Any) {
+    val widthDp = LocalConfiguration.current.screenWidthDp
+    val bubbleDp = widthDp * sizeFraction
+    val gapDp = widthDp * edgeFraction
+    val pop = remember { Animatable(1f) }
+    LaunchedEffect(flashKey) {
+        pop.snapTo(0.8f)
+        pop.animateTo(1f, animationSpec = tween(240))
+    }
+    Column {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(170.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
+        ) {
+            Image(
+                painter = painterResource(R.drawable.ic_hourglass),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant),
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = gapDp.dp)
+                    .size(bubbleDp.dp)
+                    .graphicsLayer { scaleX = pop.value; scaleY = pop.value }
+            )
+        }
+        Text(
+            "Actual size ≈ ${bubbleDp.roundToInt()}dp · ${gapDp.roundToInt()}dp from the edge",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun LabeledSlider(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    onChange: (Float) -> Unit,
+    onCommit: () -> Unit
+) {
+    Column {
+        // One-decimal percent, e.g. "12.2%".
+        Text(
+            "$label · ${(value * 1000).roundToInt() / 10.0}%",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        // Snap to 0.1% (0.001) so the value has one-decimal precision. onChange updates state
+        // live (so the preview tracks the drag); the persist + overlay refresh fire once on
+        // release, so a drag doesn't spam startForegroundService.
+        Slider(
+            value = value,
+            onValueChange = { onChange((it * 1000).roundToInt() / 1000f) },
+            valueRange = range,
+            onValueChangeFinished = onCommit
+        )
     }
 }
 
