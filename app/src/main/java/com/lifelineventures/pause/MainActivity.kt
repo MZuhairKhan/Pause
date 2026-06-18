@@ -59,6 +59,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -88,6 +89,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lifelineventures.pause.ui.theme.Accents
 import com.lifelineventures.pause.ui.theme.PauseTheme
 import kotlinx.coroutines.Dispatchers
@@ -159,11 +163,23 @@ private fun OnboardingScreen(
         notificationsGranted = granted
     }
 
-    LaunchedEffect(Unit) {
-        overlayGranted = Settings.canDrawOverlays(context)
-        notificationsGranted = hasNotificationPermission(context)
-        batteryExempt = isBatteryOptimizationIgnored(context)
-        usageAccessGranted = hasUsageAccess(context)
+    // Re-read permission state every time the screen returns to the foreground. The
+    // overlay, battery, and usage permissions are granted on external Settings screens
+    // that report nothing back, so without this the rows would stay stale at "Grant"
+    // after the user comes back. ON_RESUME also fires on first display, so this supplies
+    // the initial reconciliation too (the remember initializers give the first-frame value).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                overlayGranted = Settings.canDrawOverlays(context)
+                notificationsGranted = hasNotificationPermission(context)
+                batteryExempt = isBatteryOptimizationIgnored(context)
+                usageAccessGranted = hasUsageAccess(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     val allPermissionsGranted = overlayGranted && notificationsGranted && batteryExempt

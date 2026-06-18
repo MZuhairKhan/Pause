@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **No stranded mute** — the pre-mute media volume is now persisted, so if the app is
   killed mid-pause (force-stop, low memory) the next launch restores the volume instead
   of leaving the user stuck at zero.
+- **Permission rows refresh on return** — the setup screen now re-checks permission state
+  whenever it returns to the foreground, so granting "Display over other apps", "Ignore
+  battery optimization", or "Usage access" in the system Settings screens immediately
+  flips the row to "Granted" (and reflects an already-granted battery exemption) instead
+  of staying stuck at "Grant".
 
 ## [0.3.0] — 2026-06-03
 
