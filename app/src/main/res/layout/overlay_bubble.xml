@@ -2,7 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="13dp">
+    android:padding="9dp">
 
     <ImageView
         android:id="@+id/bubble_icon"
@@ -17,6 +17,10 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:maxLines="1"
+        android:shadowColor="#B3000000"
+        android:shadowDx="0"
+        android:shadowDy="1"
+        android:shadowRadius="6"
         android:textColor="#FFFFFFFF"
         android:textSize="15sp"
         android:textStyle="bold"

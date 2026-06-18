@@ -20,6 +20,7 @@ import android.content.pm.ServiceInfo
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.PixelFormat
+import android.graphics.drawable.Drawable
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -45,6 +46,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.TimePicker
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import java.util.Calendar
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -366,7 +368,7 @@ class OverlayService : Service() {
             // Countdown number is off: show the draining hourglass that cycles through
             // its fill levels as the timer runs down.
             val glyph = hourglass ?: HourglassDrawable().also { hourglass = it }
-            bubbleIcon?.setImageDrawable(glyph)
+            bubbleIcon?.setImageDrawable(withIconShadow(glyph))
             bubbleIcon?.visibility = View.VISIBLE
             bubbleCountdown?.visibility = View.GONE
         }
@@ -377,9 +379,22 @@ class OverlayService : Service() {
     private fun setBubbleIdle() {
         bubbleCountdown?.visibility = View.GONE
         hourglass = null
-        bubbleIcon?.setImageResource(R.drawable.ic_stopwatch)
+        ContextCompat.getDrawable(this, R.drawable.ic_stopwatch)?.let {
+            bubbleIcon?.setImageDrawable(withIconShadow(it))
+        }
         bubbleIcon?.visibility = View.VISIBLE
         refreshTicker()
+    }
+
+    /** Wraps a bubble glyph in the soft white-icon drop shadow that keeps it legible on any background. */
+    private fun withIconShadow(drawable: Drawable): ShadowDrawable {
+        val density = resources.displayMetrics.density
+        return ShadowDrawable(
+            content = drawable,
+            blurRadiusPx = ICON_SHADOW_BLUR_DP * density,
+            shadowColor = ICON_SHADOW_COLOR,
+            dyPx = ICON_SHADOW_DY_DP * density
+        )
     }
 
     /** Fraction of the active timer still remaining (1 at the start, 0 at the end). */
@@ -1257,6 +1272,11 @@ class OverlayService : Service() {
         private const val OLD_CHANNEL_ID = "overlay_service"
         private const val NOTIFICATION_ID = 1
         private const val BUBBLE_SIZE_DP = 56f
+
+        /** Soft drop shadow that keeps the pure-white bubble glyph legible on any background. */
+        private const val ICON_SHADOW_BLUR_DP = 4f
+        private const val ICON_SHADOW_DY_DP = 1f
+        private val ICON_SHADOW_COLOR = 0xB3000000.toInt()
         private const val DISMISS_SIZE_DP = 64f
         private const val DISMISS_MARGIN_DP = 48f
         private const val DISMISS_SLOP_DP = 16f
