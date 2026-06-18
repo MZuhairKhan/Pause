@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark variant of the overlay picker theme (see values/themes.xml for light). -->
+    <style name="Theme.Pause.Overlay" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorAccent">#FF7C5CFF</item>
+        <item name="android:textColorPrimary">@color/overlay_on_scrim</item>
+        <item name="android:textColorSecondary">@color/overlay_on_scrim_secondary</item>
+    </style>
+</resources>

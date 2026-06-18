@@ -21,7 +21,7 @@
             android:id="@+id/picker_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#FFFFFFFF"
+            android:textColor="@color/overlay_on_scrim"
             android:textSize="19sp"
             android:textStyle="bold" />
 
@@ -40,7 +40,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/picker_remaining_label"
-                android:textColor="#B3FFFFFF"
+                android:textColor="@color/overlay_on_scrim_secondary"
                 android:textSize="13sp" />
 
             <TextView
@@ -49,7 +49,7 @@
                 android:layout_height="wrap_content"
                 android:paddingTop="2dp"
                 android:paddingBottom="14dp"
-                android:textColor="#FFFFFFFF"
+                android:textColor="@color/overlay_on_scrim"
                 android:textSize="40sp"
                 android:textStyle="bold" />
 
@@ -65,7 +65,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/picker_show_countdown"
-                    android:textColor="#FFFFFFFF"
+                    android:textColor="@color/overlay_on_scrim"
                     android:textSize="14sp" />
 
                 <Switch
@@ -83,7 +83,7 @@
                 android:focusable="true"
                 android:gravity="center"
                 android:text="@string/picker_cancel"
-                android:textColor="#FFFF8A80"
+                android:textColor="@color/overlay_danger"
                 android:textSize="15sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -101,7 +101,7 @@
                 android:paddingTop="3dp"
                 android:paddingBottom="16dp"
                 android:text="@string/picker_subtitle"
-                android:textColor="#B3FFFFFF"
+                android:textColor="@color/overlay_on_scrim_secondary"
                 android:textSize="13sp" />
 
             <LinearLayout
@@ -159,7 +159,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:gravity="center"
-                        android:textColor="#FFFFFFFF"
+                        android:textColor="@color/overlay_on_chip"
                         android:textSize="16sp" />
 
                     <TextView
@@ -172,7 +172,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:gravity="center"
-                        android:textColor="#FFFFFFFF"
+                        android:textColor="@color/overlay_on_chip"
                         android:textSize="16sp" />
 
                     <TextView
@@ -184,7 +184,7 @@
                         android:clickable="true"
                         android:focusable="true"
                         android:gravity="center"
-                        android:textColor="#FFFFFFFF"
+                        android:textColor="@color/overlay_on_chip"
                         android:textSize="16sp" />
                 </LinearLayout>
 
@@ -206,7 +206,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="10dp"
                         android:text="@string/picker_minutes_label"
-                        android:textColor="#FFFFFFFF"
+                        android:textColor="@color/overlay_on_scrim"
                         android:textSize="16sp" />
                 </LinearLayout>
 
@@ -264,7 +264,7 @@
                 android:focusable="true"
                 android:gravity="center"
                 android:text="@string/picker_stop_overlay"
-                android:textColor="#FFFFFFFF"
+                android:textColor="@color/overlay_on_chip"
                 android:textSize="14sp" />
         </LinearLayout>
     </LinearLayout>

@@ -2,11 +2,12 @@
 <resources>
     <style name="Theme.Pause" parent="android:Theme.Material.Light.NoActionBar" />
 
-    <!-- Dark theme used only when inflating the overlay picker, so the platform
-         NumberPicker / TimePicker spinners render light text on the dark card. -->
-    <style name="Theme.Pause.Overlay" parent="android:Theme.Material.NoActionBar">
+    <!-- Theme used when inflating the overlay picker, so the platform NumberPicker /
+         TimePicker spinners match the surface. Light variant here; values-night/themes.xml
+         overrides it with the dark parent for dark mode. -->
+    <style name="Theme.Pause.Overlay" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:colorAccent">#FF7C5CFF</item>
-        <item name="android:textColorPrimary">#FFFFFFFF</item>
-        <item name="android:textColorSecondary">#B3FFFFFF</item>
+        <item name="android:textColorPrimary">@color/overlay_on_scrim</item>
+        <item name="android:textColorSecondary">@color/overlay_on_scrim_secondary</item>
     </style>
 </resources>

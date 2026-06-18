@@ -3,7 +3,7 @@
     android:id="@+id/block_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF101014"
+    android:background="@color/overlay_scrim"
     android:clickable="true"
     android:focusable="true">
 
@@ -21,7 +21,8 @@
             android:layout_height="64dp"
             android:layout_marginBottom="24dp"
             android:contentDescription="@null"
-            android:src="@drawable/ic_stopwatch" />
+            android:src="@drawable/ic_stopwatch"
+            android:tint="@color/overlay_on_scrim" />
 
         <TextView
             android:id="@+id/block_title"
@@ -29,7 +30,7 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:text="@string/block_title"
-            android:textColor="#FFFFFFFF"
+            android:textColor="@color/overlay_on_scrim"
             android:textSize="22sp"
             android:textStyle="bold" />
 
@@ -39,7 +40,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:gravity="center"
-            android:textColor="#B3FFFFFF"
+            android:textColor="@color/overlay_on_scrim_secondary"
             android:textSize="15sp" />
 
         <TextView
@@ -48,7 +49,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:gravity="center"
-            android:textColor="#FFFFFFFF"
+            android:textColor="@color/overlay_on_scrim"
             android:textSize="44sp"
             android:textStyle="bold" />
 
