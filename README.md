@@ -8,7 +8,7 @@ A small translucent floating button for Android that lets you set a "stop using 
 
 Tap a draggable bubble that floats over any app. Pick a **duration** (5 / 10 / 15 min presets or a 1–120 min scroll wheel) or set a **clock alarm** for a specific time. When the timer fires, an overlay nudges you to stop. You choose how strict the nudge is — a banner, a notification, a full-screen breathing exercise, or an escalating sequence.
 
-App-agnostic by design: it doesn't track which app you're in, doesn't use the Accessibility Service, doesn't read usage stats. The user decides when to tap it.
+App-agnostic by design and privacy-light: the core timer doesn't use the Accessibility Service and reads no usage data. The **optional** "Stop for now" app-blocking break is the one exception — only when you enable it and grant Usage Access does it read the *current foreground package* (to tell when a blocked app is open), and nothing else. Nothing is ever sent off the device. The user decides when to tap the bubble.
 
 ## Tech stack
 
