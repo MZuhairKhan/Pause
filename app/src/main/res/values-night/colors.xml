@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark-mode overlay surfaces (see values/colors.xml for the light values). -->
+<resources>
+    <color name="overlay_scrim">#FF101014</color>
+    <color name="overlay_card">#FF201F26</color>
+    <color name="overlay_on_scrim">#FFFFFFFF</color>
+    <color name="overlay_on_scrim_secondary">#B3FFFFFF</color>
+    <color name="overlay_chip">#26FFFFFF</color>
+    <color name="overlay_on_chip">#FFFFFFFF</color>
+    <color name="overlay_danger">#FFFF8A80</color>
+</resources>

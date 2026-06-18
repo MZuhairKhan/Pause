@@ -2,4 +2,15 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Overlay surfaces (picker, breathing, break cover). Light values here; the
+         values-night/ variants flip them for dark mode. The floating bubble does NOT use
+         these — it stays white-on-shadow so it reads over any app. -->
+    <color name="overlay_scrim">#FFF6F4FB</color>
+    <color name="overlay_card">#FFFFFFFF</color>
+    <color name="overlay_on_scrim">#FF1B1B1F</color>
+    <color name="overlay_on_scrim_secondary">#99000000</color>
+    <color name="overlay_chip">#14000000</color>
+    <color name="overlay_on_chip">#FF1B1B1F</color>
+    <color name="overlay_danger">#FFC62828</color>
 </resources>

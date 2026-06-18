@@ -3,7 +3,7 @@
     android:id="@+id/breathing_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FF101014"
+    android:background="@color/overlay_scrim"
     android:clickable="true"
     android:focusable="true">
 
@@ -22,7 +22,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal|top"
         android:layout_marginTop="104dp"
-        android:textColor="#FFFFFFFF"
+        android:textColor="@color/overlay_on_scrim"
         android:textSize="22sp"
         android:textStyle="bold" />
 
@@ -54,7 +54,7 @@
                 android:focusable="true"
                 android:gravity="center"
                 android:text="@string/breathing_keep"
-                android:textColor="#FFFFFFFF"
+                android:textColor="@color/overlay_on_chip"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
@@ -82,7 +82,7 @@
             android:clickable="true"
             android:focusable="true"
             android:padding="8dp"
-            android:textColor="#B3FFFFFF"
+            android:textColor="@color/overlay_on_scrim_secondary"
             android:textSize="14sp" />
     </LinearLayout>
 </FrameLayout>
