@@ -6,6 +6,9 @@
     <string name="overlay_notification_title">Pause is ready</string>
     <string name="overlay_notification_title_running">Pause</string>
     <string name="overlay_notification_text">Tap the floating button to set a timer.</string>
+    <string name="overlay_notification_off_title">Pause</string>
+    <string name="overlay_notification_off_text">Tap Start to show the floating timer button.</string>
+    <string name="overlay_notification_start">Start</string>
     <string name="overlay_notification_active_soon">Alarm in under a minute</string>
     <string name="overlay_notification_active_minutes">Alarm in %1$d min</string>
     <string name="overlay_notification_active_hours">Alarm in %1$dh</string>

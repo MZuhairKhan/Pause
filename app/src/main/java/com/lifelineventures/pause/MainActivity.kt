@@ -176,13 +176,20 @@ private fun OnboardingScreen(
                 notificationsGranted = hasNotificationPermission(context)
                 batteryExempt = isBatteryOptimizationIgnored(context)
                 usageAccessGranted = hasUsageAccess(context)
+                // Make sure the persistent "Start Pause" notification is present while the
+                // overlay is off (it self-skips when running or without notification access).
+                OverlayService.showStartNotification(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val allPermissionsGranted = overlayGranted && notificationsGranted && batteryExempt
+    // The three required permissions drive the "All set ✓" summary and the Start button.
+    // Usage access is optional, so it only gates the *auto-collapse* — the section stays
+    // open (showing the optional row) until everything, including usage access, is granted.
+    val requiredPermissionsGranted = overlayGranted && notificationsGranted && batteryExempt
+    val everyPermissionGranted = requiredPermissionsGranted && usageAccessGranted
 
     Column(
         modifier = modifier
@@ -207,7 +214,10 @@ private fun OnboardingScreen(
             Text(if (serviceRunning) "Stop overlay service" else "Start overlay service")
         }
 
-        PermissionsSection(allGranted = allPermissionsGranted) {
+        PermissionsSection(
+            summaryGranted = requiredPermissionsGranted,
+            collapseGranted = everyPermissionGranted
+        ) {
             PermissionRow(
                 label = "Display over other apps",
                 granted = overlayGranted,
@@ -347,7 +357,7 @@ private fun OnboardingScreen(
                 snoozeMin,
                 min = SettingsRanges.SNOOZE_MIN_MINUTES,
                 max = SettingsRanges.SNOOZE_MAX_MINUTES,
-                unit = " min"
+                unit = "m"
             ) {
                 snoozeMin = it
                 SettingsStore.setSnoozeMinutes(context, it)
@@ -437,13 +447,19 @@ private fun Hero(accentColor: Int) {
 /** A static hourglass logo (mostly-full, not animated) on a soft accent glow. */
 @Composable
 private fun BubblePreview(accentColor: Int) {
-    val drawable = remember { HourglassDrawable().apply { setProgress(1f) } }
     val accent = Color(accentColor)
+    // Chip and glyph follow the theme so the logo reads on both light and dark backgrounds
+    // (the glyph contrasts the chip in either mode), keyed so it rebuilds on a theme switch.
+    val chipColor = MaterialTheme.colorScheme.surfaceVariant
+    val glyphColor = MaterialTheme.colorScheme.onSurfaceVariant.toArgb()
+    // The same frame the launcher/notification icons are baked from (~70% top, 30% bottom,
+    // mid-flow) so the in-app logo and the icons match exactly.
+    val drawable = remember(glyphColor) { HourglassDrawable(glyphColor).apply { setProgress(0.58f) } }
     Box(
         modifier = Modifier.size(132.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Soft accent halo behind the bubble so the glyph reads against a dark background.
+        // Soft accent halo behind the bubble.
         Box(
             modifier = Modifier
                 .matchParentSize()
@@ -456,12 +472,13 @@ private fun BubblePreview(accentColor: Int) {
             modifier = Modifier
                 .size(96.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF101014))
+                .background(chipColor)
                 .border(1.5.dp, accent.copy(alpha = 0.55f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             AndroidView(
-                factory = { ctx -> ImageView(ctx).apply { setImageDrawable(drawable) } },
+                factory = { ctx -> ImageView(ctx) },
+                update = { it.setImageDrawable(drawable) },
                 modifier = Modifier.size(54.dp)
             )
         }
@@ -506,13 +523,20 @@ private fun SettingsSection(
 }
 
 /**
- * Permissions get their own section: it auto-collapses to a green "All set" summary
- * once every permission is granted, and re-expands if one is later revoked.
+ * Permissions get their own section. The green "All set ✓" summary shows once the
+ * required permissions are granted ([summaryGranted]); the section only auto-collapses
+ * once everything including the optional usage access is granted ([collapseGranted]), so
+ * the optional row stays visible. It re-expands if a permission is later revoked, and can
+ * always be collapsed/expanded by hand.
  */
 @Composable
-private fun PermissionsSection(allGranted: Boolean, content: @Composable ColumnScope.() -> Unit) {
-    var expanded by remember { mutableStateOf(!allGranted) }
-    LaunchedEffect(allGranted) { expanded = !allGranted }
+private fun PermissionsSection(
+    summaryGranted: Boolean,
+    collapseGranted: Boolean,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    var expanded by remember { mutableStateOf(!collapseGranted) }
+    LaunchedEffect(collapseGranted) { expanded = !collapseGranted }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             modifier = Modifier
@@ -527,7 +551,7 @@ private fun PermissionsSection(allGranted: Boolean, content: @Composable ColumnS
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleMedium
             )
-            if (allGranted) {
+            if (summaryGranted) {
                 Text(
                     "All set ✓",
                     color = GrantedGreen,

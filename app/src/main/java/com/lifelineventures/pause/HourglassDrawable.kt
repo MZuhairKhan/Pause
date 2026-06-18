@@ -24,23 +24,23 @@ import kotlin.math.min
  * Drawn pure white to match the rest of the bubble icon set; legibility over light
  * backgrounds comes from the soft drop shadow [ShadowDrawable] paints beneath it.
  */
-class HourglassDrawable : Drawable() {
+class HourglassDrawable(glyphColor: Int = 0xFFFFFFFF.toInt()) : Drawable() {
 
     private var progress = 1f
 
     private val glassPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = 0xFFFFFFFF.toInt()
+        color = glyphColor
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
     private val sandPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = 0xFFFFFFFF.toInt()
+        color = glyphColor
     }
     private val streamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        color = 0xFFFFFFFF.toInt()
+        color = glyphColor
         strokeCap = Paint.Cap.ROUND
     }
 

@@ -45,7 +45,9 @@ import android.widget.NumberPicker
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.TimePicker
+import android.Manifest
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import java.util.Calendar
 import kotlin.math.abs
@@ -190,7 +192,7 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        createNotificationChannel()
+        ensureChannel(this)
         restoreStrandedVolume()
         _running.value = true
     }
@@ -214,14 +216,22 @@ class OverlayService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = buildNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            // Some OEMs (or a stricter Android 14+ state) can reject the foreground start even
+            // from a notification action. Degrade gracefully instead of crashing: stop the
+            // service — onDestroy restores the persistent "Start" notification to retry from.
+            stopSelf()
+            return START_NOT_STICKY
         }
 
         showBubble()
@@ -264,6 +274,10 @@ class OverlayService : Service() {
         pollThread?.quitSafely()
         pollThread = null
         pollHandler = null
+        // Detach (don't remove) the foreground notification, then turn it into the persistent
+        // "Start Pause" notification so the overlay can be relaunched from the shade.
+        stopForeground(STOP_FOREGROUND_DETACH)
+        showStartNotification(this)
         super.onDestroy()
     }
 
@@ -643,6 +657,27 @@ class OverlayService : Service() {
         )
     }
 
+    /** True when the overlay surfaces should render dark, honouring the in-app theme choice. */
+    private fun overlayNight(): Boolean = when (SettingsStore.themeMode(this)) {
+        1 -> false
+        2 -> true
+        else -> (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+    }
+
+    /**
+     * A context whose night mode is pinned to the app's theme choice, so the picker, breathing
+     * and break-cover overlays resolve the light or dark `overlay_*` colors (and the picker's
+     * day/night theme) accordingly. The floating bubble does NOT use this — it stays universal.
+     */
+    private fun overlayContext(): Context {
+        val config = Configuration(resources.configuration).apply {
+            uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                (if (overlayNight()) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO)
+        }
+        return createConfigurationContext(config)
+    }
+
     // --- Timer picker ---
 
     @SuppressLint("InflateParams")
@@ -650,8 +685,9 @@ class OverlayService : Service() {
         if (pickerView != null) return
         if (!Settings.canDrawOverlays(this)) return
 
-        // Inflate with a dark theme so the platform spinners are legible on the card.
-        val themed = ContextThemeWrapper(this, R.style.Theme_Pause_Overlay)
+        // Inflate with the day/night overlay theme so the platform spinners and card colors
+        // match the app's chosen light/dark mode.
+        val themed = ContextThemeWrapper(overlayContext(), R.style.Theme_Pause_Overlay)
         val view = LayoutInflater.from(themed).inflate(R.layout.timer_picker, null)
 
         val title = view.findViewById<TextView>(R.id.picker_title)
@@ -719,6 +755,10 @@ class OverlayService : Service() {
         tabAlarm.text = getString(R.string.picker_mode_alarm)
 
         val accentTint = ColorStateList.valueOf(accentColor())
+        // White reads on the accent-tinted (selected) tab; the unselected tab sits on the
+        // neutral chip, so its text must follow the theme to stay legible in light mode.
+        val onAccent = 0xFFFFFFFF.toInt()
+        val onChip = ContextCompat.getColor(view.context, R.color.overlay_on_chip)
         fun selectMode(duration: Boolean) {
             sectionDuration.visibility = if (duration) View.VISIBLE else View.GONE
             sectionAlarm.visibility = if (duration) View.GONE else View.VISIBLE
@@ -726,6 +766,8 @@ class OverlayService : Service() {
             tabAlarm.setBackgroundResource(if (duration) R.drawable.chip_bg else R.drawable.chip_accent_bg)
             tabDuration.backgroundTintList = if (duration) accentTint else null
             tabAlarm.backgroundTintList = if (duration) null else accentTint
+            tabDuration.setTextColor(if (duration) onAccent else onChip)
+            tabAlarm.setTextColor(if (duration) onChip else onAccent)
         }
 
         tabDuration.setOnClickListener {
@@ -900,7 +942,7 @@ class OverlayService : Service() {
         if (breathingView != null) return
         if (!Settings.canDrawOverlays(this)) return
 
-        val view = LayoutInflater.from(this).inflate(R.layout.breathing, null)
+        val view = LayoutInflater.from(overlayContext()).inflate(R.layout.breathing, null)
         val circle = view.findViewById<View>(R.id.breathing_circle)
         circle.backgroundTintList = ColorStateList.valueOf(accentColor())
         val phase = view.findViewById<TextView>(R.id.breathing_phase)
@@ -1042,6 +1084,11 @@ class OverlayService : Service() {
         ensurePollThread()
         blockHandler.removeCallbacks(blockRunnable)
         blockHandler.post(blockRunnable)
+        // Leave the app you were in right away. Foreground detection relies on a fresh
+        // MOVE_TO_FOREGROUND event, which a long-running app (mid-scroll) won't have emitted
+        // recently — so without this the cover wouldn't appear until you navigated away and
+        // back. Going home stops playback now and makes re-opening a blocked app detectable.
+        goHome()
     }
 
     /** Spins up the background looper for usage queries on first use; reused across breaks. */
@@ -1097,7 +1144,7 @@ class OverlayService : Service() {
         // Cover the app (and mute it) if not already, then keep the subtitle current.
         if (blockView == null) {
             if (!Settings.canDrawOverlays(this)) return
-            val view = LayoutInflater.from(this).inflate(R.layout.block_overlay, null)
+            val view = LayoutInflater.from(overlayContext()).inflate(R.layout.block_overlay, null)
             view.findViewById<TextView>(R.id.block_home).apply {
                 backgroundTintList = ColorStateList.valueOf(accentColor())
                 setOnClickListener {
@@ -1192,21 +1239,6 @@ class OverlayService : Service() {
 
     // --- Notification / foreground service ---
 
-    private fun createNotificationChannel() {
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        // Drop the louder LOW-importance channel from earlier builds.
-        manager.deleteNotificationChannel(OLD_CHANNEL_ID)
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.overlay_channel_name),
-            NotificationManager.IMPORTANCE_MIN
-        ).apply {
-            description = getString(R.string.overlay_channel_description)
-            setShowBadge(false)
-        }
-        manager.createNotificationChannel(channel)
-    }
-
     private fun updateNotification() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(NOTIFICATION_ID, buildNotification())
@@ -1255,11 +1287,11 @@ class OverlayService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_hourglass)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
     }
 
@@ -1268,8 +1300,8 @@ class OverlayService : Service() {
         private val _running = MutableStateFlow(false)
         val running: StateFlow<Boolean> = _running
 
-        private const val CHANNEL_ID = "overlay_service_min"
-        private const val OLD_CHANNEL_ID = "overlay_service"
+        private const val CHANNEL_ID = "pause_status"
+        private val LEGACY_CHANNELS = listOf("overlay_service", "overlay_service_min")
         private const val NOTIFICATION_ID = 1
         private const val BUBBLE_SIZE_DP = 56f
 
@@ -1287,6 +1319,8 @@ class OverlayService : Service() {
         private const val CUSTOM_MAX = 120
         private const val REQ_ALARM = 100
         private const val REQ_SHOW = 101
+        private const val REQ_START = 102
+        private const val REQ_OPEN = 103
         private const val BREATH_MIN = 0.35f
 
         /** How often the active break checks the foreground app. */
@@ -1311,6 +1345,60 @@ class OverlayService : Service() {
                 action = ACTION_TIMER_FIRED
             }
             context.startForegroundService(intent)
+        }
+
+        /** Creates the LOW-importance status channel and clears out the earlier channels. */
+        fun ensureChannel(context: Context) {
+            val manager = context.getSystemService(NotificationManager::class.java) ?: return
+            LEGACY_CHANNELS.forEach { manager.deleteNotificationChannel(it) }
+            val channel = NotificationChannel(
+                CHANNEL_ID,
+                context.getString(R.string.overlay_channel_name),
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = context.getString(R.string.overlay_channel_description)
+                setShowBadge(false)
+            }
+            manager.createNotificationChannel(channel)
+        }
+
+        /**
+         * Posts the persistent "Start Pause" notification shown whenever the overlay isn't
+         * running, so the service can be launched from the shade — including after a reboot.
+         * Tapping Start launches the foreground service, whose own notification replaces this
+         * one. No-op while the overlay is running, or while notifications aren't permitted.
+         */
+        @SuppressLint("MissingPermission") // guarded by canPostNotifications below
+        fun showStartNotification(context: Context) {
+            if (_running.value || !canPostNotifications(context)) return
+            ensureChannel(context)
+            val startIntent = Intent(context, OverlayService::class.java)
+            val startPi = PendingIntent.getForegroundService(
+                context, REQ_START, startIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val openPi = PendingIntent.getActivity(
+                context, REQ_OPEN, Intent(context, MainActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setContentTitle(context.getString(R.string.overlay_notification_off_title))
+                .setContentText(context.getString(R.string.overlay_notification_off_text))
+                .setSmallIcon(R.drawable.ic_hourglass)
+                .setContentIntent(openPi)
+                .addAction(0, context.getString(R.string.overlay_notification_start), startPi)
+                .setOngoing(true)
+                .setSilent(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build()
+            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+        }
+
+        private fun canPostNotifications(context: Context): Boolean {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
+            return ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
         }
     }
 }

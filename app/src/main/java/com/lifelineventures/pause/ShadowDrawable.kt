@@ -36,7 +36,13 @@ class ShadowDrawable(
 
     init {
         content.callback = object : Callback {
-            override fun invalidateDrawable(who: Drawable) = invalidateSelf()
+            // Rebuild the shadow from the content's *current* silhouette so it tracks animated
+            // content (the draining hourglass): emptied regions have no alpha, hence no shadow,
+            // instead of leaving a stale dark blob where the sand used to be.
+            override fun invalidateDrawable(who: Drawable) {
+                rebuildShadow(bounds.width(), bounds.height())
+                invalidateSelf()
+            }
             override fun scheduleDrawable(who: Drawable, what: Runnable, time: Long) =
                 scheduleSelf(what, time)
             override fun unscheduleDrawable(who: Drawable, what: Runnable) =
