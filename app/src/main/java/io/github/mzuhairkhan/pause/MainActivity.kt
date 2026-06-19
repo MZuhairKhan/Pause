@@ -82,14 +82,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.res.painterResource
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.graphics.graphicsLayer
 import kotlin.math.roundToInt
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -219,8 +211,13 @@ private fun OnboardingScreen(
             onClick = {
                 if (serviceRunning) {
                     OverlayService.stop(context)
-                } else {
+                } else if (Settings.canDrawOverlays(context)) {
                     OverlayService.start(context)
+                } else {
+                    // The cached grant only refreshes on resume; if it was revoked while this
+                    // screen stayed open, correct the flag (disabling the button) rather than
+                    // starting a service that can't draw the bubble.
+                    overlayGranted = false
                 }
             }
         ) {
@@ -282,8 +279,20 @@ private fun OnboardingScreen(
                 SettingsStore.setShowCountdown(context, it)
             }
 
+            // Adjusting the size shows the real thing: start the overlay (or resize it live if
+            // it's already running) so the actual floating bubble appears at the new size, the
+            // way pressing Start does. Gated on the same permissions as Start; without them the
+            // choice is still saved and the readout updates, there's just nothing to draw.
+            val applyBubbleSize = {
+                // Re-check the overlay grant live (the cached flag only refreshes on resume), so a
+                // permission revoked while this screen stays open can't start a bubble-less service.
+                if (notificationsGranted && Settings.canDrawOverlays(context)) {
+                    OverlayService.refreshBubble(context)
+                }
+            }
+
             Text(
-                "Match the action rail of:",
+                "Match the icon size of:",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -292,7 +301,7 @@ private fun OnboardingScreen(
                     val onPick = {
                         bubblePreset = index
                         SettingsStore.setBubblePreset(context, index)
-                        OverlayService.refreshBubble(context)
+                        applyBubbleSize()
                     }
                     val content = @Composable {
                         Text(
@@ -313,7 +322,7 @@ private fun OnboardingScreen(
             }
 
             val metrics = BubblePresets.metrics(bubblePreset, customBubbleSize, customBubbleEdge)
-            BubbleAlignmentPreview(metrics.sizeFraction, metrics.edgeFraction, flashKey = bubblePreset)
+            BubbleSizeReadout(metrics.sizeFraction, metrics.edgeFraction)
 
             if (bubblePreset == BubblePresets.CUSTOM) {
                 LabeledSlider(
@@ -321,7 +330,7 @@ private fun OnboardingScreen(
                     onChange = { customBubbleSize = it },
                     onCommit = {
                         SettingsStore.setCustomBubbleSize(context, customBubbleSize)
-                        OverlayService.refreshBubble(context)
+                        applyBubbleSize()
                     }
                 )
                 LabeledSlider(
@@ -329,7 +338,7 @@ private fun OnboardingScreen(
                     onChange = { customBubbleEdge = it },
                     onCommit = {
                         SettingsStore.setCustomBubbleEdge(context, customBubbleEdge)
-                        OverlayService.refreshBubble(context)
+                        applyBubbleSize()
                     }
                 )
             }
@@ -718,47 +727,22 @@ private fun SwitchRow(
 }
 
 /**
- * Previews the floating bubble at its real dp size and edge offset for the current alignment,
- * on a screen-width strip — 1:1 with how it lands on this device. Size sets the glyph size;
- * the edge gap moves it inward (it doesn't resize). Pops briefly when [flashKey] changes.
+ * The floating bubble's real dp size and edge offset for the current alignment, 1:1 with how
+ * it lands on this device — size sets the glyph size, the edge gap moves it inward. The live
+ * visual is the actual overlay bubble, which appears/resizes on screen as the size is changed;
+ * this is just the numeric readout beneath the presets.
  */
 @Composable
-private fun BubbleAlignmentPreview(sizeFraction: Float, edgeFraction: Float, flashKey: Any) {
+private fun BubbleSizeReadout(sizeFraction: Float, edgeFraction: Float) {
     val widthDp = LocalConfiguration.current.screenWidthDp
     val bubbleDp = widthDp * sizeFraction
     val gapDp = widthDp * edgeFraction
-    val pop = remember { Animatable(1f) }
-    LaunchedEffect(flashKey) {
-        pop.snapTo(0.8f)
-        pop.animateTo(1f, animationSpec = tween(240))
-    }
-    Column {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(170.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp))
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_hourglass),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant),
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = gapDp.dp)
-                    .size(bubbleDp.dp)
-                    .graphicsLayer { scaleX = pop.value; scaleY = pop.value }
-            )
-        }
-        Text(
-            "Actual size ≈ ${bubbleDp.roundToInt()}dp · ${gapDp.roundToInt()}dp from the edge",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 6.dp)
-        )
-    }
+    Text(
+        "Actual size ≈ ${bubbleDp.roundToInt()}dp · ${gapDp.roundToInt()}dp from the edge",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 6.dp)
+    )
 }
 
 @Composable
