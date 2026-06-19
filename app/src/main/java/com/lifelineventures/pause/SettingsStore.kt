@@ -27,6 +27,7 @@ object SettingsStore {
     private const val KEY_HOLD = "breath_hold"
     private const val KEY_EXHALE = "breath_exhale"
     private const val KEY_LOCK = "breath_lock"
+    private const val KEY_BREATHING = "breath_enabled"
     private const val KEY_SNOOZE_MINUTES = "snooze_minutes"
     private const val KEY_MUTED_VOLUME = "muted_music_volume"
     private const val KEY_BLOCKED_APPS = "blocked_apps"
@@ -44,6 +45,15 @@ object SettingsStore {
 
     fun setShowCountdown(context: Context, enabled: Boolean) {
         context.prefs().edit().putBoolean(KEY_SHOW_COUNTDOWN, enabled).apply()
+    }
+
+    /** When true a finished timer runs the breathing exercise; when false it drops straight to
+     *  the dismiss options over the full themed background. */
+    fun breathingEnabled(context: Context): Boolean =
+        context.prefs().getBoolean(KEY_BREATHING, true)
+
+    fun setBreathingEnabled(context: Context, enabled: Boolean) {
+        context.prefs().edit().putBoolean(KEY_BREATHING, enabled).apply()
     }
 
     /** Bubble position as a fraction (0..1) of the draggable area — the one thing kept across sessions. */

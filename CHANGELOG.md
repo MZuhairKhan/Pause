@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Skippable wind-down** — the *Breathing wind-down* setup section gains a **Breathing exercise**
+  toggle. Turned off, a finished timer skips the breathing animation and the no-skip lock and drops
+  straight to the dismiss options (Keep scrolling / Stop for now / Snooze) over the full themed
+  background. The breathing-specific controls hide while it's off; snooze length still applies.
 - **Per-app bubble alignment** — the floating bubble now scales with the screen and offers
   **Instagram / TikTok / Shorts / Custom** presets that match each app's action rail, with a
   live in-app preview (showing the real dp size + edge offset) and 0.1%-precision Custom

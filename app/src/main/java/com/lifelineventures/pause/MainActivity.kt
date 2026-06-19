@@ -156,6 +156,7 @@ private fun OnboardingScreen(
     var exhale by remember { mutableStateOf(SettingsStore.exhaleSeconds(context)) }
     var lockSec by remember { mutableStateOf(SettingsStore.lockSeconds(context)) }
     var snoozeMin by remember { mutableStateOf(SettingsStore.snoozeMinutes(context)) }
+    var breathingOn by remember { mutableStateOf(SettingsStore.breathingEnabled(context)) }
     var blockMinutes by remember { mutableStateOf(SettingsStore.blockMinutes(context)) }
     var blockedApps by remember { mutableStateOf(SettingsStore.blockedApps(context)) }
     var usageAccessGranted by remember { mutableStateOf(hasUsageAccess(context)) }
@@ -405,26 +406,38 @@ private fun OnboardingScreen(
         }
 
         SettingsSection("Breathing wind-down") {
-            StepperRow("Breathe in", inhale) {
-                inhale = it
-                SettingsStore.setInhaleSeconds(context, it)
-            }
-            StepperRow("Hold", hold) {
-                hold = it
-                SettingsStore.setHoldSeconds(context, it)
-            }
-            StepperRow("Breathe out", exhale) {
-                exhale = it
-                SettingsStore.setExhaleSeconds(context, it)
-            }
-            StepperRow(
-                "No-skip lock",
-                lockSec,
-                min = SettingsRanges.LOCK_MIN_SECONDS,
-                max = SettingsRanges.LOCK_MAX_SECONDS
+            SwitchRow(
+                "Breathing exercise",
+                breathingOn,
+                subtitle = "Off skips the exercise — the timer ends with just the dismiss options."
             ) {
-                lockSec = it
-                SettingsStore.setLockSeconds(context, it)
+                breathingOn = it
+                SettingsStore.setBreathingEnabled(context, it)
+            }
+            // The breathing-specific controls are moot once the exercise is off; snooze still
+            // applies (snooze is one of the dismiss options either way).
+            if (breathingOn) {
+                StepperRow("Breathe in", inhale) {
+                    inhale = it
+                    SettingsStore.setInhaleSeconds(context, it)
+                }
+                StepperRow("Hold", hold) {
+                    hold = it
+                    SettingsStore.setHoldSeconds(context, it)
+                }
+                StepperRow("Breathe out", exhale) {
+                    exhale = it
+                    SettingsStore.setExhaleSeconds(context, it)
+                }
+                StepperRow(
+                    "No-skip lock",
+                    lockSec,
+                    min = SettingsRanges.LOCK_MIN_SECONDS,
+                    max = SettingsRanges.LOCK_MAX_SECONDS
+                ) {
+                    lockSec = it
+                    SettingsStore.setLockSeconds(context, it)
+                }
             }
             StepperRow(
                 "Snooze length",
