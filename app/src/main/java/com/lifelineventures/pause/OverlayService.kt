@@ -238,8 +238,9 @@ class OverlayService : Service() {
             return START_NOT_STICKY
         }
 
-        // A bubble-metrics refresh (alignment preset changed in the app) just re-applies size
-        // and padding to the live bubble, without disturbing a running timer.
+        // A bubble-metrics refresh (alignment changed in the app) re-applies size and padding to
+        // the live bubble without disturbing a running timer. If the overlay isn't up yet, fall
+        // through to the normal start below so the bubble appears at the saved metrics.
         if (intent?.action == ACTION_REFRESH_BUBBLE && bubbleView != null) {
             applyBubbleMetrics()
             return START_STICKY
@@ -1422,9 +1423,12 @@ class OverlayService : Service() {
         const val ACTION_TIMER_FIRED = "com.lifelineventures.pause.action.TIMER_FIRED"
         const val ACTION_REFRESH_BUBBLE = "com.lifelineventures.pause.action.REFRESH_BUBBLE"
 
-        /** Re-applies the bubble's size/offset to a running overlay (no-op if not running). */
+        /**
+         * Makes the live floating bubble reflect the latest saved size/offset, starting the
+         * overlay if it isn't already running so the real bubble appears at the new size — the
+         * setup screen uses this as the bubble-size preview. A running timer is left untouched.
+         */
         fun refreshBubble(context: Context) {
-            if (!_running.value) return
             val intent = Intent(context, OverlayService::class.java).apply {
                 action = ACTION_REFRESH_BUBBLE
             }
