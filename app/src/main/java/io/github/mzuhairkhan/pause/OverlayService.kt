@@ -1050,16 +1050,24 @@ class OverlayService : Service() {
         // Silence whatever was playing (a video, music) so the wind-down isn't competing
         // with background media; focus is handed back when the wind-down closes.
         muteMedia()
-        startBreathingAnimator(circle, phase)
-
-        val lockMs = SettingsStore.lockSeconds(this).toLong() * 1000L
-        view.postDelayed({
-            if (breathingView === view) {
-                actions.alpha = 0f
-                actions.visibility = View.VISIBLE
-                actions.animate().alpha(1f).setDuration(250L).start()
-            }
-        }, lockMs)
+        if (SettingsStore.breathingEnabled(this)) {
+            startBreathingAnimator(circle, phase)
+            // Hold the screen non-skippable for the lock window, then fade the actions in.
+            val lockMs = SettingsStore.lockSeconds(this).toLong() * 1000L
+            view.postDelayed({
+                if (breathingView === view) {
+                    actions.alpha = 0f
+                    actions.visibility = View.VISIBLE
+                    actions.animate().alpha(1f).setDuration(250L).start()
+                }
+            }, lockMs)
+        } else {
+            // Wind-down turned off: skip the breathing exercise and the lock window, dropping
+            // straight to the dismiss options over the full themed background.
+            circle.visibility = View.GONE
+            phase.visibility = View.GONE
+            actions.visibility = View.VISIBLE
+        }
     }
 
     private fun hideBreathing() {
