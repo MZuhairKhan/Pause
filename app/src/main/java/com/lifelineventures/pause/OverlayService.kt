@@ -434,7 +434,10 @@ class OverlayService : Service() {
 
     private fun setBubbleActive() {
         if (SettingsStore.showCountdown(this)) {
-            bubbleIcon?.visibility = View.GONE
+            // Trace the bubble's circle with a thin white ring (same shadow treatment as the
+            // glyphs) so the number reads as sitting inside the bubble, not floating loose.
+            bubbleIcon?.setImageDrawable(withIconShadow(RingDrawable()))
+            bubbleIcon?.visibility = View.VISIBLE
             bubbleCountdown?.visibility = View.VISIBLE
         } else {
             // Countdown number is off: show the draining hourglass that cycles through
