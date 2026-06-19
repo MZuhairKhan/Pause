@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a debug build on every push and pull request, and blocks PRs that don't update this file.
 
 ### Changed
+- **New defaults** — fresh installs now start with a light-blue accent, a 30-second no-skip lock,
+  a 30-minute break length, and the bubble countdown number off (the draining hourglass shows
+  instead). Existing installs keep whatever they've already set.
 - Pure overlay logic (time formatting, hourglass math, bubble placement, settings ranges)
   moved into a testable `PauseLogic.kt` with no Android dependencies.
 - **Smoother app-blocking break** — the foreground-app usage query now runs on a

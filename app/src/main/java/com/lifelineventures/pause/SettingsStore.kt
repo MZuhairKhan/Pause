@@ -35,13 +35,13 @@ object SettingsStore {
     private const val DEFAULT_INHALE = 4
     private const val DEFAULT_HOLD = 7
     private const val DEFAULT_EXHALE = 8
-    private const val DEFAULT_LOCK = 15
-    private const val DEFAULT_BLOCK_MINUTES = 5
+    private const val DEFAULT_LOCK = 30
+    private const val DEFAULT_BLOCK_MINUTES = 30
     private const val DEFAULT_SNOOZE_MINUTES = 5
 
     /** When true the active bubble shows a live countdown; when false it keeps the static glyph. */
     fun showCountdown(context: Context): Boolean =
-        context.prefs().getBoolean(KEY_SHOW_COUNTDOWN, true)
+        context.prefs().getBoolean(KEY_SHOW_COUNTDOWN, false)
 
     fun setShowCountdown(context: Context, enabled: Boolean) {
         context.prefs().edit().putBoolean(KEY_SHOW_COUNTDOWN, enabled).apply()
