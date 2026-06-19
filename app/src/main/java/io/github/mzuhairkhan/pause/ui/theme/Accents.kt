@@ -15,7 +15,7 @@ object Accents {
         0xFF757575.toInt()  // Mono (grayscale / B&W)
     )
     val names = arrayOf("Purple", "Blue", "Teal", "Green", "Orange", "Mono")
-    const val DEFAULT = 0
+    const val DEFAULT = 1 // Blue
 
     fun safeIndex(index: Int): Int = if (index in colors.indices) index else DEFAULT
 }
