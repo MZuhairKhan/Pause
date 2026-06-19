@@ -113,41 +113,37 @@
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+            <TextView
+                android:id="@+id/block_confirm_keep"
+                android:layout_width="wrap_content"
+                android:layout_height="52dp"
                 android:layout_marginTop="14dp"
-                android:orientation="horizontal">
+                android:background="@drawable/chip_accent_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:paddingStart="32dp"
+                android:paddingEnd="32dp"
+                android:text="@string/block_go_home"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/block_confirm_keep"
-                    android:layout_width="0dp"
-                    android:layout_height="52dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/chip_bg"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center"
-                    android:text="@string/block_confirm_keep"
-                    android:textColor="@color/overlay_on_chip"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/block_confirm_end"
-                    android:layout_width="0dp"
-                    android:layout_height="52dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/chip_accent_bg"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center"
-                    android:text="@string/block_confirm_end"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+            <TextView
+                android:id="@+id/block_confirm_end"
+                android:layout_width="wrap_content"
+                android:layout_height="52dp"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/chip_bg"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:paddingStart="32dp"
+                android:paddingEnd="32dp"
+                android:text="@string/block_confirm_end"
+                android:textColor="@color/overlay_on_chip"
+                android:textSize="15sp"
+                android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

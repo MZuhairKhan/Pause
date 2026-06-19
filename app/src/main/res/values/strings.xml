@@ -51,6 +51,5 @@
     <string name="block_go_home">Go to home screen</string>
     <string name="block_end_early">End break early</string>
     <string name="block_confirm_title">End your break early?</string>
-    <string name="block_confirm_keep">Keep going</string>
     <string name="block_confirm_end">End break</string>
 </resources>

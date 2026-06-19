@@ -133,10 +133,14 @@ class OverlayService : Service() {
     private fun applyForeground(foreground: String?) {
         // The break may have ended while the background query was in flight.
         if (blockUntilMillis == 0L) return
-        if (foreground != null && foreground in blockedPackages) {
-            showBlockOverlay(foreground)
-        } else {
-            hideBlockOverlay()
+        when {
+            // No MOVE_TO_FOREGROUND in the recent window means the user hasn't switched apps
+            // since the last poll (e.g. sitting in a blocked app past the lookback). Leave the
+            // cover as-is: treating "no recent event" as "left the app" is what made the cover
+            // disappear ~10s after a blocked app was opened.
+            foreground == null -> Unit
+            foreground in blockedPackages -> showBlockOverlay(foreground)
+            else -> hideBlockOverlay()
         }
     }
 
@@ -1121,17 +1125,19 @@ class OverlayService : Service() {
     // --- "Stop for now" app-blocking break ---
 
     /**
-     * The "Stop for now" action. If the user has chosen apps to block and granted usage
-     * access, this starts a timed break that covers those apps when opened; otherwise it
-     * just tears the overlay down (the original behaviour).
+     * The "Stop for now" action: always leaves the current app for the home screen. If the
+     * user has chosen apps to block and granted usage access, it also starts a timed break
+     * that covers those apps when reopened; otherwise it just tears the overlay down.
      */
     private fun stopForNow() {
+        hideBreathing()
         val apps = SettingsStore.blockedApps(this)
         if (apps.isEmpty() || !hasUsageAccess()) {
+            // No break to run: still leave the app, then stop the overlay (the original behaviour).
+            goHome()
             stopSelf()
             return
         }
-        hideBreathing()
         // The fired timer is done; return the bubble to idle while the break runs.
         resetToIdle()
         blockedPackages = apps
@@ -1217,17 +1223,19 @@ class OverlayService : Service() {
                 actions.visibility = View.GONE
                 confirm.visibility = View.VISIBLE
             }
-            view.findViewById<TextView>(R.id.block_confirm_keep).setOnClickListener {
-                Haptics.tap(it)
-                confirm.visibility = View.GONE
-                actions.visibility = View.VISIBLE
-            }
-            view.findViewById<TextView>(R.id.block_confirm_end).apply {
+            // Backing out of the confirm step just goes home (break stays armed), matching the
+            // primary "Go to home screen" action above.
+            view.findViewById<TextView>(R.id.block_confirm_keep).apply {
                 backgroundTintList = ColorStateList.valueOf(accentColor())
                 setOnClickListener {
                     Haptics.tap(it)
-                    stopBreak()
+                    goHome()
+                    hideBlockOverlay()
                 }
+            }
+            view.findViewById<TextView>(R.id.block_confirm_end).setOnClickListener {
+                Haptics.tap(it)
+                stopBreak()
             }
             view.isFocusableInTouchMode = true
             view.setOnKeyListener { _, keyCode, _ -> keyCode == KeyEvent.KEYCODE_BACK }
