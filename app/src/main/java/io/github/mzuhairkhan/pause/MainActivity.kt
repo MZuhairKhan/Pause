@@ -27,6 +27,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -374,9 +378,10 @@ private fun OnboardingScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Accents.colors.forEach { colorInt ->
+                Accents.colors.forEachIndexed { index, colorInt ->
                     AccentChip(
                         color = colorInt,
+                        name = Accents.names[index],
                         selected = colorInt == accentColor,
                         onClick = { onAccentChange(colorInt) }
                     )
@@ -464,7 +469,7 @@ private fun OnboardingScreen(
                     color = MaterialTheme.colorScheme.error
                 )
             }
-            StepperRow("Break length", blockMinutes, min = 1, max = 120, unit = " min") {
+            StepperRow("Break length", blockMinutes, min = 1, max = 120, unit = "m") {
                 blockMinutes = it
                 SettingsStore.setBlockMinutes(context, it)
             }
@@ -693,25 +698,35 @@ private fun Chevron(expanded: Boolean, tint: Color) {
 
 /** A circular accent swatch whose ring grows and brightens with a spring when selected. */
 @Composable
-private fun AccentChip(color: Int, selected: Boolean, onClick: () -> Unit) {
+private fun AccentChip(color: Int, name: String, selected: Boolean, onClick: () -> Unit) {
     val borderWidth by animateDpAsState(if (selected) 3.dp else 1.dp, label = "accentBorder")
     val chipSize by animateDpAsState(if (selected) 38.dp else 34.dp, label = "accentSize")
+    // A 48dp touch target around the smaller visual swatch; selectable + labelled so TalkBack
+    // announces the colour name and selected state instead of an unlabelled blob.
     Box(
         modifier = Modifier
-            .size(chipSize)
+            .size(48.dp)
             .clip(CircleShape)
-            .background(Color(color))
-            .border(
-                width = borderWidth,
-                color = if (selected) {
-                    MaterialTheme.colorScheme.onBackground
-                } else {
-                    MaterialTheme.colorScheme.outline
-                },
-                shape = CircleShape
-            )
-            .clickable { onClick() }
-    )
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .semantics { contentDescription = name },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(chipSize)
+                .clip(CircleShape)
+                .background(Color(color))
+                .border(
+                    width = borderWidth,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onBackground
+                    } else {
+                        MaterialTheme.colorScheme.outline
+                    },
+                    shape = CircleShape
+                )
+        )
+    }
 }
 
 @Composable
@@ -972,13 +987,21 @@ private fun StepperRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-        OutlinedButton(onClick = { onChange((value - 1).coerceAtLeast(min)) }) { Text("−") }
+        OutlinedButton(
+            onClick = { onChange((value - 1).coerceAtLeast(min)) },
+            modifier = Modifier.size(48.dp),
+            contentPadding = PaddingValues(0.dp)
+        ) { Text("−") }
         Text(
             "$value$unit",
             modifier = Modifier.padding(horizontal = 16.dp),
             style = MaterialTheme.typography.titleMedium
         )
-        OutlinedButton(onClick = { onChange((value + 1).coerceAtMost(max)) }) { Text("+") }
+        OutlinedButton(
+            onClick = { onChange((value + 1).coerceAtMost(max)) },
+            modifier = Modifier.size(48.dp),
+            contentPadding = PaddingValues(0.dp)
+        ) { Text("+") }
     }
 }
 

@@ -39,6 +39,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.view.accessibility.AccessibilityManager
 import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import android.widget.NumberPicker
@@ -98,6 +99,15 @@ class OverlayService : Service() {
 
     /** Package currently shown on the cover, to avoid relabelling it every poll. */
     private var coveredPackage: String? = null
+
+    /**
+     * Rolling foreground-detection cursor for the active break. [currentForegroundApp] queries
+     * usage events forward from [lastForegroundEventTime] (rather than a fixed window) and keeps
+     * the last app seen, so a foreground change isn't missed between polls and a blocked app
+     * reopened past the lookback is still re-covered. Reset when a break starts.
+     */
+    private var lastForegroundPackage: String? = null
+    private var lastForegroundEventTime = 0L
 
     private val blockHandler = Handler(Looper.getMainLooper())
 
@@ -231,9 +241,15 @@ class OverlayService : Service() {
                 startForeground(NOTIFICATION_ID, notification)
             }
         } catch (e: Exception) {
-            // Some OEMs (or a stricter Android 14+ state) can reject the foreground start even
-            // from a notification action. Degrade gracefully instead of crashing: stop the
-            // service — onDestroy restores the persistent "Start" notification to retry from.
+            // The OS refused to promote us to a foreground service (e.g. a stricter Android 14+
+            // background-start state the setAlarmClock allowlist didn't cover). For a timer fire
+            // the wind-down is the whole point, so still try to show it — the overlay window
+            // doesn't require foreground status — rather than letting the timer expire silently.
+            // Otherwise degrade by stopping; onDestroy re-posts the persistent "Start" notice.
+            if (intent?.action == ACTION_TIMER_FIRED && Settings.canDrawOverlays(this)) {
+                showBreathing()
+                return START_NOT_STICKY
+            }
             stopSelf()
             return START_NOT_STICKY
         }
@@ -1052,8 +1068,12 @@ class OverlayService : Service() {
         muteMedia()
         if (SettingsStore.breathingEnabled(this)) {
             startBreathingAnimator(circle, phase)
-            // Hold the screen non-skippable for the lock window, then fade the actions in.
-            val lockMs = SettingsStore.lockSeconds(this).toLong() * 1000L
+            // Hold the screen non-skippable for the lock window, then fade the actions in. Under
+            // a screen reader, skip the lock so a TalkBack user isn't trapped in a modal with no
+            // announced way out.
+            val screenReader = (getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)
+                ?.isTouchExplorationEnabled == true
+            val lockMs = if (screenReader) 0L else SettingsStore.lockSeconds(this).toLong() * 1000L
             view.postDelayed({
                 if (breathingView === view) {
                     actions.alpha = 0f
@@ -1063,19 +1083,23 @@ class OverlayService : Service() {
             }, lockMs)
         } else {
             // Wind-down turned off: skip the breathing exercise and the lock window, dropping
-            // straight to the dismiss options over the full themed background.
+            // straight to the dismiss options over the full themed background, with a headline
+            // filling the space the breathing circle would have occupied.
             circle.visibility = View.GONE
             phase.visibility = View.GONE
+            view.findViewById<View>(R.id.breathing_done).visibility = View.VISIBLE
             actions.visibility = View.VISIBLE
         }
     }
 
-    private fun hideBreathing() {
+    private fun hideBreathing(keepMute: Boolean = false) {
         breathingAnimator?.cancel()
         breathingAnimator = null
         breathingView?.let { safeRemoveView(it) }
         breathingView = null
-        unmuteMedia()
+        // A break that immediately follows keeps the mute, so there's no ~1s burst of the app's
+        // audio between the wind-down closing and the cover re-muting.
+        if (!keepMute) unmuteMedia()
     }
 
     /** Dismisses the wind-down and re-arms the timer so it fires again in [minutes]. */
@@ -1142,9 +1166,12 @@ class OverlayService : Service() {
      * that covers those apps when reopened; otherwise it just tears the overlay down.
      */
     private fun stopForNow() {
-        hideBreathing()
         val apps = SettingsStore.blockedApps(this)
-        if (apps.isEmpty() || !hasUsageAccess()) {
+        val willBlock = apps.isNotEmpty() && hasUsageAccess()
+        // When a break follows, keep media muted across the hand-off so there's no ~1s burst of
+        // the app's audio between the wind-down closing and the cover muting again.
+        hideBreathing(keepMute = willBlock)
+        if (!willBlock) {
             // No break to run: still leave the app, then stop the overlay (the original behaviour).
             goHome()
             stopSelf()
@@ -1155,6 +1182,8 @@ class OverlayService : Service() {
         blockedPackages = apps
         blockUntilMillis = System.currentTimeMillis() + SettingsStore.blockMinutes(this) * 60_000L
         coveredPackage = null
+        lastForegroundPackage = null
+        lastForegroundEventTime = 0L
         ensurePollThread()
         blockHandler.removeCallbacks(blockRunnable)
         blockHandler.post(blockRunnable)
@@ -1184,18 +1213,23 @@ class OverlayService : Service() {
     /** The package of the app currently in the foreground, via usage events (null if unknown). */
     @Suppress("DEPRECATION") // MOVE_TO_FOREGROUND is the constant that works back to API 26.
     private fun currentForegroundApp(): String? {
-        val usage = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return null
+        val usage = getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            ?: return lastForegroundPackage
         val now = System.currentTimeMillis()
-        val events = usage.queryEvents(now - FOREGROUND_LOOKBACK_MS, now)
+        // Query forward from the last event we processed, not a fixed window, so a foreground
+        // change is never missed between polls; keep the last app seen so a poll with no new
+        // events holds the cover decision steady instead of reading "unknown".
+        val since = if (lastForegroundEventTime > 0L) lastForegroundEventTime else now - FOREGROUND_LOOKBACK_MS
+        val events = usage.queryEvents(since, now)
         val event = UsageEvents.Event()
-        var latest: String? = null
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
+            if (event.timeStamp > lastForegroundEventTime) lastForegroundEventTime = event.timeStamp
             if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                latest = event.packageName
+                lastForegroundPackage = event.packageName
             }
         }
-        return latest
+        return lastForegroundPackage
     }
 
     private fun hasUsageAccess(): Boolean {

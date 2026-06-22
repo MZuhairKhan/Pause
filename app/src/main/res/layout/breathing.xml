@@ -8,13 +8,15 @@
     android:focusable="true">
 
     <!-- Empty circle (no numbers); scaled by the breathing animator, tinted with the accent. -->
+    <!-- Decorative: the phase text below carries the instruction for screen readers. -->
     <View
         android:id="@+id/breathing_circle"
         android:layout_width="220dp"
         android:layout_height="220dp"
         android:layout_gravity="center"
         android:alpha="0.85"
-        android:background="@drawable/breathing_circle_bg" />
+        android:background="@drawable/breathing_circle_bg"
+        android:importantForAccessibility="no" />
 
     <TextView
         android:id="@+id/breathing_phase"
@@ -22,9 +24,23 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal|top"
         android:layout_marginTop="104dp"
+        android:accessibilityLiveRegion="polite"
         android:textColor="@color/overlay_on_scrim"
         android:textSize="22sp"
         android:textStyle="bold" />
+
+    <!-- Shown only when the breathing exercise is off: a headline filling the empty centre. -->
+    <TextView
+        android:id="@+id/breathing_done"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:text="@string/breathing_done"
+        android:textColor="@color/overlay_on_scrim"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
 
     <!-- Revealed only after the non-skippable lock window. -->
     <LinearLayout
@@ -81,6 +97,9 @@
             android:layout_marginTop="14dp"
             android:clickable="true"
             android:focusable="true"
+            android:gravity="center"
+            android:minHeight="48dp"
+            android:minWidth="48dp"
             android:padding="8dp"
             android:textColor="@color/overlay_on_scrim_secondary"
             android:textSize="14sp" />
