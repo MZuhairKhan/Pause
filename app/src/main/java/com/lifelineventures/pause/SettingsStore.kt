@@ -32,16 +32,10 @@ object SettingsStore {
     private const val KEY_MUTED_VOLUME = "muted_music_volume"
     private const val KEY_BLOCKED_APPS = "blocked_apps"
     private const val KEY_BLOCK_MINUTES = "block_minutes"
-    private const val DEFAULT_INHALE = 4
-    private const val DEFAULT_HOLD = 7
-    private const val DEFAULT_EXHALE = 8
-    private const val DEFAULT_LOCK = 30
-    private const val DEFAULT_BLOCK_MINUTES = 30
-    private const val DEFAULT_SNOOZE_MINUTES = 5
 
     /** When true the active bubble shows a live countdown; when false it keeps the static glyph. */
     fun showCountdown(context: Context): Boolean =
-        context.prefs().getBoolean(KEY_SHOW_COUNTDOWN, false)
+        context.prefs().getBoolean(KEY_SHOW_COUNTDOWN, SettingsDefaults.SHOW_COUNTDOWN)
 
     fun setShowCountdown(context: Context, enabled: Boolean) {
         context.prefs().edit().putBoolean(KEY_SHOW_COUNTDOWN, enabled).apply()
@@ -50,7 +44,7 @@ object SettingsStore {
     /** When true a finished timer runs the breathing exercise; when false it drops straight to
      *  the dismiss options over the full themed background. */
     fun breathingEnabled(context: Context): Boolean =
-        context.prefs().getBoolean(KEY_BREATHING, true)
+        context.prefs().getBoolean(KEY_BREATHING, SettingsDefaults.BREATHING_ENABLED)
 
     fun setBreathingEnabled(context: Context, enabled: Boolean) {
         context.prefs().edit().putBoolean(KEY_BREATHING, enabled).apply()
@@ -113,11 +107,11 @@ object SettingsStore {
 
     /** Breathing wind-down phase durations in seconds (default 4-7-8: in 4, hold 7, out 8). */
     fun inhaleSeconds(context: Context): Int =
-        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_INHALE, DEFAULT_INHALE))
+        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_INHALE, SettingsDefaults.INHALE_SECONDS))
     fun holdSeconds(context: Context): Int =
-        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_HOLD, DEFAULT_HOLD))
+        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_HOLD, SettingsDefaults.HOLD_SECONDS))
     fun exhaleSeconds(context: Context): Int =
-        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_EXHALE, DEFAULT_EXHALE))
+        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_EXHALE, SettingsDefaults.EXHALE_SECONDS))
 
     fun setInhaleSeconds(context: Context, value: Int) {
         context.prefs().edit().putInt(KEY_INHALE, value).apply()
@@ -133,7 +127,7 @@ object SettingsStore {
 
     /** Seconds the breathing wind-down stays non-skippable before the action buttons appear. */
     fun lockSeconds(context: Context): Int =
-        SettingsRanges.lockSeconds(context.prefs().getInt(KEY_LOCK, DEFAULT_LOCK))
+        SettingsRanges.lockSeconds(context.prefs().getInt(KEY_LOCK, SettingsDefaults.LOCK_SECONDS))
 
     fun setLockSeconds(context: Context, value: Int) {
         context.prefs().edit().putInt(KEY_LOCK, value).apply()
@@ -141,7 +135,7 @@ object SettingsStore {
 
     /** Minutes the wind-down's "Snooze" action re-arms the timer for. */
     fun snoozeMinutes(context: Context): Int =
-        SettingsRanges.snoozeMinutes(context.prefs().getInt(KEY_SNOOZE_MINUTES, DEFAULT_SNOOZE_MINUTES))
+        SettingsRanges.snoozeMinutes(context.prefs().getInt(KEY_SNOOZE_MINUTES, SettingsDefaults.SNOOZE_MINUTES))
 
     fun setSnoozeMinutes(context: Context, value: Int) {
         context.prefs().edit().putInt(KEY_SNOOZE_MINUTES, value).apply()
@@ -158,7 +152,7 @@ object SettingsStore {
 
     /** How many minutes a "Stop for now" break keeps the chosen apps covered. */
     fun blockMinutes(context: Context): Int =
-        SettingsRanges.blockMinutes(context.prefs().getInt(KEY_BLOCK_MINUTES, DEFAULT_BLOCK_MINUTES))
+        SettingsRanges.blockMinutes(context.prefs().getInt(KEY_BLOCK_MINUTES, SettingsDefaults.BLOCK_MINUTES))
 
     fun setBlockMinutes(context: Context, value: Int) {
         context.prefs().edit().putInt(KEY_BLOCK_MINUTES, value).apply()

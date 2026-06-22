@@ -16,6 +16,4 @@ object Accents {
     )
     val names = arrayOf("Blue", "Purple", "Teal", "Green", "Orange", "Mono")
     const val DEFAULT = 0 // Blue
-
-    fun safeIndex(index: Int): Int = if (index in colors.indices) index else DEFAULT
 }

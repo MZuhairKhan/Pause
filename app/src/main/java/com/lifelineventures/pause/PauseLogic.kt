@@ -83,6 +83,22 @@ object SettingsRanges {
 }
 
 /**
+ * First-run default settings, kept in the pure layer (no Android Context) so they live beside
+ * the [SettingsRanges] that bound them and can be unit-tested directly. [SettingsStore] reads
+ * these as its SharedPreferences fallbacks.
+ */
+object SettingsDefaults {
+    const val SHOW_COUNTDOWN = false
+    const val BREATHING_ENABLED = true
+    const val INHALE_SECONDS = 4
+    const val HOLD_SECONDS = 7
+    const val EXHALE_SECONDS = 8
+    const val LOCK_SECONDS = 30
+    const val SNOOZE_MINUTES = 5
+    const val BLOCK_MINUTES = 30
+}
+
+/**
  * Bubble geometry as fractions of the screen's shorter side. [sizeFraction] is the bubble
  * window (and thus the glyph) size; [edgeFraction] is the margin between the bubble and the
  * screen edge when snapped — raising it moves the bubble inward without changing its size.

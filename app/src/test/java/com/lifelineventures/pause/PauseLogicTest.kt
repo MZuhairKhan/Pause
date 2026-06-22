@@ -1,6 +1,8 @@
 package com.lifelineventures.pause
 
+import com.lifelineventures.pause.ui.theme.Accents
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -157,5 +159,42 @@ class SettingsRangesTest {
         assertEquals(1f, SettingsRanges.fraction(2f), 1e-6f)
         assertEquals(0.5f, SettingsRanges.fraction(0.5f), 1e-6f)
         assertEquals(0f, SettingsRanges.fraction(Float.NaN), 1e-6f)
+    }
+}
+
+class SettingsDefaultsTest {
+    @Test fun firstRunValuesAreTheChosenDefaults() {
+        assertFalse(SettingsDefaults.SHOW_COUNTDOWN)   // bubble shows the draining hourglass
+        assertTrue(SettingsDefaults.BREATHING_ENABLED) // wind-down on by default
+        assertEquals(4, SettingsDefaults.INHALE_SECONDS)
+        assertEquals(7, SettingsDefaults.HOLD_SECONDS)
+        assertEquals(8, SettingsDefaults.EXHALE_SECONDS)
+        assertEquals(30, SettingsDefaults.LOCK_SECONDS)
+        assertEquals(5, SettingsDefaults.SNOOZE_MINUTES)
+        assertEquals(30, SettingsDefaults.BLOCK_MINUTES)
+    }
+
+    @Test fun everyNumericDefaultIsWithinItsRange() {
+        // A default outside its range would be silently clamped on read — a real footgun.
+        assertEquals(SettingsDefaults.INHALE_SECONDS, SettingsRanges.breathSeconds(SettingsDefaults.INHALE_SECONDS))
+        assertEquals(SettingsDefaults.HOLD_SECONDS, SettingsRanges.breathSeconds(SettingsDefaults.HOLD_SECONDS))
+        assertEquals(SettingsDefaults.EXHALE_SECONDS, SettingsRanges.breathSeconds(SettingsDefaults.EXHALE_SECONDS))
+        assertEquals(SettingsDefaults.LOCK_SECONDS, SettingsRanges.lockSeconds(SettingsDefaults.LOCK_SECONDS))
+        assertEquals(SettingsDefaults.SNOOZE_MINUTES, SettingsRanges.snoozeMinutes(SettingsDefaults.SNOOZE_MINUTES))
+        assertEquals(SettingsDefaults.BLOCK_MINUTES, SettingsRanges.blockMinutes(SettingsDefaults.BLOCK_MINUTES))
+    }
+}
+
+class AccentsTest {
+    @Test fun namesAlignWithColors() {
+        assertEquals(Accents.colors.size, Accents.names.size)
+    }
+
+    @Test fun defaultAccentIsBlueAndListedFirst() {
+        assertTrue(Accents.DEFAULT in Accents.colors.indices)
+        // The chosen default accent is light blue, and it's the first swatch shown.
+        assertEquals(0, Accents.DEFAULT)
+        assertEquals(0xFF4C8DFF.toInt(), Accents.colors[0])
+        assertEquals("Blue", Accents.names[0])
     }
 }

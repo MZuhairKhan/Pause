@@ -113,7 +113,7 @@
                 <TextView
                     android:id="@+id/tab_duration"
                     android:layout_width="0dp"
-                    android:layout_height="42dp"
+                    android:layout_height="48dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
                     android:background="@drawable/chip_accent_bg"
@@ -127,7 +127,7 @@
                 <TextView
                     android:id="@+id/tab_alarm"
                     android:layout_width="0dp"
-                    android:layout_height="42dp"
+                    android:layout_height="48dp"
                     android:layout_weight="1"
                     android:background="@drawable/chip_bg"
                     android:clickable="true"
