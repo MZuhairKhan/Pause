@@ -1,6 +1,6 @@
 [versions]
 agp = "8.13.2"
-kotlin = "2.1.0"
+kotlin = "2.4.10"
 coreKtx = "1.18.0"  # 1.19 requires compileSdk 37; 1.18 has the promoted-notification API and needs only 36
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
