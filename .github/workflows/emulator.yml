@@ -106,6 +106,7 @@ jobs:
           name: emulator-api${{ matrix.api-level }}
           path: |
             release-logcat.txt
+            release-crash.txt
             release-launch.png
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
