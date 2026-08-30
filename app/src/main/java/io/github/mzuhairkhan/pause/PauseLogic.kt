@@ -141,3 +141,29 @@ object BubblePresets {
         else -> TABLE[preset] ?: TABLE.getValue(INSTAGRAM)
     }
 }
+
+/**
+ * Buckets a remaining duration into the largest whole unit that fits, rounding *up* so a
+ * countdown never claims less time than is actually left.
+ *
+ * Lives here, in the pure layer, because two surfaces render it and they must never disagree:
+ * the bubble's countdown label and the status-bar chip on the promoted notification. They were
+ * separate copies of the same arithmetic until this was extracted.
+ *
+ * The scale is returned rather than a formatted string so the caller picks the localized unit
+ * resource; Finnish abbreviates hours as "t", not "h".
+ */
+object CompactDuration {
+    enum class Scale { HOURS, MINUTES, SECONDS }
+
+    data class Parts(val scale: Scale, val value: Int)
+
+    fun of(totalSeconds: Int): Parts {
+        val s = totalSeconds.coerceAtLeast(0)
+        return when {
+            s >= 3600 -> Parts(Scale.HOURS, (s + 3599) / 3600)
+            s >= 60 -> Parts(Scale.MINUTES, (s + 59) / 60)
+            else -> Parts(Scale.SECONDS, s)
+        }
+    }
+}

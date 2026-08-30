@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] — 2026-08-30
 
 ### Added
+- **The running notification asks to be pinned.** On Android 16 a timer in progress requests
+  promotion, which pins it to the top of the shade and puts the remaining time in the status
+  bar as a chip ("25m"). It also gains a progress bar tracking the countdown, and takes the
+  accent colour. Only while a timer runs: an idle notification is not a live update and asking
+  would rightly be declined. Promotion is a request the system may refuse, and it does nothing
+  below Android 16, so this is an improvement rather than a guarantee.
+- **Dependabot** for both Gradle dependencies and GitHub Actions, weekly. AndroidX, Compose and
+  test tooling are grouped so one bump is one pull request rather than a dozen. Roborazzi is
+  pinned below 1.66 (its Kotlin 2.3 metadata is unreadable by Kotlin 2.1), and AGP and Kotlin are
+  excluded because they are coupled to each other and to the Gradle wrapper — those three move
+  together, by hand.
 - **Internationalization** — every user-facing string (including `<plurals>`) now lives in
   `res/values/strings.xml` instead of being hardcoded in the Compose setup UI and the overlay
   views, so the app can be translated without touching Kotlin.
@@ -28,6 +39,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   descriptions, and per-version changelogs.
 
 ### Changed
+- **The stepper buttons are readable by a screen reader.** The +/- controls in the setup
+  screen were bare glyphs with no label, so TalkBack gave no indication of what they changed.
+  They now announce the setting by name.
+- **The bubble countdown and the notification chip can no longer disagree.** Both rendered the
+  same rounding independently; the arithmetic now lives once in `CompactDuration`, in the
+  unit-tested pure layer.
+- **Targets Android 16 (SDK 36).** `compileSdk` and `targetSdk` both move from 35, which pulled
+  AGP from 8.7.3 to 8.13.2 and the Gradle wrapper from 8.11 to 8.14.5 — AGP 8.13 refuses to run
+  on anything older. Stayed on AGP 8.x rather than jumping to 9.x and its breaking changes. This
+  satisfies Google Play's target-API floor and unblocks Android 16's promoted ongoing
+  notifications, the only supported route to a genuinely pinned notification.
+- **CI actions moved to their Node 24 releases** — checkout v7, setup-java v6, cache v6,
+  upload-artifact v7 and gradle/actions v6. GitHub had begun forcing the old Node 20 builds onto
+  Node 24 and warning about it.
 - **Notifications are harder to clear, though not pinned.** Both were already ongoing, which is
   not the same as un-clearable — sweeping the shade still took them — so both now also carry
   `FLAG_NO_CLEAR`. This is a real improvement on stock Android and no more than that: an
@@ -65,6 +90,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   UI itself is still Compose (`PauseTheme`).
 - CI validates the Gradle wrapper's checksum before building, so a tampered wrapper JAR fails the
   build rather than silently executing.
+
+### Removed
+- **Four unused `reminder_*` strings.** Leftovers from a Phase 3 notification that the
+  breathing wind-down replaced; nothing referenced them. They had been translated into
+  Finnish and sent out for review, so removing them saves every future translator the same
+  wasted effort.
 
 ### Fixed
 - **The bubble countdown was never translated** — it built its own "2h"/"5m"/"30s" labels in

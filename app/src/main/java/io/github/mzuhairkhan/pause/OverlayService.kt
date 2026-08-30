@@ -517,13 +517,7 @@ class OverlayService : Service() {
     private fun updateCountdown(remainingMillis: Long) {
         hourglass?.setProgress(progressRemaining())
         val totalSeconds = (remainingMillis / 1000L).toInt()
-        bubbleCountdown?.text = when {
-            totalSeconds >= 3600 ->
-                getString(R.string.unit_hours_short, (totalSeconds + 3599) / 3600)
-            totalSeconds >= 60 ->
-                getString(R.string.unit_minutes_short, (totalSeconds + 59) / 60)
-            else -> getString(R.string.unit_seconds_short, totalSeconds)
-        }
+        bubbleCountdown?.text = compactDuration(totalSeconds)
         pickerRemaining?.text = formatRemainingLong(totalSeconds)
     }
 
@@ -1378,6 +1372,21 @@ class OverlayService : Service() {
     }
 
     /** Formats the remaining time as e.g. "Alarm in 25 min" / "Alarm in 2h 5m". */
+    /**
+     * The remaining time as a chip-sized string ("2h", "25m", "30s") for a promoted
+     * notification's status-bar chip, which has room for very little. Reuses the same unit
+     * resources as the bubble countdown so the two never disagree.
+     */
+    private fun compactDuration(totalSeconds: Int): String {
+        val parts = CompactDuration.of(totalSeconds)
+        val res = when (parts.scale) {
+            CompactDuration.Scale.HOURS -> R.string.unit_hours_short
+            CompactDuration.Scale.MINUTES -> R.string.unit_minutes_short
+            CompactDuration.Scale.SECONDS -> R.string.unit_seconds_short
+        }
+        return getString(res, parts.value)
+    }
+
     private fun formatAlarmIn(remainingMillis: Long): String {
         if (remainingMillis / 1000L < 60) {
             return getString(R.string.overlay_notification_active_soon)
@@ -1420,6 +1429,35 @@ class OverlayService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
+            // Ask to be promoted -- pinned to the top of the shade with a status-bar chip -- only
+            // while a timer is running. That is the time-sensitive, user-initiated case promotion
+            // exists for; an idle "Pause is ready" notification is not a live update and would
+            // rightly be declined. It is a request either way: the system decides, and the compat
+            // layer makes it a no-op below Android 16.
+            .setRequestPromotedOngoing(active)
+            .apply {
+                if (!active) return@apply
+                // The platform gate is ongoing + colorized: without setColorized the request is
+                // silently dropped, whatever else is set. Verified against
+                // NotificationCompat.hasPromotableCharacteristics in PromotedNotificationTest.
+                setColorized(true)
+                setColor(SettingsStore.accentColor(this@OverlayService))
+                // The chip has room for very little, so it gets the compact form: "2h", "25m".
+                val remaining = (endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0)
+                setShortCriticalText(compactDuration((remaining / 1000L).toInt()))
+                // Not required for promotion, but a countdown maps onto a progress bar exactly,
+                // so the shade gets one. Scaled in seconds: plenty granular, and it keeps a long
+                // clock alarm well inside Int range.
+                val totalSeconds = ((endTimeMillis - startTimeMillis) / 1000L)
+                    .coerceIn(1L, Int.MAX_VALUE.toLong()).toInt()
+                val elapsedSeconds = ((System.currentTimeMillis() - startTimeMillis) / 1000L)
+                    .coerceIn(0L, totalSeconds.toLong()).toInt()
+                setStyle(
+                    NotificationCompat.ProgressStyle()
+                        .addProgressSegment(NotificationCompat.ProgressStyle.Segment(totalSeconds))
+                        .setProgress(elapsedSeconds)
+                )
+            }
             .setSmallIcon(R.drawable.ic_hourglass)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

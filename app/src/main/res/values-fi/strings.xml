@@ -35,10 +35,6 @@
     <string name="picker_remaining_label">Aikaa jäljellä</string>
     <string name="picker_show_countdown">Näytä ajastin</string>
 
-    <string name="reminder_channel_name">Pause-muistutukset</string>
-    <string name="reminder_channel_description">Ilmoittaa, kun taukoajastin päättyy.</string>
-    <string name="reminder_title">Aika pitää tauko</string>
-    <string name="reminder_text">Ajastin päättyi — pidä hetki taukoa.</string>
 
     <string name="breathing_in">Hengitä sisään</string>
     <string name="breathing_hold">Pidätä hengitystä</string>
@@ -95,6 +91,8 @@
     <string name="breathing_toggle">Hengitysharjoitus</string>
     <string name="breathing_toggle_subtitle">Pois päältä ohittaa harjoituksen — ajastin päättyy pelkkiin sulkemisvaihtoehtoihin.</string>
     <string name="no_skip_lock">Harjoituksen vähimmäiskesto</string>
+    <string name="stepper_decrease">Vähennä: %1$s</string>
+    <string name="stepper_increase">Lisää: %1$s</string>
     <string name="snooze_length">Torkutuksen kesto</string>
 
     <string name="section_app_blocking">Sovellusten esto</string>

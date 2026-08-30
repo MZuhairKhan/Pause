@@ -1,0 +1,50 @@
+version: 2
+
+# Two ecosystems matter here: the Gradle dependencies the app ships, and the GitHub Actions the
+# CI depends on. The Actions half is not cosmetic -- it is what would have caught the Node 20
+# deprecation before GitHub started warning about it.
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: "deps"
+    groups:
+      # AndroidX ships many artifacts in lockstep; one PR per artifact would be noise.
+      androidx:
+        patterns: ["androidx.*"]
+      compose:
+        patterns: ["androidx.compose*"]
+      # Test-only tooling can move independently of anything that ships to users.
+      testing:
+        patterns:
+          - "junit*"
+          - "org.robolectric:*"
+          - "io.github.takahirom.roborazzi*"
+          - "androidx.test*"
+    ignore:
+      # Pinned deliberately: 1.66+ ships Kotlin 2.3 metadata, which Kotlin 2.1 cannot read.
+      # Revisit only alongside a Kotlin upgrade.
+      - dependency-name: "io.github.takahirom.roborazzi*"
+        versions: [">=1.66.0"]
+      # AGP and Kotlin are coupled to each other and to the Gradle wrapper; bumping either from
+      # a bot invites a broken build. Upgrade these deliberately, together.
+      - dependency-name: "com.android.tools.build:gradle"
+      - dependency-name: "org.jetbrains.kotlin:*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]
