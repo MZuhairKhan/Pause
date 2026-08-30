@@ -1425,7 +1425,13 @@ class OverlayService : Service() {
             .setOngoing(true)
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            // Post at once instead of after the ~10s grace period the system otherwise allows
+            // before a foreground service's notification has to appear.
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
+            // setOngoing alone still lets "Clear all" take it; FLAG_NO_CLEAR does not.
+            // Neither survives an individual swipe on Android 14+ -- that is OS policy.
+            .apply { flags = flags or Notification.FLAG_NO_CLEAR }
     }
 
     companion object {
@@ -1545,6 +1551,7 @@ class OverlayService : Service() {
                 .setSilent(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
+                .apply { flags = flags or Notification.FLAG_NO_CLEAR }
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
         }
 

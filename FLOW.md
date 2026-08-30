@@ -53,7 +53,7 @@ flowchart TD
   Usage access (the bubble returns to idle while the break covers those apps). If no apps are
   chosen, it leaves the current app and stops the overlay entirely.
 - **Snooze** dismisses the wind-down and re-arms the timer for the chosen number of minutes.
-- **Pinned notification.** Both notifications are ongoing (`setOngoing(true)`): the running
+- **Pinned notification.** Both notifications are ongoing and carry `FLAG_NO_CLEAR`, so “Clear all” leaves them alone: the running
   foreground-service notification, and the persistent "Start Pause" notification shown while the
   overlay is off (it is also re-posted after a reboot by `BootReceiver`). On Android 14+ the system
   still allows the user to swipe an ongoing notification away while the app is backgrounded — that
