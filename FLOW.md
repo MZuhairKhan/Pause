@@ -12,12 +12,12 @@ flowchart TD
     Onboarded -- Yes --> Settings[Settings screen]
 
     Finish --> Idle
-    Settings -->|Start overlay service| Idle
-    Settings -->|Stop overlay service| Off
+    Settings -->|Show the bubble| Idle
+    Settings -->|Hide the bubble| Off
 
     Idle([Bubble floating - idle]) -->|Tap bubble| Picker[Timer picker]
     Picker -->|Set duration / clock alarm| Running
-    Picker -->|Stop overlay| Off
+    Picker -->|Tap outside / Back| Idle
     Idle -->|Drag to dismiss target| Off
 
     Running([Timer running - bubble shows countdown or draining hourglass])
