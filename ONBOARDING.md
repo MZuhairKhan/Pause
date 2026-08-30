@@ -123,7 +123,7 @@ Google treats as sensitive. Ordered by what blocks what.
       new target — but lint cannot see runtime behaviour changes, and this app leans hard on
       foreground services, so treat the emulator job's release smoke test as the real check.
       This also satisfies Play's target-API floor.
-- [ ] **Use Android 16's promoted ongoing notifications.** Now unblocked by the SDK bump, and the
+- [x] **Uses Android 16 promoted ongoing notifications.** Now unblocked by the SDK bump, and the
       only supported route to a genuinely pinned notification: `setOngoing` plus `FLAG_NO_CLEAR`
       does not survive an individual swipe on Android 14+, and Samsung's One UI clears them
       regardless (confirmed on device). The API is
@@ -132,6 +132,13 @@ Google treats as sensitive. Ordered by what blocks what.
       the notification has to qualify as promotable; and `androidx.core` 1.15.0 **does not wrap
       it**, so either bump core and re-check or call the platform builder behind an API-36 guard.
       Test on a Samsung device specifically — that is where the current behaviour falls down.
+      The platform gate turned out to be **ongoing + `setColorized(true)` with a colour** —
+      `ProgressStyle` and `setShortCriticalText` are *not* required, contrary to the obvious
+      reading of the Live Updates docs. Established empirically against
+      `NotificationCompat.hasPromotableCharacteristics`, and locked in by
+      `PromotedNotificationTest` so a future edit cannot silently drop the pin.
+      Still to confirm on hardware, Samsung especially: promotion is a request the system may
+      decline, and One UI is where the old behaviour fell down.
 - [ ] **Produce an `.aab`.** Play has not accepted APKs for new apps since 2021. `assembleRelease`
       is not enough; wire and test `bundleRelease`.
 - [ ] **`bundle { language { enableSplit = false } }`.** Without it, Play splits by language and

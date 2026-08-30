@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] — 2026-08-30
 
 ### Added
+- **The running notification asks to be pinned.** On Android 16 a timer in progress requests
+  promotion, which pins it to the top of the shade and puts the remaining time in the status
+  bar as a chip ("25m"). It also gains a progress bar tracking the countdown, and takes the
+  accent colour. Only while a timer runs: an idle notification is not a live update and asking
+  would rightly be declined. Promotion is a request the system may refuse, and it does nothing
+  below Android 16, so this is an improvement rather than a guarantee.
 - **Dependabot** for both Gradle dependencies and GitHub Actions, weekly. AndroidX, Compose and
   test tooling are grouped so one bump is one pull request rather than a dozen. Roborazzi is
   pinned below 1.66 (its Kotlin 2.3 metadata is unreadable by Kotlin 2.1), and AGP and Kotlin are
