@@ -1,0 +1,4 @@
+• Pause now speaks Finnish, and a Language step in setup lets you pick it (Android 13+ also lists Pause in the system per-app language settings).
+• All app text has moved into translatable resources, so more languages can follow.
+• The "apps to block" picker gains a search box.
+• Note: this version has a new package name, so it installs alongside older builds instead of updating them — uninstall the old one and set your preferences again.

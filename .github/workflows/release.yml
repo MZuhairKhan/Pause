@@ -1,0 +1,131 @@
+name: Release
+
+# Cut a release by pushing a version tag:  git tag v0.4.2 && git push origin v0.4.2
+# Builds the release APK, signs it when signing secrets are configured (otherwise
+# publishes an unsigned APK and warns), and creates a GitHub Release with the APK,
+# its SHA-256, and release notes pulled from the matching CHANGELOG.md section.
+#
+# Signing secrets (optional but required for an installable APK):
+#   KEYSTORE_BASE64   base64 of your release keystore  (base64 -w0 release.jks)
+#   KEYSTORE_PASSWORD store password
+#   KEY_ALIAS         key alias
+#   KEY_PASSWORD      key password
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to release (e.g. v0.4.2)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish release APK
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+    steps:
+      - name: Resolve tag
+        id: tag
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Test & assemble release APK
+        run: ./gradlew testReleaseUnitTest assembleRelease --stacktrace
+
+      - name: Sign APK
+        id: sign
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          build_tools="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore.jks"
+          unsigned="app/build/outputs/apk/release/app-release-unsigned.apk"
+          out="Pause-$VERSION.apk"
+          "$build_tools/zipalign" -p -f 4 "$unsigned" "$RUNNER_TEMP/aligned.apk"
+          "$build_tools/apksigner" sign \
+            --ks "$RUNNER_TEMP/keystore.jks" \
+            --ks-pass env:KEYSTORE_PASSWORD \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass env:KEY_PASSWORD \
+            --out "$out" "$RUNNER_TEMP/aligned.apk"
+          "$build_tools/apksigner" verify --print-certs "$out"
+          echo "apk=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Stage unsigned APK
+        id: unsigned
+        if: ${{ env.KEYSTORE_BASE64 == '' }}
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          out="Pause-$VERSION-unsigned.apk"
+          cp app/build/outputs/apk/release/app-release-unsigned.apk "$out"
+          echo "::warning::No KEYSTORE_BASE64 secret set — publishing an UNSIGNED APK that cannot be installed. Add signing secrets for installable builds."
+          echo "apk=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Checksum & release notes
+        id: meta
+        env:
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          apk="${{ steps.sign.outputs.apk || steps.unsigned.outputs.apk }}"
+          sha256sum "$apk" > "$apk.sha256"
+          echo "apk=$apk" >> "$GITHUB_OUTPUT"
+          notes="$(awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 {f=1; next}
+            f && index($0, "## [") == 1 {exit}
+            f {print}
+          ' CHANGELOG.md | sed '/./,$!d')"
+          if [ -n "$notes" ]; then
+            { echo "## Pause $VERSION"; echo; echo "$notes"; } > RELEASE_NOTES.md
+            echo "have_notes=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "have_notes=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+          VERSION: ${{ steps.tag.outputs.version }}
+          APK: ${{ steps.meta.outputs.apk }}
+          HAVE_NOTES: ${{ steps.meta.outputs.have_notes }}
+        run: |
+          set -euo pipefail
+          args=(--title "Pause $VERSION" --verify-tag)
+          if [ "$HAVE_NOTES" = "1" ]; then
+            args+=(--notes-file RELEASE_NOTES.md)
+          else
+            args+=(--generate-notes)
+          fi
+          gh release create "$TAG" "$APK" "$APK.sha256" "${args[@]}"

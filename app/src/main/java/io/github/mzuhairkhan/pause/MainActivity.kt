@@ -12,8 +12,11 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
+import android.util.LruCache
 import android.widget.ImageView
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.annotation.StringRes
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -24,10 +27,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -35,6 +41,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -42,26 +49,33 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -70,6 +84,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -77,6 +93,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -86,6 +104,9 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import kotlin.math.roundToInt
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -95,12 +116,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
+import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.mzuhairkhan.pause.ui.theme.Accents
 import io.github.mzuhairkhan.pause.ui.theme.PauseTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -110,28 +137,36 @@ import kotlin.math.sin
 /** A clear success green for granted-permission affordances, readable on light or dark. */
 private val GrantedGreen = Color(0xFF2EBD6B)
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             val context = LocalContext.current
             var themeMode by remember { mutableStateOf(SettingsStore.themeMode(context)) }
             var accentColor by remember { mutableStateOf(SettingsStore.accentColor(context)) }
+            var onboarded by remember { mutableStateOf(SettingsStore.onboardingComplete(context)) }
             PauseTheme(themeMode = themeMode, accentColor = accentColor) {
                 Scaffold { padding ->
-                    OnboardingScreen(
-                        modifier = Modifier.padding(padding),
-                        themeMode = themeMode,
-                        onThemeModeChange = {
-                            themeMode = it
-                            SettingsStore.setThemeMode(context, it)
-                        },
-                        accentColor = accentColor,
-                        onAccentChange = {
-                            accentColor = it
-                            SettingsStore.setAccentColor(context, it)
-                        }
-                    )
+                    if (!onboarded) {
+                        SetupWizard(
+                            modifier = Modifier.padding(padding),
+                            onFinish = { onboarded = true }
+                        )
+                    } else {
+                        SettingsScreen(
+                            modifier = Modifier.padding(padding),
+                            themeMode = themeMode,
+                            onThemeModeChange = {
+                                themeMode = it
+                                SettingsStore.setThemeMode(context, it)
+                            },
+                            accentColor = accentColor,
+                            onAccentChange = {
+                                accentColor = it
+                                SettingsStore.setAccentColor(context, it)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -139,7 +174,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun OnboardingScreen(
+private fun SettingsScreen(
     modifier: Modifier = Modifier,
     themeMode: Int,
     onThemeModeChange: (Int) -> Unit,
@@ -152,9 +187,6 @@ private fun OnboardingScreen(
     var batteryExempt by remember { mutableStateOf(isBatteryOptimizationIgnored(context)) }
     val serviceRunning by OverlayService.running.collectAsState()
     var showCountdown by remember { mutableStateOf(SettingsStore.showCountdown(context)) }
-    var bubblePreset by remember { mutableStateOf(SettingsStore.bubblePreset(context)) }
-    var customBubbleSize by remember { mutableStateOf(SettingsStore.customBubbleSize(context)) }
-    var customBubbleEdge by remember { mutableStateOf(SettingsStore.customBubbleEdge(context)) }
     var inhale by remember { mutableStateOf(SettingsStore.inhaleSeconds(context)) }
     var hold by remember { mutableStateOf(SettingsStore.holdSeconds(context)) }
     var exhale by remember { mutableStateOf(SettingsStore.exhaleSeconds(context)) }
@@ -226,7 +258,7 @@ private fun OnboardingScreen(
                 }
             }
         ) {
-            Text(if (serviceRunning) "Stop overlay service" else "Start overlay service")
+            Text(if (serviceRunning) stringResource(R.string.stop_overlay) else stringResource(R.string.start_overlay))
         }
 
         PermissionsSection(
@@ -234,7 +266,7 @@ private fun OnboardingScreen(
             collapseGranted = everyPermissionGranted
         ) {
             PermissionRow(
-                label = "Display over other apps",
+                label = stringResource(R.string.perm_overlay),
                 granted = overlayGranted,
                 onClick = {
                     val intent = Intent(
@@ -245,7 +277,7 @@ private fun OnboardingScreen(
                 }
             )
             PermissionRow(
-                label = "Post notifications",
+                label = stringResource(R.string.perm_notifications),
                 granted = notificationsGranted,
                 onClick = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -256,7 +288,7 @@ private fun OnboardingScreen(
                 }
             )
             PermissionRow(
-                label = "Ignore battery optimization",
+                label = stringResource(R.string.perm_battery),
                 granted = batteryExempt,
                 onClick = {
                     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
@@ -266,7 +298,7 @@ private fun OnboardingScreen(
                 }
             )
             PermissionRow(
-                label = "Usage access (optional)",
+                label = stringResource(R.string.perm_usage),
                 granted = usageAccessGranted,
                 onClick = {
                     context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
@@ -274,87 +306,29 @@ private fun OnboardingScreen(
             )
         }
 
-        SettingsSection("Bubble") {
+        SettingsSection(stringResource(R.string.section_bubble)) {
             SwitchRow(
-                "Show countdown on the bubble",
+                stringResource(R.string.show_countdown_title),
                 showCountdown,
-                subtitle = "Off shows a draining hourglass instead."
+                subtitle = stringResource(R.string.show_countdown_subtitle)
             ) {
                 showCountdown = it
                 SettingsStore.setShowCountdown(context, it)
             }
 
-            // Adjusting the size shows the real thing: start the overlay (or resize it live if
-            // it's already running) so the actual floating bubble appears at the new size, the
-            // way pressing Start does. Gated on the same permissions as Start; without them the
-            // choice is still saved and the readout updates, there's just nothing to draw.
-            val applyBubbleSize = {
-                // Re-check the overlay grant live (the cached flag only refreshes on resume), so a
-                // permission revoked while this screen stays open can't start a bubble-less service.
-                if (notificationsGranted && Settings.canDrawOverlays(context)) {
-                    OverlayService.refreshBubble(context)
-                }
-            }
-
-            Text(
-                "Match the icon size of:",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("Instagram", "TikTok", "Shorts", "Custom").forEachIndexed { index, label ->
-                    val onPick = {
-                        bubblePreset = index
-                        SettingsStore.setBubblePreset(context, index)
-                        applyBubbleSize()
-                    }
-                    val content = @Composable {
-                        Text(
-                            label,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Clip,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
-                    val contentPad = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
-                    if (index == bubblePreset) {
-                        Button(onPick, Modifier.weight(1f), contentPadding = contentPad) { content() }
-                    } else {
-                        OutlinedButton(onPick, Modifier.weight(1f), contentPadding = contentPad) { content() }
-                    }
-                }
-            }
-
-            val metrics = BubblePresets.metrics(bubblePreset, customBubbleSize, customBubbleEdge)
-            BubbleSizeReadout(metrics.sizeFraction, metrics.edgeFraction)
-
-            if (bubblePreset == BubblePresets.CUSTOM) {
-                LabeledSlider(
-                    "Size", customBubbleSize, BubblePresets.SIZE_MIN..BubblePresets.SIZE_MAX,
-                    onChange = { customBubbleSize = it },
-                    onCommit = {
-                        SettingsStore.setCustomBubbleSize(context, customBubbleSize)
-                        applyBubbleSize()
-                    }
-                )
-                LabeledSlider(
-                    "Edge gap", customBubbleEdge, BubblePresets.EDGE_MIN..BubblePresets.EDGE_MAX,
-                    onChange = { customBubbleEdge = it },
-                    onCommit = {
-                        SettingsStore.setCustomBubbleEdge(context, customBubbleEdge)
-                        applyBubbleSize()
-                    }
-                )
-            }
+            BubbleSizeChooser()
         }
 
-        SettingsSection("Appearance") {
+        SettingsSection(stringResource(R.string.section_appearance)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                listOf("System", "Light", "Dark").forEachIndexed { index, label ->
+                listOf(
+                    stringResource(R.string.theme_system),
+                    stringResource(R.string.theme_light),
+                    stringResource(R.string.theme_dark)
+                ).forEachIndexed { index, label ->
                     val labelText = @Composable {
                         Text(label, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
                     }
@@ -400,21 +374,21 @@ private fun OnboardingScreen(
                         .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
                 )
                 Text(
-                    "Custom color",
+                    stringResource(R.string.custom_color),
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = 12.dp),
                     style = MaterialTheme.typography.bodyMedium
                 )
-                OutlinedButton(onClick = { showColorDialog = true }) { Text("Pick…") }
+                OutlinedButton(onClick = { showColorDialog = true }) { Text(stringResource(R.string.custom_color_pick)) }
             }
         }
 
-        SettingsSection("Breathing wind-down") {
+        SettingsSection(stringResource(R.string.section_breathing)) {
             SwitchRow(
-                "Breathing exercise",
+                stringResource(R.string.breathing_toggle),
                 breathingOn,
-                subtitle = "Off skips the exercise — the timer ends with just the dismiss options."
+                subtitle = stringResource(R.string.breathing_toggle_subtitle)
             ) {
                 breathingOn = it
                 SettingsStore.setBreathingEnabled(context, it)
@@ -422,20 +396,20 @@ private fun OnboardingScreen(
             // The breathing-specific controls are moot once the exercise is off; snooze still
             // applies (snooze is one of the dismiss options either way).
             if (breathingOn) {
-                StepperRow("Breathe in", inhale) {
+                StepperRow(stringResource(R.string.breathing_in), inhale) {
                     inhale = it
                     SettingsStore.setInhaleSeconds(context, it)
                 }
-                StepperRow("Hold", hold) {
+                StepperRow(stringResource(R.string.breathing_hold), hold) {
                     hold = it
                     SettingsStore.setHoldSeconds(context, it)
                 }
-                StepperRow("Breathe out", exhale) {
+                StepperRow(stringResource(R.string.breathing_out), exhale) {
                     exhale = it
                     SettingsStore.setExhaleSeconds(context, it)
                 }
                 StepperRow(
-                    "No-skip lock",
+                    stringResource(R.string.no_skip_lock),
                     lockSec,
                     min = SettingsRanges.LOCK_MIN_SECONDS,
                     max = SettingsRanges.LOCK_MAX_SECONDS
@@ -445,31 +419,31 @@ private fun OnboardingScreen(
                 }
             }
             StepperRow(
-                "Snooze length",
+                stringResource(R.string.snooze_length),
                 snoozeMin,
                 min = SettingsRanges.SNOOZE_MIN_MINUTES,
                 max = SettingsRanges.SNOOZE_MAX_MINUTES,
-                unit = "m"
+                unitRes = R.string.unit_minutes_short
             ) {
                 snoozeMin = it
                 SettingsStore.setSnoozeMinutes(context, it)
             }
         }
 
-        SettingsSection("App blocking", initiallyExpanded = false) {
+        SettingsSection(stringResource(R.string.section_app_blocking), initiallyExpanded = false) {
             Text(
-                "\"Stop for now\" covers these apps if you open them during the break.",
+                stringResource(R.string.app_blocking_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             if (!usageAccessGranted) {
                 Text(
-                    "Needs the Usage access permission above to detect blocked apps.",
+                    stringResource(R.string.usage_needed),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
             }
-            StepperRow("Break length", blockMinutes, min = 1, max = 120, unit = "m") {
+            StepperRow(stringResource(R.string.break_length), blockMinutes, min = 1, max = 120, unitRes = R.string.unit_minutes_short) {
                 blockMinutes = it
                 SettingsStore.setBlockMinutes(context, it)
             }
@@ -478,12 +452,12 @@ private fun OnboardingScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    if (blockedApps.isEmpty()) "No apps chosen"
-                    else "${blockedApps.size} app${if (blockedApps.size == 1) "" else "s"} chosen",
+                    if (blockedApps.isEmpty()) stringResource(R.string.apps_chosen_none)
+                    else pluralStringResource(R.plurals.apps_chosen, blockedApps.size, blockedApps.size),
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodyMedium
                 )
-                OutlinedButton(onClick = { showAppPicker = true }) { Text("Choose…") }
+                OutlinedButton(onClick = { showAppPicker = true }) { Text(stringResource(R.string.choose)) }
             }
         }
     }
@@ -504,8 +478,371 @@ private fun OnboardingScreen(
                 blockedApps = next
                 SettingsStore.setBlockedApps(context, next)
             },
+            onClearAll = {
+                blockedApps = emptySet()
+                SettingsStore.setBlockedApps(context, emptySet())
+            },
             onDismiss = { showAppPicker = false }
         )
+    }
+}
+
+/**
+ * The bubble size/alignment picker (presets + live readout + custom sliders), shared by the
+ * settings screen and the setup wizard. Owns its own preset/size state and previews the change
+ * on the real floating bubble when the overlay can draw.
+ */
+@Composable
+private fun BubbleSizeChooser() {
+    val context = LocalContext.current
+    var bubblePreset by remember { mutableStateOf(SettingsStore.bubblePreset(context)) }
+    var customBubbleSize by remember { mutableStateOf(SettingsStore.customBubbleSize(context)) }
+    var customBubbleEdge by remember { mutableStateOf(SettingsStore.customBubbleEdge(context)) }
+    val applyBubbleSize = {
+        if (hasNotificationPermission(context) && Settings.canDrawOverlays(context)) {
+            OverlayService.refreshBubble(context)
+        }
+    }
+    Text(
+        stringResource(R.string.match_icon_size),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf(
+            stringResource(R.string.preset_instagram),
+            stringResource(R.string.preset_tiktok),
+            stringResource(R.string.preset_shorts),
+            stringResource(R.string.preset_custom)
+        ).forEachIndexed { index, label ->
+            val onPick = {
+                bubblePreset = index
+                SettingsStore.setBubblePreset(context, index)
+                applyBubbleSize()
+            }
+            val content = @Composable {
+                Text(
+                    label,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip,
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+            val contentPad = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+            if (index == bubblePreset) {
+                Button(onPick, Modifier.weight(1f), contentPadding = contentPad) { content() }
+            } else {
+                OutlinedButton(onPick, Modifier.weight(1f), contentPadding = contentPad) { content() }
+            }
+        }
+    }
+    val metrics = BubblePresets.metrics(bubblePreset, customBubbleSize, customBubbleEdge)
+    BubbleSizeReadout(metrics.sizeFraction, metrics.edgeFraction)
+    if (bubblePreset == BubblePresets.CUSTOM) {
+        LabeledSlider(
+            stringResource(R.string.bubble_size), customBubbleSize, BubblePresets.SIZE_MIN..BubblePresets.SIZE_MAX,
+            onChange = { customBubbleSize = it },
+            onCommit = {
+                SettingsStore.setCustomBubbleSize(context, customBubbleSize)
+                applyBubbleSize()
+            }
+        )
+        LabeledSlider(
+            stringResource(R.string.bubble_edge_gap), customBubbleEdge, BubblePresets.EDGE_MIN..BubblePresets.EDGE_MAX,
+            onChange = { customBubbleEdge = it },
+            onCommit = {
+                SettingsStore.setCustomBubbleEdge(context, customBubbleEdge)
+                applyBubbleSize()
+            }
+        )
+    }
+}
+
+/**
+ * One wizard page: a centered title + body, then its [content].
+ *
+ * The block is vertically centred rather than pinned to the top: with only a few rows of content
+ * the earlier layout left roughly two thirds of the screen empty and read as unfinished.
+ * `heightIn(min = viewport)` is what lets [Arrangement.Center] work inside a scrolling column —
+ * short pages centre, while taller ones still grow and scroll from the top. The trailing spacer
+ * seats the block slightly above true centre, which reads better than mathematical centring.
+ */
+@Composable
+private fun WizardPage(
+    title: String,
+    body: String,
+    content: @Composable ColumnScope.() -> Unit = {}
+) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val viewport = maxHeight
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = viewport)
+                .padding(top = 24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(24.dp))
+            content()
+            Spacer(Modifier.height(viewport * 0.10f))
+        }
+    }
+}
+
+/**
+ * First-run setup wizard: welcome -> language -> permissions -> bubble size -> done. The chosen
+ * language is applied (via AppCompat per-app locales) on finish; finishing also marks onboarding
+ * complete and starts the overlay if it can draw.
+ */
+@Composable
+private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val pageCount = 6
+    val pager = rememberPagerState(pageCount = { pageCount })
+
+    var overlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+    var notificationsGranted by remember { mutableStateOf(hasNotificationPermission(context)) }
+    var batteryExempt by remember { mutableStateOf(isBatteryOptimizationIgnored(context)) }
+    var usageAccessGranted by remember { mutableStateOf(hasUsageAccess(context)) }
+    var blockedApps by remember { mutableStateOf(SettingsStore.blockedApps(context)) }
+    var showAppPicker by remember { mutableStateOf(false) }
+    // Which app to size the bubble for (Instagram/TikTok/Shorts only here; Custom lives in settings).
+    var mainApp by rememberSaveable {
+        mutableStateOf(SettingsStore.bubblePreset(context).coerceIn(BubblePresets.INSTAGRAM, BubblePresets.SHORTS))
+    }
+    val notificationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted -> notificationsGranted = granted }
+    val owner = LocalLifecycleOwner.current
+    DisposableEffect(owner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                overlayGranted = Settings.canDrawOverlays(context)
+                notificationsGranted = hasNotificationPermission(context)
+                batteryExempt = isBatteryOptimizationIgnored(context)
+                usageAccessGranted = hasUsageAccess(context)
+            }
+        }
+        owner.lifecycle.addObserver(observer)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+
+    // null = system default; otherwise "en"/"fi". rememberSaveable so a mid-wizard config change
+    // keeps the pick; normalised to the offered options (strip any region, fall back to system).
+    var selectedLang by rememberSaveable {
+        val primary = AppCompatDelegate.getApplicationLocales().toLanguageTags()
+            .substringBefore(',').substringBefore('-')
+        mutableStateOf(primary.takeIf { it == "en" || it == "fi" })
+    }
+
+    Column(modifier = modifier.fillMaxSize().padding(24.dp)) {
+        HorizontalPager(state = pager, modifier = Modifier.weight(1f)) { page ->
+            when (page) {
+                0 -> WizardPage(
+                    stringResource(R.string.onb_welcome_title),
+                    stringResource(R.string.onb_welcome_body)
+                ) { BubblePreview(accentColor = SettingsStore.accentColor(context)) }
+
+                1 -> WizardPage(
+                    stringResource(R.string.onb_language_title),
+                    stringResource(R.string.onb_language_body)
+                ) {
+                    val options = listOf(
+                        null to stringResource(R.string.lang_system),
+                        "en" to "English",
+                        "fi" to "Suomi"
+                    )
+                    options.forEach { (tag, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.small)
+                                .selectable(
+                                    selected = selectedLang == tag,
+                                    role = Role.RadioButton,
+                                    onClick = { selectedLang = tag }
+                                )
+                                .padding(horizontal = 8.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = selectedLang == tag, onClick = null)
+                            Text(
+                                label,
+                                modifier = Modifier.padding(start = 12.dp),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+
+                2 -> WizardPage(
+                    stringResource(R.string.onb_permissions_title),
+                    stringResource(R.string.onb_permissions_body)
+                ) {
+                    PermissionRow(stringResource(R.string.perm_overlay), overlayGranted) {
+                        context.startActivity(
+                            Intent(
+                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                Uri.parse("package:${context.packageName}")
+                            )
+                        )
+                    }
+                    PermissionRow(stringResource(R.string.perm_notifications), notificationsGranted) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            notificationsGranted = true
+                        }
+                    }
+                    PermissionRow(stringResource(R.string.perm_battery), batteryExempt) {
+                        context.startActivity(
+                            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                        )
+                    }
+                }
+
+                3 -> WizardPage(
+                    stringResource(R.string.onb_apps_title),
+                    stringResource(R.string.onb_apps_body)
+                ) {
+                    PermissionRow(stringResource(R.string.perm_usage), usageAccessGranted) {
+                        context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (blockedApps.isEmpty()) stringResource(R.string.apps_chosen_none)
+                            else pluralStringResource(R.plurals.apps_chosen, blockedApps.size, blockedApps.size),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        OutlinedButton(onClick = { showAppPicker = true }) {
+                            Text(stringResource(R.string.choose))
+                        }
+                    }
+                }
+
+                4 -> WizardPage(
+                    stringResource(R.string.onb_size_title),
+                    stringResource(R.string.onb_size_body)
+                ) {
+                    listOf(
+                        BubblePresets.INSTAGRAM to stringResource(R.string.preset_instagram),
+                        BubblePresets.TIKTOK to stringResource(R.string.preset_tiktok),
+                        BubblePresets.SHORTS to stringResource(R.string.preset_shorts)
+                    ).forEach { (preset, label) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.small)
+                                .selectable(
+                                    selected = mainApp == preset,
+                                    role = Role.RadioButton,
+                                    onClick = {
+                                        mainApp = preset
+                                        SettingsStore.setBubblePreset(context, preset)
+                                    }
+                                )
+                                .padding(horizontal = 8.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(selected = mainApp == preset, onClick = null)
+                            Text(
+                                label,
+                                modifier = Modifier.padding(start = 12.dp),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
+
+                else -> WizardPage(
+                    stringResource(R.string.onb_done_title),
+                    stringResource(R.string.onb_done_body)
+                ) { BubblePreview(accentColor = SettingsStore.accentColor(context)) }
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            repeat(pageCount) { i ->
+                val active = pager.currentPage == i
+                Box(
+                    Modifier
+                        .padding(horizontal = 4.dp)
+                        .size(if (active) 9.dp else 7.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (active) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.outlineVariant
+                        )
+                )
+            }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (pager.currentPage > 0) {
+                OutlinedButton(onClick = {
+                    scope.launch { pager.animateScrollToPage(pager.currentPage - 1) }
+                }) { Text(stringResource(R.string.onb_back)) }
+            }
+            Spacer(Modifier.weight(1f))
+            val last = pager.currentPage == pageCount - 1
+            Button(onClick = {
+                if (last) {
+                    AppCompatDelegate.setApplicationLocales(
+                        if (selectedLang == null) LocaleListCompat.getEmptyLocaleList()
+                        else LocaleListCompat.forLanguageTags(selectedLang)
+                    )
+                    SettingsStore.setOnboardingComplete(context, true)
+                    if (Settings.canDrawOverlays(context) && notificationsGranted) {
+                        OverlayService.start(context)
+                    }
+                    onFinish()
+                } else {
+                    scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
+                }
+            }) {
+                Text(if (last) stringResource(R.string.onb_get_started) else stringResource(R.string.onb_next))
+            }
+        }
+
+        if (showAppPicker) {
+            AppPickerDialog(
+                selected = blockedApps,
+                onToggle = { pkg, on ->
+                    val next = if (on) blockedApps + pkg else blockedApps - pkg
+                    blockedApps = next
+                    SettingsStore.setBlockedApps(context, next)
+                },
+                onClearAll = {
+                    blockedApps = emptySet()
+                    SettingsStore.setBlockedApps(context, emptySet())
+                },
+                onDismiss = { showAppPicker = false }
+            )
+        }
     }
 }
 
@@ -522,12 +859,12 @@ private fun Hero(accentColor: Int) {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                "Pause",
+                stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                "A floating button you tap to set a \"stop using this app\" timer.",
+                stringResource(R.string.hero_tagline),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -639,13 +976,13 @@ private fun PermissionsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Permissions",
+                stringResource(R.string.permissions_title),
                 modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.titleMedium
             )
             if (summaryGranted) {
                 Text(
-                    "All set ✓",
+                    stringResource(R.string.all_set),
                     color = GrantedGreen,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold
@@ -766,7 +1103,7 @@ private fun BubbleSizeReadout(sizeFraction: Float, edgeFraction: Float) {
     val bubbleDp = widthDp * sizeFraction
     val gapDp = widthDp * edgeFraction
     Text(
-        "Actual size ≈ ${bubbleDp.roundToInt()}dp · ${gapDp.roundToInt()}dp from the edge",
+        stringResource(R.string.bubble_size_readout, bubbleDp.roundToInt(), gapDp.roundToInt()),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 6.dp)
@@ -782,9 +1119,14 @@ private fun LabeledSlider(
     onCommit: () -> Unit
 ) {
     Column {
-        // One-decimal percent, e.g. "12.2%".
+        // One-decimal percent in the viewer's locale (Finnish renders "12,2 %").
+        val locale = LocalConfiguration.current.locales[0]
         Text(
-            "$label · ${(value * 1000).roundToInt() / 10.0}%",
+            stringResource(
+                R.string.slider_readout,
+                label,
+                String.format(locale, "%.1f", value * 100f)
+            ),
             style = MaterialTheme.typography.bodyMedium
         )
         // Snap to 0.1% (0.001) so the value has one-decimal precision. onChange updates state
@@ -818,7 +1160,7 @@ private fun CustomColorDialog(initial: Int, onPick: (Int) -> Unit, onDismiss: ()
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Custom color", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.custom_color), style = MaterialTheme.typography.titleMedium)
                 ColorWheel(
                     hue = hue,
                     saturation = sat,
@@ -849,13 +1191,13 @@ private fun CustomColorDialog(initial: Int, onPick: (Int) -> Unit, onDismiss: ()
                             .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
                     )
                     Text(
-                        "Preview",
+                        stringResource(R.string.custom_color_preview),
                         modifier = Modifier
                             .weight(1f)
                             .padding(start = 12.dp),
                         style = MaterialTheme.typography.bodyMedium
                     )
-                    Button(onClick = onDismiss) { Text("Done") }
+                    Button(onClick = onDismiss) { Text(stringResource(R.string.done)) }
                 }
             }
         }
@@ -965,7 +1307,7 @@ private fun PermissionRow(label: String, granted: Boolean, onClick: () -> Unit) 
             style = MaterialTheme.typography.bodyMedium
         )
         Text(
-            if (granted) "Granted" else "Grant",
+            if (granted) stringResource(R.string.perm_granted) else stringResource(R.string.perm_grant),
             color = if (granted) GrantedGreen else MaterialTheme.colorScheme.primary,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = if (granted) FontWeight.Normal else FontWeight.SemiBold
@@ -979,7 +1321,7 @@ private fun StepperRow(
     value: Int,
     min: Int = 1,
     max: Int = 20,
-    unit: String = "s",
+    @StringRes unitRes: Int = R.string.unit_seconds_short,
     onChange: (Int) -> Unit
 ) {
     Row(
@@ -993,7 +1335,7 @@ private fun StepperRow(
             contentPadding = PaddingValues(0.dp)
         ) { Text("−") }
         Text(
-            "$value$unit",
+            stringResource(unitRes, value),
             modifier = Modifier.padding(horizontal = 16.dp),
             style = MaterialTheme.typography.titleMedium
         )
@@ -1005,6 +1347,12 @@ private fun StepperRow(
     }
 }
 
+/** Caps concurrent launcher-icon decodes so a fast fling can't flood the IO thread pool. */
+private val iconLoadSemaphore = Semaphore(4)
+
+/** Max decoded icons kept in the per-dialog LRU (bounds memory on devices with many apps). */
+private const val ICON_CACHE_MAX = 100
+
 /** A package + display label for an installed, launchable app. */
 private data class AppEntry(val packageName: String, val label: String)
 
@@ -1013,9 +1361,10 @@ private data class AppEntry(val packageName: String, val label: String)
 // the assignment's source is a withContext { } call (issuetracker.google.com/265036856).
 @SuppressLint("ProduceStateDoesNotAssignValue")
 @Composable
-private fun rememberLaunchableApps(): List<AppEntry> {
+private fun rememberLaunchableApps(): List<AppEntry>? {
     val context = LocalContext.current
-    val apps by produceState(initialValue = emptyList<AppEntry>(), context) {
+    // null while still loading; empty once loaded if there are no other launchable apps.
+    val apps by produceState<List<AppEntry>?>(initialValue = null, context) {
         value = withContext(Dispatchers.IO) {
             val pm = context.packageManager
             val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
@@ -1029,70 +1378,216 @@ private fun rememberLaunchableApps(): List<AppEntry> {
     return apps
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AppPickerDialog(
     selected: Set<String>,
     onToggle: (String, Boolean) -> Unit,
+    onClearAll: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    val apps = rememberLaunchableApps()
+    val apps = rememberLaunchableApps()   // null while loading
     var query by remember { mutableStateOf("") }
     val filtered = remember(apps, query) {
-        if (query.isBlank()) apps else apps.filter { it.label.contains(query, ignoreCase = true) }
+        val list = apps ?: emptyList()
+        if (query.isBlank()) list else list.filter { it.label.contains(query, ignoreCase = true) }
     }
+    // Group the (already alphabetical) list by first letter for sticky A–Z headers; digits and
+    // symbols fall under "#".
+    val grouped = remember(filtered) {
+        filtered.groupBy { it.label.firstOrNull()?.uppercaseChar()?.takeIf(Char::isLetter) ?: '#' }
+    }
+    // Bounded LRU of decoded icons so scrolling a large app list doesn't retain tens of MB.
+    val iconCache = remember { LruCache<String, ImageBitmap>(ICON_CACHE_MAX) }
+    val iconPx = with(LocalDensity.current) { 40.dp.roundToPx() }
+    val clearSearchLabel = stringResource(R.string.clear_search)
+
     Dialog(onDismissRequest = onDismiss) {
         Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Apps to block", style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.apps_to_block), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.apps_to_block_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (selected.isNotEmpty()) {
+                        Text(
+                            pluralStringResource(R.plurals.apps_selected, selected.size, selected.size),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text("Search") },
+                    placeholder = { Text(stringResource(R.string.search_apps)) },
+                    leadingIcon = {
+                        SearchGlyph(MaterialTheme.colorScheme.onSurfaceVariant, Modifier.size(20.dp))
+                    },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .clickable { query = "" }
+                                    .semantics { contentDescription = clearSearchLabel },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                ClearGlyph(MaterialTheme.colorScheme.onSurfaceVariant, Modifier.size(15.dp))
+                            }
+                        }
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-                if (apps.isEmpty()) {
-                    Text(
-                        "Loading apps…",
+
+                when {
+                    apps == null -> Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                    }
+                    filtered.isEmpty() -> Text(
+                        if (query.isBlank()) stringResource(R.string.no_apps_found) else stringResource(R.string.no_apps_match, query),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
+                        textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                } else {
-                    LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
-                        items(filtered, key = { it.packageName }) { app ->
-                            val checked = app.packageName in selected
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(MaterialTheme.shapes.small)
-                                    .clickable { onToggle(app.packageName, !checked) }
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Checkbox(
-                                    checked = checked,
-                                    onCheckedChange = { onToggle(app.packageName, it) }
-                                )
+                    else -> LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                        grouped.forEach { (letter, entries) ->
+                            stickyHeader(key = "header_$letter") {
                                 Text(
-                                    app.label,
+                                    letter.toString(),
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .padding(start = 8.dp),
-                                    style = MaterialTheme.typography.bodyMedium
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surface)
+                                        .padding(start = 6.dp, top = 8.dp, bottom = 4.dp),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            }
+                            items(entries, key = { it.packageName }) { app ->
+                                val checked = app.packageName in selected
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(MaterialTheme.shapes.small)
+                                        .background(
+                                            if (checked) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                            else Color.Transparent
+                                        )
+                                        .toggleable(
+                                            value = checked,
+                                            role = Role.Checkbox,
+                                            onValueChange = { onToggle(app.packageName, it) }
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AppIcon(
+                                        app.packageName, iconCache, iconPx,
+                                        Modifier.size(40.dp).clip(MaterialTheme.shapes.small)
+                                    )
+                                    Text(
+                                        app.label,
+                                        modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Checkbox(checked = checked, onCheckedChange = null)
+                                }
                             }
                         }
                     }
                 }
-                Row(modifier = Modifier.fillMaxWidth()) {
+
+                HorizontalDivider()
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onClearAll, enabled = selected.isNotEmpty()) { Text(stringResource(R.string.clear_all)) }
                     Spacer(Modifier.weight(1f))
-                    Button(onClick = onDismiss) { Text("Done") }
+                    Button(onClick = onDismiss) { Text(stringResource(R.string.done)) }
                 }
             }
         }
+    }
+}
+
+/**
+ * App launcher icon, decoded off the main thread and kept in a bounded LRU so scrolling doesn't
+ * reload it. The decode is gated by [iconLoadSemaphore] so a fast fling can't flood the IO pool,
+ * and the cache is re-read for the current package each run so a recycled row never shows a stale
+ * icon. A neutral tile stands in while loading or if the icon can't be resolved.
+ */
+// Known lint false positive when produceState's value is assigned from a withContext { } result
+// (issuetracker.google.com/265036856) — same suppression as rememberLaunchableApps.
+@SuppressLint("ProduceStateDoesNotAssignValue")
+@Composable
+private fun AppIcon(
+    packageName: String,
+    cache: LruCache<String, ImageBitmap>,
+    sizePx: Int,
+    modifier: Modifier
+) {
+    val context = LocalContext.current
+    val bitmap by produceState<ImageBitmap?>(initialValue = cache.get(packageName), packageName) {
+        // Always assign value (cached, freshly decoded, or null on failure) so the icon matches
+        // the current package even on a recycled row.
+        value = cache.get(packageName) ?: withContext(Dispatchers.IO) {
+            iconLoadSemaphore.withPermit {
+                ensureActive() // bail if the row was flung past before a permit freed up
+                runCatching {
+                    context.packageManager.getApplicationIcon(packageName)
+                        .toBitmap(sizePx, sizePx).asImageBitmap()
+                }.getOrNull()
+            }
+        }?.also { cache.put(packageName, it) }
+    }
+    val bmp = bitmap
+    if (bmp != null) {
+        Image(bitmap = bmp, contentDescription = null, modifier = modifier)
+    } else {
+        Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant))
+    }
+}
+
+/** A hand-drawn magnifier (matches the Canvas style of [Chevron]); avoids an icon dependency. */
+@Composable
+private fun SearchGlyph(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val stroke = size.minDimension * 0.10f
+        val r = size.minDimension * 0.30f
+        val center = Offset(size.width * 0.42f, size.height * 0.42f)
+        drawCircle(color = tint, radius = r, center = center, style = Stroke(width = stroke))
+        val k = r * 0.72f
+        drawLine(
+            color = tint,
+            start = Offset(center.x + k, center.y + k),
+            end = Offset(size.width * 0.86f, size.height * 0.86f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+/** A hand-drawn ✕ for the search-clear button. */
+@Composable
+private fun ClearGlyph(tint: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier) {
+        val stroke = size.minDimension * 0.16f
+        val i = size.minDimension * 0.2f
+        drawLine(tint, Offset(i, i), Offset(size.width - i, size.height - i), strokeWidth = stroke, cap = StrokeCap.Round)
+        drawLine(tint, Offset(size.width - i, i), Offset(i, size.height - i), strokeWidth = stroke, cap = StrokeCap.Round)
     }
 }
 

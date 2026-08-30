@@ -121,13 +121,12 @@ object BubblePresets {
     const val EDGE_MIN = 0.0f
     const val EDGE_MAX = 0.060f
 
-    // Anchored to a measured Instagram rail: 44dp glyph, 8dp from the edge on a 1080px/360dp
-    // screen → fractions 44/360 and 8/360. TikTok/Shorts keep their relative offsets (TikTok
-    // sits a touch further in; Shorts runs slightly larger).
+    // Calibrated to each app's action-rail icon on a 1080px / 360dp screen (fraction = dp / 360):
+    // Instagram 44dp/8dp, TikTok 48dp/7dp, Shorts 40dp/10dp.
     private val TABLE = mapOf(
         INSTAGRAM to BubbleMetrics(0.122f, 0.022f),
-        TIKTOK to BubbleMetrics(0.122f, 0.033f),
-        SHORTS to BubbleMetrics(0.130f, 0.027f),
+        TIKTOK to BubbleMetrics(0.134f, 0.019f),
+        SHORTS to BubbleMetrics(0.111f, 0.029f),
     )
 
     /** Default custom values start where the Instagram preset sits. */

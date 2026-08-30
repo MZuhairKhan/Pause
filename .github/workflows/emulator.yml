@@ -1,0 +1,144 @@
+name: Emulator
+
+# Runs the app on a real Android emulator. GitHub's ubuntu runners are x86_64 with KVM, so the
+# emulator works there even though it cannot run on an ARM development machine (Windows on ARM has
+# no emulator build at all — see ONBOARDING.md).
+#
+# Covers the two things neither the JVM unit tests nor the Roborazzi screenshots can prove:
+#   1. the instrumented UI actually composes and navigates on a real Android runtime, and
+#   2. the MINIFIED release build starts without R8 having stripped something it needed
+#      (proguard-rules.pro is empty, so this is a genuine risk).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: emulator-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  instrumented:
+    name: Instrumented tests + release smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # 26 is minSdk, 35 is targetSdk — the two ends most likely to break.
+        api-level: [26, 35]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The emulator needs KVM, and the default runner permissions do not expose it.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Cache AVD
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-${{ matrix.api-level }}
+
+      - name: Create AVD and generate snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: ${{ matrix.api-level == 26 && 'default' || 'google_apis' }}
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          script: echo "AVD snapshot created"
+
+      - name: Build APKs
+        run: ./gradlew assembleDebug assembleRelease --stacktrace
+
+      - name: Instrumented tests + release smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: ${{ matrix.api-level == 26 && 'default' || 'google_apis' }}
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            set -eo pipefail
+            adb logcat -c
+
+            echo "::group::Instrumented tests"
+            ./gradlew connectedDebugAndroidTest --stacktrace
+            echo "::endgroup::"
+
+            echo "::group::Release build smoke test (R8/minify)"
+            # The release APK is unsigned; sign it with the debug key just to install it.
+            keystore="$HOME/.android/debug.keystore"
+            [ -f "$keystore" ] || keytool -genkeypair -keystore "$keystore" -alias androiddebugkey \
+              -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" \
+              -keyalg RSA -keysize 2048 -validity 10000
+            bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)
+            unsigned=app/build/outputs/apk/release/app-release-unsigned.apk
+            "$bt/zipalign" -p -f 4 "$unsigned" /tmp/aligned.apk
+            "$bt/apksigner" sign --ks "$keystore" --ks-pass pass:android \
+              --ks-key-alias androiddebugkey --key-pass pass:android --out /tmp/release.apk /tmp/aligned.apk
+
+            adb uninstall io.github.mzuhairkhan.pause || true
+            adb install -r /tmp/release.apk
+            adb shell am start -W -n io.github.mzuhairkhan.pause/.MainActivity
+            sleep 5
+
+            # Fail if the minified build crashed or R8 stripped something it needed.
+            if adb logcat -d | grep -E "FATAL EXCEPTION|ClassNotFoundException|NoSuchMethodError" \
+                 | grep -q .; then
+              echo "::error::Release (minified) build crashed on launch — see logcat artifact."
+              adb logcat -d > release-logcat.txt
+              exit 1
+            fi
+            if ! adb shell pidof io.github.mzuhairkhan.pause > /dev/null; then
+              echo "::error::Release build is not running after launch."
+              adb logcat -d > release-logcat.txt
+              exit 1
+            fi
+            echo "Release build launched and is running."
+            echo "::endgroup::"
+
+            adb logcat -d > release-logcat.txt
+            adb exec-out screencap -p > release-launch.png
+
+      - name: Upload emulator artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-api${{ matrix.api-level }}
+          path: |
+            release-logcat.txt
+            release-launch.png
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: ignore
