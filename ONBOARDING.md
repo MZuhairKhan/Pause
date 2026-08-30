@@ -115,29 +115,23 @@ demands a signed bundle, a console full of declarations, and review of three per
 Google treats as sensitive. Ordered by what blocks what.
 
 #### 1. Build changes (do these first — they gate everything else)
-- [ ] **Move to SDK 36 (`compileSdk` and `targetSdk`).** Two independent reasons, one change:
-
-      1. **Play's target-API floor.** Play requires new apps and updates to target the API level
-         released the previous year, enforced around 31 August. We are on **35**; as of late-2026
-         the floor is likely **36**. *Verify against the current Play policy page* — if it has
-         already moved, this blocks upload outright.
-      2. **A genuinely pinned notification.** Android 16 adds promoted ongoing notifications
-         ("Live Updates"), which pin to the top of the shade and show a status-bar chip. This is
-         the only supported way to get the pinning we want. `setOngoing` plus `FLAG_NO_CLEAR`
-         does not survive an individual swipe on Android 14+, and Samsung's One UI clears them
-         regardless — confirmed on a real device, so treat AOSP behaviour as the optimistic case.
-
-      Verified present in `android-36.1/android.jar`:
-      `Notification.Builder.setRequestPromotedOngoing(boolean)`, `Notification.FLAG_PROMOTED_ONGOING`
-      and `Notification.hasPromotableCharacteristics()`. Three caveats before relying on it: it is
-      a **request** the system may decline; the notification has to qualify as promotable; and
-      `androidx.core` 1.15.0 **does not wrap it** (checked — `NotificationCompat.Builder` exposes
-      no promoted methods), so either bump core and re-check, or call the platform builder behind
-      an API-36 guard.
-
-      Re-run lint after the bump. A new `targetSdk` routinely surfaces fresh warnings, and it
-      changes runtime behaviour for foreground services and notifications specifically — the two
-      areas this app leans on hardest.
+- [x] **Moved to SDK 36** (`compileSdk` and `targetSdk`), which required AGP 8.7.3 → 8.13.2 and
+      the Gradle wrapper 8.11 → 8.14.5 (AGP 8.13 refuses to run on anything below Gradle 8.13).
+      Deliberately stayed on AGP 8.x rather than jumping to 9.x, which carries breaking changes.
+      Verified afterwards: 37 unit tests pass, lint reports **0 errors**, and the minified release
+      APK still builds. Lint surfaced no foreground-service or notification warnings from the
+      new target — but lint cannot see runtime behaviour changes, and this app leans hard on
+      foreground services, so treat the emulator job's release smoke test as the real check.
+      This also satisfies Play's target-API floor.
+- [ ] **Use Android 16's promoted ongoing notifications.** Now unblocked by the SDK bump, and the
+      only supported route to a genuinely pinned notification: `setOngoing` plus `FLAG_NO_CLEAR`
+      does not survive an individual swipe on Android 14+, and Samsung's One UI clears them
+      regardless (confirmed on device). The API is
+      `Notification.Builder.setRequestPromotedOngoing(boolean)` with `FLAG_PROMOTED_ONGOING` and
+      `hasPromotableCharacteristics()`. Three caveats: it is a **request** the system may decline;
+      the notification has to qualify as promotable; and `androidx.core` 1.15.0 **does not wrap
+      it**, so either bump core and re-check or call the platform builder behind an API-36 guard.
+      Test on a Samsung device specifically — that is where the current behaviour falls down.
 - [ ] **Produce an `.aab`.** Play has not accepted APKs for new apps since 2021. `assembleRelease`
       is not enough; wire and test `bundleRelease`.
 - [ ] **`bundle { language { enableSplit = false } }`.** Without it, Play splits by language and

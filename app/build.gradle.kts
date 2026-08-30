@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "io.github.mzuhairkhan.pause"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "io.github.mzuhairkhan.pause"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 6
         versionName = "0.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
