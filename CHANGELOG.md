@@ -132,6 +132,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Kotlin string interpolation, which always emits a period, so Finnish showed "12.2%" instead of
   "12,2 %". It now formats in the active locale.
 - The `LICENSE` (GPL-3.0) is now reflected in the README, which still said the license was "TBD".
+- **The API 26 emulator job hung for 40 minutes after passing.** Its tests and release smoke
+  test finished in about twenty seconds, then the step sat in teardown until the job timed out.
+  The emulator spawns `crashpad_handler` children and the runner action waits on the whole
+  process tree rather than the emulator alone, so the orphans deadlock it
+  (ReactiveCircus/android-emulator-runner#385); API 35 shuts down cleanly, API 26 does not. The
+  smoke script now SIGTERMs them as its last act — it has to happen inside the action's own
+  script, because a later workflow step never gets to run while the step ahead of it is hung.
 - **A Dependabot wrapper bump broke every build on `main`.** The Gradle wrapper was raised
   8.14.5 → 9.7.1 and merged, but Gradle 9.6 removed `org.gradle.api.problems.internal.
   InternalProblems`, which AGP 8.13 still uses — so lint, tests, the emulator job and the

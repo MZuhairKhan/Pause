@@ -73,3 +73,10 @@ echo "Release build launched and is still running."
 echo "::endgroup::"
 
 adb exec-out screencap -p > release-launch.png || true
+
+# Work around ReactiveCircus/android-emulator-runner#385: the emulator spawns crashpad_handler
+# children, and the action's teardown waits on the whole process tree rather than the emulator
+# alone, so those orphans deadlock the step long after the tests have passed. It reliably bites
+# API 26 here while API 35 shuts down cleanly. Killing them from a later workflow step cannot
+# work -- the hung step never yields -- so it has to happen here, inside the action's own script.
+pkill -SIGTERM crashpad_handler 2>/dev/null || true
