@@ -40,24 +40,32 @@ unsigned=app/build/outputs/apk/release/app-release-unsigned.apk
   --ks-key-alias androiddebugkey --key-pass pass:android \
   --out /tmp/release.apk /tmp/aligned.apk
 
+# The instrumented tests left the debug build installed, signed with a different key.
 adb uninstall "$PKG" || true
 adb install -r /tmp/release.apk
+
+# Clear immediately before launching so the captured log covers this app's start-up only.
+adb logcat -c || true
 adb shell am start -W -n "$PKG/.MainActivity"
 sleep 5
 
 adb logcat -d > release-logcat.txt || true
+adb logcat -b crash -d > release-crash.txt || true
 
-# R8 runs with an empty proguard-rules.pro, so a stripped-but-reflectively-needed class would
-# surface here and nowhere else.
-if grep -Eq "FATAL EXCEPTION|ClassNotFoundException|NoSuchMethodError" release-logcat.txt; then
+# Only crashes attributable to THIS app count. The main buffer is full of unrelated system
+# noise -- Google's API 35 image logs ClassNotFoundException from com.android.settings'
+# SliceDataConverter on every boot, which a naive grep reads as our app exploding.
+if grep -q "$PKG" release-crash.txt 2>/dev/null; then
   echo "::error::Release (minified) build crashed on launch - see the logcat artifact."
-  grep -E -A5 "FATAL EXCEPTION|ClassNotFoundException|NoSuchMethodError" release-logcat.txt | head -40
+  grep -B5 -A30 "$PKG" release-crash.txt | head -60
   exit 1
 fi
 
-# pidof is toybox on Android and not present on every API level; fall back to ps.
+# The strongest signal: R8 stripping something reflectively-needed kills the process outright.
+# pidof is toybox on Android and not present on every API level, so fall back to ps.
 if ! adb shell "pidof $PKG >/dev/null 2>&1 || ps -A 2>/dev/null | grep -q $PKG"; then
   echo "::error::Release build is not running after launch."
+  echo "--- crash buffer ---"; tail -60 release-crash.txt || true
   exit 1
 fi
 
