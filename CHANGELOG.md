@@ -44,8 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The setup wizard is vertically centred.** Its pages were pinned to the top, leaving roughly
   two thirds of a tall screen empty and reading as unfinished. Short pages now centre; longer
   ones still grow and scroll from the top.
-- **Application ID renamed** `io.github.mzuhairkhan.pause` → `io.github.mzuhairkhan.pause` to match
-  the project's source repository, as F-Droid expects. **This changes the app's identity:** a
+- **Application ID renamed** to `io.github.mzuhairkhan.pause`, matching the project's source
+  repository as F-Droid expects. **This changes the app's identity:** a
   0.5.0 build installs alongside an existing 0.4.x install rather than upgrading it, and settings
   from the old install are not carried over. Uninstall the old build first.
 - The app theme's parent is now `Theme.AppCompat.Light.NoActionBar`, since `MainActivity` had to
