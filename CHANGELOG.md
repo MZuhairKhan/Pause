@@ -140,6 +140,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the wrapper was never actually listed; `gradle-wrapper` is now ignored too. AGP 8.x tops out
   at Gradle 9.5, and the wrapper also determines the release APK's bytes, so it cannot move
   without re-verifying reproducibility.
+- **The AGP and Kotlin pins were never enforced either.** Both are declared through the plugins
+  DSL via the version catalog, so Dependabot matches them by *plugin id* — but the ignore rules
+  used Maven coordinates (`com.android.tools.build:gradle`, `org.jetbrains.kotlin:*`), which
+  never matched anything. That is how a Kotlin 2.1.0 → 2.4.10 bump was opened against a version
+  pinned on purpose (Roborazzi 1.60 cannot read Kotlin 2.3+ metadata). The ignore list now names
+  `com.android.application`, `org.jetbrains.kotlin.android` and
+  `org.jetbrains.kotlin.plugin.compose`, keeping the coordinate forms as a fallback.
 - **A tagged release could publish an unsigned APK.** The release workflow warned and carried on
   when signing secrets were absent, producing a `Pause-<version>-unsigned.apk` that no device can
   install — and that F-Droid's `Binaries:` URL, which resolves to `Pause-<version>.apk`, would

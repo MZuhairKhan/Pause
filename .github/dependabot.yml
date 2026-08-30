@@ -33,6 +33,15 @@ updates:
         versions: [">=1.66.0"]
       # AGP and Kotlin are coupled to each other and to the Gradle wrapper; bumping either from
       # a bot invites a broken build. Upgrade these deliberately, together.
+      #
+      # These must be the PLUGIN IDS, not the Maven coordinates. Both are declared through the
+      # plugins DSL via the version catalog, so that is the name Dependabot matches on: the
+      # coordinate-form rules below never fired, which is how "deps: bump kotlin from 2.1.0 to
+      # 2.4.10" (#7) got opened against a Kotlin version we pin on purpose.
+      - dependency-name: "com.android.application"
+      - dependency-name: "org.jetbrains.kotlin.android"
+      - dependency-name: "org.jetbrains.kotlin.plugin.compose"
+      # Kept as belt-and-braces in case either is ever added as a classpath coordinate instead.
       - dependency-name: "com.android.tools.build:gradle"
       - dependency-name: "org.jetbrains.kotlin:*"
       # The wrapper is the third member of that trio and was NOT ignored, so a bot bumped it to
