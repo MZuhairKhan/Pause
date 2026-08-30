@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Finnish (fi) translation — reviewed and corrected by Joonas Nivala.
+  Keep the %1$s / %1$d placeholders and the ✓ glyph intact.
+-->
+<resources>
+    <string name="app_name">Pause</string>
+    <string name="overlay_channel_name">Pause-kupla</string>
+    <string name="overlay_channel_description">Pitää Pause-kuplan näkyvissä, kun käytät muita sovelluksia.</string>
+    <string name="overlay_notification_title">Pause on valmis</string>
+    <string name="overlay_notification_title_running">Pause</string>
+    <string name="overlay_notification_text">Aseta ajastin napauttamalla kuplaa.</string>
+    <string name="overlay_notification_off_title">Pause</string>
+    <string name="overlay_notification_off_text">Paina Käynnistä näyttääksesi kuplan.</string>
+    <string name="overlay_notification_start">Käynnistä</string>
+    <string name="overlay_notification_active_soon">Hälytys alle minuutin kuluttua</string>
+    <string name="overlay_notification_active_minutes">Hälytykseen %1$d min</string>
+    <string name="overlay_notification_active_hours">Hälytykseen %1$d t</string>
+    <string name="overlay_notification_active_hm">Hälytykseen %1$d t %2$d min</string>
+    <string name="overlay_bubble_description">Pausen kupla</string>
+    <string name="dismiss_description">Vedä tänne piilottaaksesi kuplan</string>
+
+    <string name="unit_hours_short">%1$d t</string>
+    <string name="unit_minutes_short">%1$d min</string>
+    <string name="unit_seconds_short">%1$d s</string>
+    <string name="picker_title">Aseta taukoajastin</string>
+    <string name="picker_subtitle">Aseta ajastin tai hälytys</string>
+    <string name="picker_mode_duration">Kesto</string>
+    <string name="picker_mode_alarm">Hälytys</string>
+    <string name="picker_minutes_label">min</string>
+    <string name="picker_custom_start">Käynnistä</string>
+    <string name="picker_set_alarm">Aseta hälytys</string>
+    <string name="picker_cancel">Peruuta ajastin</string>
+    <string name="picker_active_title">Taukoajastin</string>
+    <string name="picker_remaining_label">Aikaa jäljellä</string>
+    <string name="picker_show_countdown">Näytä ajastin</string>
+
+    <string name="reminder_channel_name">Pause-muistutukset</string>
+    <string name="reminder_channel_description">Ilmoittaa, kun taukoajastin päättyy.</string>
+    <string name="reminder_title">Aika pitää tauko</string>
+    <string name="reminder_text">Ajastin päättyi — pidä hetki taukoa.</string>
+
+    <string name="breathing_in">Hengitä sisään</string>
+    <string name="breathing_hold">Pidätä hengitystä</string>
+    <string name="breathing_out">Hengitä ulos</string>
+    <string name="breathing_keep">Jatka selaamista</string>
+    <string name="breathing_stop">Lopeta toistaiseksi</string>
+    <string name="breathing_snooze">Torkuta %1$d min</string>
+    <string name="breathing_done">Harjoitus ohi</string>
+
+    <string name="block_title">Tauolla</string>
+    <string name="block_subtitle">%1$s on tauolla</string>
+    <string name="block_subtitle_generic">Tämä sovellus</string>
+    <string name="block_go_home">Siirry aloitusnäyttöön</string>
+    <string name="block_end_early">Lopeta tauko nyt</string>
+    <string name="block_confirm_title">Haluatko varmasti lopettaa tauon nyt?</string>
+    <string name="block_confirm_end">Lopeta tauko</string>
+
+    <!-- Setup screen (Compose) -->
+    <string name="start_overlay">Näytä kupla</string>
+    <string name="stop_overlay">Piilota kupla</string>
+    <string name="permissions_title">Käyttöoikeudet</string>
+    <string name="all_set">Kaikki valmista ✓</string>
+    <string name="perm_overlay">Näytä muiden sovellusten päällä</string>
+    <string name="perm_notifications">Lähetä ilmoituksia</string>
+    <string name="perm_battery">Ohita akun optimointi</string>
+    <string name="perm_usage">Käyttötietojen käyttöoikeus (valinnainen)</string>
+    <string name="perm_grant">Salli</string>
+    <string name="perm_granted">Sallittu</string>
+    <string name="hero_tagline">Kupla, jota napauttamalla asetat käyttöajastimen tälle sovellukselle.</string>
+
+    <string name="section_bubble">Kupla</string>
+    <string name="show_countdown_title">Näytä laskuri kuplassa</string>
+    <string name="show_countdown_subtitle">Pois päältä näyttää tyhjenevän tiimalasin.</string>
+    <string name="match_icon_size">Sovita kuvakkeen kokoon:</string>
+    <string name="preset_instagram">Instagram</string>
+    <string name="preset_tiktok">TikTok</string>
+    <string name="preset_shorts">Shorts</string>
+    <string name="preset_custom">Mukautettu</string>
+    <string name="bubble_size">Koko</string>
+    <string name="bubble_edge_gap">Etäisyys reunasta</string>
+    <string name="bubble_size_readout">Todellinen koko ≈ %1$ddp · %2$ddp reunasta</string>
+    <string name="slider_readout">%1$s · %2$s %%</string>
+
+    <string name="section_appearance">Ulkoasu</string>
+    <string name="theme_system">Järjestelmä</string>
+    <string name="theme_light">Vaalea</string>
+    <string name="theme_dark">Tumma</string>
+    <string name="custom_color">Mukautettu väri</string>
+    <string name="custom_color_pick">Valitse…</string>
+    <string name="custom_color_preview">Esikatselu</string>
+    <string name="done">Valmis</string>
+
+    <string name="section_breathing">Rauhoittava hengitys</string>
+    <string name="breathing_toggle">Hengitysharjoitus</string>
+    <string name="breathing_toggle_subtitle">Pois päältä ohittaa harjoituksen — ajastin päättyy pelkkiin sulkemisvaihtoehtoihin.</string>
+    <string name="no_skip_lock">Harjoituksen vähimmäiskesto</string>
+    <string name="snooze_length">Torkutuksen kesto</string>
+
+    <string name="section_app_blocking">Sovellusten esto</string>
+    <string name="app_blocking_desc">”Lopeta toistaiseksi” peittää nämä sovellukset, jos avaat ne tauon aikana.</string>
+    <string name="usage_needed">Vaatii käyttötietojen käyttöoikeuden (ylempänä) huomatakseen, kun avaat estetyn sovelluksen.</string>
+    <string name="break_length">Tauon kesto</string>
+    <string name="apps_chosen_none">Ei valittuja sovelluksia</string>
+    <string name="choose">Valitse…</string>
+
+    <string name="apps_to_block">Estettävät sovellukset</string>
+    <string name="apps_to_block_subtitle">Näiden sovellusten avaaminen tauon aikana näyttää koko näytön muistutuksen.</string>
+    <string name="search_apps">Hae sovelluksia</string>
+    <string name="clear_search">Tyhjennä haku</string>
+    <string name="no_apps_found">Ei sovelluksia</string>
+    <string name="no_apps_match">Mikään sovellus ei vastaa hakua “%1$s”</string>
+    <string name="clear_all">Tyhjennä kaikki</string>
+
+    <plurals name="apps_chosen">
+        <item quantity="one">%1$d sovellus valittu</item>
+        <item quantity="other">%1$d sovellusta valittu</item>
+    </plurals>
+    <plurals name="apps_selected">
+        <item quantity="one">%1$d valittu</item>
+        <item quantity="other">%1$d valittu</item>
+    </plurals>
+
+    <!-- First-run setup wizard (reviewed by Joonas Nivala along with the rest) -->
+    <string name="onb_welcome_title">Tervetuloa Pauseen</string>
+    <string name="onb_welcome_body">Kupla, jolla asetat ajastimen tämän sovelluksen käytölle. Otetaan se käyttöön.</string>
+    <string name="onb_language_title">Kieli</string>
+    <string name="onb_language_body">Valitse kielesi. Voit vaihtaa sen myöhemmin puhelimen asetuksista.</string>
+    <string name="lang_system">Järjestelmän oletus</string>
+    <string name="onb_permissions_title">Käyttöoikeudet</string>
+    <string name="onb_permissions_body">Pause tarvitsee muutaman käyttöoikeuden näyttääkseen kuplan ja muistutukset.</string>
+    <string name="onb_size_title">Mitä sovellusta käytät eniten?</string>
+    <string name="onb_size_body">Sovitamme kuplan koon sovelluksen painikkeisiin.</string>
+    <string name="onb_apps_title">Estä häiritsevät sovellukset</string>
+    <string name="onb_apps_body">Valinnainen — myönnä käyttötietojen käyttöoikeus ja valitse, mitä sovelluksia tauko peittää.</string>
+    <string name="onb_done_title">Kaikki valmista</string>
+    <string name="onb_done_body">Näytä kupla napauttamalla Aloita.</string>
+    <string name="onb_back">Takaisin</string>
+    <string name="onb_next">Seuraava</string>
+    <string name="onb_get_started">Aloita</string>
+</resources>

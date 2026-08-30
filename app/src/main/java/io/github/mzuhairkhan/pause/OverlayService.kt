@@ -203,6 +203,12 @@ class OverlayService : Service() {
         }
     }
 
+    override fun attachBaseContext(newBase: Context) {
+        // Localize the service's resources to the chosen per-app language on API < 33, where
+        // AppCompat doesn't auto-localize non-activity components (33+ is handled by the OS).
+        super.attachBaseContext(LocaleSupport.wrap(newBase))
+    }
+
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -512,9 +518,11 @@ class OverlayService : Service() {
         hourglass?.setProgress(progressRemaining())
         val totalSeconds = (remainingMillis / 1000L).toInt()
         bubbleCountdown?.text = when {
-            totalSeconds >= 3600 -> "${(totalSeconds + 3599) / 3600}h"
-            totalSeconds >= 60 -> "${(totalSeconds + 59) / 60}m"
-            else -> "${totalSeconds}s"
+            totalSeconds >= 3600 ->
+                getString(R.string.unit_hours_short, (totalSeconds + 3599) / 3600)
+            totalSeconds >= 60 ->
+                getString(R.string.unit_minutes_short, (totalSeconds + 59) / 60)
+            else -> getString(R.string.unit_seconds_short, totalSeconds)
         }
         pickerRemaining?.text = formatRemainingLong(totalSeconds)
     }
@@ -803,11 +811,6 @@ class OverlayService : Service() {
             wirePickerModes(view)
             wireDurationMode(view)
             wireAlarmMode(view)
-            view.findViewById<TextView>(R.id.btn_stop_overlay).setOnClickListener {
-                Haptics.tap(it)
-                hidePicker()
-                stopSelf()
-            }
         }
 
         wirePickerDismiss(view)
@@ -1422,7 +1425,13 @@ class OverlayService : Service() {
             .setOngoing(true)
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            // Post at once instead of after the ~10s grace period the system otherwise allows
+            // before a foreground service's notification has to appear.
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
+            // setOngoing alone still lets "Clear all" take it; FLAG_NO_CLEAR does not.
+            // Neither survives an individual swipe on Android 14+ -- that is OS policy.
+            .apply { flags = flags or Notification.FLAG_NO_CLEAR }
     }
 
     companion object {
@@ -1496,14 +1505,17 @@ class OverlayService : Service() {
 
         /** Creates the LOW-importance status channel and clears out the earlier channels. */
         fun ensureChannel(context: Context) {
+            // Read channel strings in the chosen per-app language even off the main app context
+            // (e.g. from BootReceiver) on API < 33; see LocaleSupport.
+            val ctx = LocaleSupport.wrap(context)
             val manager = context.getSystemService(NotificationManager::class.java) ?: return
             LEGACY_CHANNELS.forEach { manager.deleteNotificationChannel(it) }
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                context.getString(R.string.overlay_channel_name),
+                ctx.getString(R.string.overlay_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = context.getString(R.string.overlay_channel_description)
+                description = ctx.getString(R.string.overlay_channel_description)
                 setShowBadge(false)
             }
             manager.createNotificationChannel(channel)
@@ -1518,6 +1530,7 @@ class OverlayService : Service() {
         @SuppressLint("MissingPermission") // guarded by canPostNotifications below
         fun showStartNotification(context: Context) {
             if (_running.value || !canPostNotifications(context)) return
+            val ctx = LocaleSupport.wrap(context)
             ensureChannel(context)
             val startIntent = Intent(context, OverlayService::class.java)
             val startPi = PendingIntent.getForegroundService(
@@ -1529,15 +1542,16 @@ class OverlayService : Service() {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-                .setContentTitle(context.getString(R.string.overlay_notification_off_title))
-                .setContentText(context.getString(R.string.overlay_notification_off_text))
+                .setContentTitle(ctx.getString(R.string.overlay_notification_off_title))
+                .setContentText(ctx.getString(R.string.overlay_notification_off_text))
                 .setSmallIcon(R.drawable.ic_hourglass)
                 .setContentIntent(openPi)
-                .addAction(0, context.getString(R.string.overlay_notification_start), startPi)
+                .addAction(0, ctx.getString(R.string.overlay_notification_start), startPi)
                 .setOngoing(true)
                 .setSilent(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
+                .apply { flags = flags or Notification.FLAG_NO_CLEAR }
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
         }
 

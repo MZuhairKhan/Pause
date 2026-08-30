@@ -28,6 +28,8 @@ release/
 *.jks
 *.keystore
 keystore.properties
+keystore.base64.txt
+*.base64
 
 # Logs / OS junk
 *.log
@@ -47,3 +49,9 @@ obj/
 # Test outputs
 /test-results/
 /coverage/
+
+# Translation review documents (sent to / returned from reviewers, not part of the build)
+Pause-*-translation-review*.docx
+
+# Throwaway vector-drawable previews (view-vector-drawable skill)
+preview/

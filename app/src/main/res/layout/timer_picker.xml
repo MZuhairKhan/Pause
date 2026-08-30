@@ -253,19 +253,6 @@
                     android:textSize="15sp"
                     android:textStyle="bold" />
             </LinearLayout>
-
-            <TextView
-                android:id="@+id/btn_stop_overlay"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/chip_bg"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center"
-                android:text="@string/picker_stop_overlay"
-                android:textColor="@color/overlay_on_chip"
-                android:textSize="14sp" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

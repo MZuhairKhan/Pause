@@ -99,7 +99,10 @@ class BubblePositionTest {
 class BubblePresetsTest {
     @Test fun fixedPresetsIgnoreCustomValues() {
         assertEquals(0.122f, BubblePresets.metrics(BubblePresets.INSTAGRAM, 0.5f, 0.5f).sizeFraction, 1e-6f)
-        assertEquals(0.033f, BubblePresets.metrics(BubblePresets.TIKTOK, 0.5f, 0.5f).edgeFraction, 1e-6f)
+        assertEquals(0.134f, BubblePresets.metrics(BubblePresets.TIKTOK, 0.5f, 0.5f).sizeFraction, 1e-6f)
+        assertEquals(0.019f, BubblePresets.metrics(BubblePresets.TIKTOK, 0.5f, 0.5f).edgeFraction, 1e-6f)
+        assertEquals(0.111f, BubblePresets.metrics(BubblePresets.SHORTS, 0.5f, 0.5f).sizeFraction, 1e-6f)
+        assertEquals(0.029f, BubblePresets.metrics(BubblePresets.SHORTS, 0.5f, 0.5f).edgeFraction, 1e-6f)
     }
 
     @Test fun customUsesSliderValues() {

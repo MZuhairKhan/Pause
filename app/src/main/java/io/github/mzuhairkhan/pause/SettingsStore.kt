@@ -28,6 +28,7 @@ object SettingsStore {
     private const val KEY_EXHALE = "breath_exhale"
     private const val KEY_LOCK = "breath_lock"
     private const val KEY_BREATHING = "breath_enabled"
+    private const val KEY_ONBOARDING = "onboarding_complete"
     private const val KEY_SNOOZE_MINUTES = "snooze_minutes"
     private const val KEY_MUTED_VOLUME = "muted_music_volume"
     private const val KEY_BLOCKED_APPS = "blocked_apps"
@@ -48,6 +49,14 @@ object SettingsStore {
 
     fun setBreathingEnabled(context: Context, enabled: Boolean) {
         context.prefs().edit().putBoolean(KEY_BREATHING, enabled).apply()
+    }
+
+    /** Whether the first-run setup wizard has been completed. */
+    fun onboardingComplete(context: Context): Boolean =
+        context.prefs().getBoolean(KEY_ONBOARDING, false)
+
+    fun setOnboardingComplete(context: Context, done: Boolean) {
+        context.prefs().edit().putBoolean(KEY_ONBOARDING, done).apply()
     }
 
     /** Bubble position as a fraction (0..1) of the draggable area — the one thing kept across sessions. */

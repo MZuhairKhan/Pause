@@ -1,20 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Pause</string>
-    <string name="overlay_channel_name">Overlay service</string>
-    <string name="overlay_channel_description">Keeps the floating Pause button alive while you use other apps.</string>
+    <string name="overlay_channel_name">Pause bubble</string>
+    <string name="overlay_channel_description">Keeps the Pause bubble on screen while you use other apps.</string>
     <string name="overlay_notification_title">Pause is ready</string>
     <string name="overlay_notification_title_running">Pause</string>
-    <string name="overlay_notification_text">Tap the floating button to set a timer.</string>
+    <string name="overlay_notification_text">Tap the bubble to set a timer.</string>
     <string name="overlay_notification_off_title">Pause</string>
-    <string name="overlay_notification_off_text">Tap Start to show the floating timer button.</string>
+    <string name="overlay_notification_off_text">Tap Start to show the bubble.</string>
     <string name="overlay_notification_start">Start</string>
     <string name="overlay_notification_active_soon">Alarm in under a minute</string>
-    <string name="overlay_notification_active_minutes">Alarm in %1$d min</string>
+    <string name="overlay_notification_active_minutes">Alarm in %1$dm</string>
     <string name="overlay_notification_active_hours">Alarm in %1$dh</string>
     <string name="overlay_notification_active_hm">Alarm in %1$dh %2$dm</string>
-    <string name="overlay_bubble_description">Pause floating button</string>
-    <string name="dismiss_description">Drag here to stop the overlay</string>
+    <string name="overlay_bubble_description">Pause bubble</string>
+    <string name="dismiss_description">Drag here to hide the bubble</string>
+
+    <!-- Compact unit suffixes shown beside a number (bubble countdown, setup steppers). -->
+    <string name="unit_hours_short">%1$dh</string>
+    <string name="unit_minutes_short">%1$dm</string>
+    <string name="unit_seconds_short">%1$ds</string>
 
     <!-- Timer picker (Phase 3) -->
     <string name="picker_title">Set a pause timer</string>
@@ -28,7 +33,6 @@
     <string name="picker_active_title">Pause timer</string>
     <string name="picker_remaining_label">Time remaining</string>
     <string name="picker_show_countdown">Show countdown</string>
-    <string name="picker_stop_overlay">Stop overlay</string>
 
     <!-- Timer-finished reminder (Phase 3 placeholder for the Phase 4 nudge) -->
     <string name="reminder_channel_name">Pause reminders</string>
@@ -42,7 +46,7 @@
     <string name="breathing_out">Breathe out</string>
     <string name="breathing_keep">Keep scrolling</string>
     <string name="breathing_stop">Stop for now</string>
-    <string name="breathing_snooze">Snooze %1$d min</string>
+    <string name="breathing_snooze">Snooze %1$dm</string>
     <string name="breathing_done">Time\'s up</string>
 
     <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
@@ -53,4 +57,87 @@
     <string name="block_end_early">End break early</string>
     <string name="block_confirm_title">End your break early?</string>
     <string name="block_confirm_end">End break</string>
+
+    <!-- Setup screen (Compose) -->
+    <string name="start_overlay">Show the bubble</string>
+    <string name="stop_overlay">Hide the bubble</string>
+    <string name="permissions_title">Permissions</string>
+    <string name="all_set">All set ✓</string>
+    <string name="perm_overlay">Display over other apps</string>
+    <string name="perm_notifications">Post notifications</string>
+    <string name="perm_battery">Ignore battery optimization</string>
+    <string name="perm_usage">Usage access (optional)</string>
+    <string name="perm_grant">Grant</string>
+    <string name="perm_granted">Granted</string>
+    <string name="hero_tagline">A bubble you tap to set a “stop using this app” timer.</string>
+
+    <string name="section_bubble">Bubble</string>
+    <string name="show_countdown_title">Show countdown on the bubble</string>
+    <string name="show_countdown_subtitle">Off shows a draining hourglass instead.</string>
+    <string name="match_icon_size">Match the icon size of:</string>
+    <string name="preset_instagram">Instagram</string>
+    <string name="preset_tiktok">TikTok</string>
+    <string name="preset_shorts">Shorts</string>
+    <string name="preset_custom">Custom</string>
+    <string name="bubble_size">Size</string>
+    <string name="bubble_edge_gap">Edge gap</string>
+    <string name="bubble_size_readout">Actual size ≈ %1$ddp · %2$ddp from the edge</string>
+    <string name="slider_readout">%1$s · %2$s%%</string>
+
+    <string name="section_appearance">Appearance</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="custom_color">Custom color</string>
+    <string name="custom_color_pick">Pick…</string>
+    <string name="custom_color_preview">Preview</string>
+    <string name="done">Done</string>
+
+    <string name="section_breathing">Breathing wind-down</string>
+    <string name="breathing_toggle">Breathing exercise</string>
+    <string name="breathing_toggle_subtitle">Off skips the exercise — the timer ends with just the dismiss options.</string>
+    <string name="no_skip_lock">Minimum exercise time</string>
+    <string name="snooze_length">Snooze length</string>
+
+    <string name="section_app_blocking">App blocking</string>
+    <string name="app_blocking_desc">“Stop for now” covers these apps if you open them during the break.</string>
+    <string name="usage_needed">Needs the Usage access permission above to notice when you open a blocked app.</string>
+    <string name="break_length">Break length</string>
+    <string name="apps_chosen_none">No apps chosen</string>
+    <string name="choose">Choose…</string>
+
+    <string name="apps_to_block">Apps to block</string>
+    <string name="apps_to_block_subtitle">Opening these during a break shows a full-screen reminder.</string>
+    <string name="search_apps">Search apps</string>
+    <string name="clear_search">Clear search</string>
+    <string name="no_apps_found">No apps found</string>
+    <string name="no_apps_match">No apps match “%1$s”</string>
+    <string name="clear_all">Clear all</string>
+
+    <plurals name="apps_chosen">
+        <item quantity="one">%1$d app chosen</item>
+        <item quantity="other">%1$d apps chosen</item>
+    </plurals>
+    <plurals name="apps_selected">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+
+    <!-- First-run setup wizard -->
+    <string name="onb_welcome_title">Welcome to Pause</string>
+    <string name="onb_welcome_body">A bubble to set a “stop using this app” timer. Let\'s get you set up.</string>
+    <string name="onb_language_title">Language</string>
+    <string name="onb_language_body">Choose your language. You can change it later in your phone\'s settings.</string>
+    <string name="lang_system">System default</string>
+    <string name="onb_permissions_title">Permissions</string>
+    <string name="onb_permissions_body">Pause needs a couple of permissions to show the bubble and its reminders.</string>
+    <string name="onb_size_title">Which app do you use most?</string>
+    <string name="onb_size_body">We\'ll size the bubble to match that app\'s buttons.</string>
+    <string name="onb_apps_title">Block distracting apps</string>
+    <string name="onb_apps_body">Optional — grant Usage access, then choose the apps a break should cover.</string>
+    <string name="onb_done_title">You\'re all set</string>
+    <string name="onb_done_body">Tap Get started to show the bubble.</string>
+    <string name="onb_back">Back</string>
+    <string name="onb_next">Next</string>
+    <string name="onb_get_started">Get started</string>
 </resources>
