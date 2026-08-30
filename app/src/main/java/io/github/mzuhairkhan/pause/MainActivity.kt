@@ -1324,6 +1324,8 @@ private fun StepperRow(
     @StringRes unitRes: Int = R.string.unit_seconds_short,
     onChange: (Int) -> Unit
 ) {
+    val decreaseLabel = stringResource(R.string.stepper_decrease, label)
+    val increaseLabel = stringResource(R.string.stepper_increase, label)
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
@@ -1331,7 +1333,10 @@ private fun StepperRow(
         Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
         OutlinedButton(
             onClick = { onChange((value - 1).coerceAtLeast(min)) },
-            modifier = Modifier.size(48.dp),
+            // A bare glyph tells a screen reader nothing about what it changes.
+            modifier = Modifier
+                .size(48.dp)
+                .semantics { contentDescription = decreaseLabel },
             contentPadding = PaddingValues(0.dp)
         ) { Text("−") }
         Text(
@@ -1341,7 +1346,9 @@ private fun StepperRow(
         )
         OutlinedButton(
             onClick = { onChange((value + 1).coerceAtMost(max)) },
-            modifier = Modifier.size(48.dp),
+            modifier = Modifier
+                .size(48.dp)
+                .semantics { contentDescription = increaseLabel },
             contentPadding = PaddingValues(0.dp)
         ) { Text("+") }
     }

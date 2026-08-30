@@ -201,3 +201,34 @@ class AccentsTest {
         assertEquals("Blue", Accents.names[0])
     }
 }
+
+class CompactDurationTest {
+
+    @Test
+    fun `rounds up so the countdown never understates the time left`() {
+        // 1s past the minute still reads as 2m: better to overstate than to claim less.
+        assertEquals(CompactDuration.Parts(CompactDuration.Scale.MINUTES, 2), CompactDuration.of(61))
+        assertEquals(CompactDuration.Parts(CompactDuration.Scale.HOURS, 2), CompactDuration.of(3601))
+    }
+
+    @Test
+    fun `picks the largest unit that fits`() {
+        assertEquals(CompactDuration.Scale.SECONDS, CompactDuration.of(59).scale)
+        assertEquals(CompactDuration.Scale.MINUTES, CompactDuration.of(60).scale)
+        assertEquals(CompactDuration.Scale.MINUTES, CompactDuration.of(3599).scale)
+        assertEquals(CompactDuration.Scale.HOURS, CompactDuration.of(3600).scale)
+    }
+
+    @Test
+    fun `exact boundaries do not round up a whole extra unit`() {
+        assertEquals(CompactDuration.Parts(CompactDuration.Scale.MINUTES, 1), CompactDuration.of(60))
+        assertEquals(CompactDuration.Parts(CompactDuration.Scale.HOURS, 1), CompactDuration.of(3600))
+        assertEquals(CompactDuration.Parts(CompactDuration.Scale.MINUTES, 25), CompactDuration.of(1500))
+    }
+
+    @Test
+    fun `clamps negatives rather than reporting a negative countdown`() {
+        assertEquals(CompactDuration.Parts(CompactDuration.Scale.SECONDS, 0), CompactDuration.of(-5))
+        assertEquals(CompactDuration.Parts(CompactDuration.Scale.SECONDS, 0), CompactDuration.of(0))
+    }
+}

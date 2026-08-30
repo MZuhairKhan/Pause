@@ -517,13 +517,7 @@ class OverlayService : Service() {
     private fun updateCountdown(remainingMillis: Long) {
         hourglass?.setProgress(progressRemaining())
         val totalSeconds = (remainingMillis / 1000L).toInt()
-        bubbleCountdown?.text = when {
-            totalSeconds >= 3600 ->
-                getString(R.string.unit_hours_short, (totalSeconds + 3599) / 3600)
-            totalSeconds >= 60 ->
-                getString(R.string.unit_minutes_short, (totalSeconds + 59) / 60)
-            else -> getString(R.string.unit_seconds_short, totalSeconds)
-        }
+        bubbleCountdown?.text = compactDuration(totalSeconds)
         pickerRemaining?.text = formatRemainingLong(totalSeconds)
     }
 
@@ -1383,15 +1377,14 @@ class OverlayService : Service() {
      * notification's status-bar chip, which has room for very little. Reuses the same unit
      * resources as the bubble countdown so the two never disagree.
      */
-    private fun formatShortRemaining(remainingMillis: Long): String {
-        val totalSeconds = (remainingMillis.coerceAtLeast(0L) / 1000L).toInt()
-        return when {
-            totalSeconds >= 3600 ->
-                getString(R.string.unit_hours_short, (totalSeconds + 3599) / 3600)
-            totalSeconds >= 60 ->
-                getString(R.string.unit_minutes_short, (totalSeconds + 59) / 60)
-            else -> getString(R.string.unit_seconds_short, totalSeconds)
+    private fun compactDuration(totalSeconds: Int): String {
+        val parts = CompactDuration.of(totalSeconds)
+        val res = when (parts.scale) {
+            CompactDuration.Scale.HOURS -> R.string.unit_hours_short
+            CompactDuration.Scale.MINUTES -> R.string.unit_minutes_short
+            CompactDuration.Scale.SECONDS -> R.string.unit_seconds_short
         }
+        return getString(res, parts.value)
     }
 
     private fun formatAlarmIn(remainingMillis: Long): String {
@@ -1451,7 +1444,7 @@ class OverlayService : Service() {
                 setColor(SettingsStore.accentColor(this@OverlayService))
                 // The chip has room for very little, so it gets the compact form: "2h", "25m".
                 val remaining = (endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0)
-                setShortCriticalText(formatShortRemaining(remaining))
+                setShortCriticalText(compactDuration((remaining / 1000L).toInt()))
                 // Not required for promotion, but a countdown maps onto a progress bar exactly,
                 // so the shade gets one. Scaled in seconds: plenty granular, and it keeps a long
                 // clock alarm well inside Int range.
