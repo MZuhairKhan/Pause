@@ -34,7 +34,6 @@
     <string name="picker_active_title">Taukoajastin</string>
     <string name="picker_remaining_label">Aikaa jäljellä</string>
     <string name="picker_show_countdown">Näytä ajastin</string>
-    <string name="picker_stop_overlay">Piilota kupla</string>
 
     <string name="reminder_channel_name">Pause-muistutukset</string>
     <string name="reminder_channel_description">Ilmoittaa, kun taukoajastin päättyy.</string>

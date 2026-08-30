@@ -33,7 +33,6 @@
     <string name="picker_active_title">Pause timer</string>
     <string name="picker_remaining_label">Time remaining</string>
     <string name="picker_show_countdown">Show countdown</string>
-    <string name="picker_stop_overlay">Hide the bubble</string>
 
     <!-- Timer-finished reminder (Phase 3 placeholder for the Phase 4 nudge) -->
     <string name="reminder_channel_name">Pause reminders</string>

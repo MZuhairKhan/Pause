@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   descriptions, and per-version changelogs.
 
 ### Changed
+- **The timer picker no longer has a "Hide the bubble" button.** Dismissing the bubble is a
+  deliberate gesture, not a button one taps by accident while setting a timer: tap outside the
+  card (or press Back) to close the picker, and drag the bubble onto the dismiss target to put
+  it away. The setup screen still has an explicit control.
 - **Plainer wording throughout** — the floating control is now called the **bubble** everywhere
   (it was previously split between "floating button" and "bubble"), and the developer-facing
   "overlay service" is gone from the UI: "Start/Stop overlay service" is now "Show/Hide the

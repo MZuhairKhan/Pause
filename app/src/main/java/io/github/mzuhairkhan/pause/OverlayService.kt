@@ -811,11 +811,6 @@ class OverlayService : Service() {
             wirePickerModes(view)
             wireDurationMode(view)
             wireAlarmMode(view)
-            view.findViewById<TextView>(R.id.btn_stop_overlay).setOnClickListener {
-                Haptics.tap(it)
-                hidePicker()
-                stopSelf()
-            }
         }
 
         wirePickerDismiss(view)
