@@ -115,10 +115,29 @@ demands a signed bundle, a console full of declarations, and review of three per
 Google treats as sensitive. Ordered by what blocks what.
 
 #### 1. Build changes (do these first — they gate everything else)
-- [ ] **Raise `targetSdk`.** Play enforces an annual target-API floor: roughly, by 31 August each
-      year new apps and updates must target the API level released the previous year. We are on
-      **35**; as of late-2026 the floor is likely **36**. *Verify against the current Play policy
-      page before planning around it* — if it has already moved, this blocks upload outright.
+- [ ] **Move to SDK 36 (`compileSdk` and `targetSdk`).** Two independent reasons, one change:
+
+      1. **Play's target-API floor.** Play requires new apps and updates to target the API level
+         released the previous year, enforced around 31 August. We are on **35**; as of late-2026
+         the floor is likely **36**. *Verify against the current Play policy page* — if it has
+         already moved, this blocks upload outright.
+      2. **A genuinely pinned notification.** Android 16 adds promoted ongoing notifications
+         ("Live Updates"), which pin to the top of the shade and show a status-bar chip. This is
+         the only supported way to get the pinning we want. `setOngoing` plus `FLAG_NO_CLEAR`
+         does not survive an individual swipe on Android 14+, and Samsung's One UI clears them
+         regardless — confirmed on a real device, so treat AOSP behaviour as the optimistic case.
+
+      Verified present in `android-36.1/android.jar`:
+      `Notification.Builder.setRequestPromotedOngoing(boolean)`, `Notification.FLAG_PROMOTED_ONGOING`
+      and `Notification.hasPromotableCharacteristics()`. Three caveats before relying on it: it is
+      a **request** the system may decline; the notification has to qualify as promotable; and
+      `androidx.core` 1.15.0 **does not wrap it** (checked — `NotificationCompat.Builder` exposes
+      no promoted methods), so either bump core and re-check, or call the platform builder behind
+      an API-36 guard.
+
+      Re-run lint after the bump. A new `targetSdk` routinely surfaces fresh warnings, and it
+      changes runtime behaviour for foreground services and notifications specifically — the two
+      areas this app leans on hardest.
 - [ ] **Produce an `.aab`.** Play has not accepted APKs for new apps since 2021. `assembleRelease`
       is not enough; wire and test `bundleRelease`.
 - [ ] **`bundle { language { enableSplit = false } }`.** Without it, Play splits by language and

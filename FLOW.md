@@ -53,11 +53,14 @@ flowchart TD
   Usage access (the bubble returns to idle while the break covers those apps). If no apps are
   chosen, it leaves the current app and stops the overlay entirely.
 - **Snooze** dismisses the wind-down and re-arms the timer for the chosen number of minutes.
-- **Pinned notification.** Both notifications are ongoing and carry `FLAG_NO_CLEAR`, so “Clear all” leaves them alone: the running
-  foreground-service notification, and the persistent "Start Pause" notification shown while the
-  overlay is off (it is also re-posted after a reboot by `BootReceiver`). On Android 14+ the system
-  still allows the user to swipe an ongoing notification away while the app is backgrounded — that
-  is OS policy and can't be overridden.
+- **Persistent notifications (not truly pinned).** Both are ongoing and carry `FLAG_NO_CLEAR`: the
+  running foreground-service notification, and the "Start Pause" notification shown while the
+  overlay is off (re-posted after a reboot by `BootReceiver`). Neither flag makes them
+  undismissable. On Android 14+ the user may swipe an ongoing notification away while the app is
+  backgrounded, and **Samsung's One UI removes them on "Clear" regardless of `FLAG_NO_CLEAR`** —
+  confirmed on a device. Treat AOSP behaviour as the best case, not the guarantee. Real pinning
+  needs Android 16's promoted-ongoing notifications, which require SDK 36; see the Google Play
+  plan in ONBOARDING.md.
 - **First-run wizard** shows only on first launch (gated by `SettingsStore.onboardingComplete`).
   The chosen language is applied at *Get started* (not mid-wizard) to avoid an activity recreate
   in the middle of the flow.

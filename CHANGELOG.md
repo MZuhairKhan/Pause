@@ -28,11 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   descriptions, and per-version changelogs.
 
 ### Changed
-- **Both notifications survive "Clear all".** They were already ongoing, which is not the same
-  thing: clearing the shade still took them. They now also carry `FLAG_NO_CLEAR`. An individual
-  swipe still dismisses them on Android 14 and later -- that is OS policy and cannot be
-  overridden. The running notification also posts immediately rather than waiting out the
-  system's grace period for foreground services.
+- **Notifications are harder to clear, though not pinned.** Both were already ongoing, which is
+  not the same as un-clearable — sweeping the shade still took them — so both now also carry
+  `FLAG_NO_CLEAR`. This is a real improvement on stock Android and no more than that: an
+  individual swipe still dismisses them on Android 14 and later, and Samsung's One UI clears
+  them on "Clear" regardless. Genuine pinning needs Android 16's promoted-ongoing notifications
+  and therefore SDK 36; it is tracked in the release plan rather than faked here. The running
+  notification also posts immediately instead of waiting out the system's grace period for
+  foreground services.
 - **The timer picker no longer has a "Hide the bubble" button.** Dismissing the bubble is a
   deliberate gesture, not a button one taps by accident while setting a timer: tap outside the
   card (or press Back) to close the picker, and drag the bubble onto the dismiss target to put
