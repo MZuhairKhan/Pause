@@ -1,0 +1,16 @@
+Pause is a small, translucent floating button that lets you set a "stop using this app" timer with a single tap — a gentle nudge to put the phone down, inspired by 4-7-8 breathing wind-downs and other digital-wellbeing rituals.
+
+How it works:
+• Tap the draggable bubble that floats over any app.
+• Pick a duration — 5, 10, or 15-minute presets, or a 1–120-minute wheel — or set a clock alarm for a specific time.
+• When the timer fires, a full-screen 4-7-8 breathing wind-down helps you stop: a circle grows as you inhale, holds, then shrinks as you exhale. Prefer something simpler? Turn the breathing exercise off and the timer ends with just the dismiss options.
+
+Optional app-blocking break:
+"Stop for now" can cover apps you choose (for example TikTok, Instagram, or YouTube) with a full-screen reminder whenever you open them during the break.
+
+Privacy by design:
+• No ads, no analytics, no trackers, and no internet access — nothing ever leaves your device.
+• The core timer does not use the Accessibility Service and reads no usage data.
+• The optional app-blocking break is the only feature that reads which app is in the foreground, only while a break is active, and only after you grant Usage Access. You can skip it entirely.
+
+Pause is free and open source software.

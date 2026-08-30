@@ -55,6 +55,15 @@ The Gradle wrapper is committed, so you can also build straight from the command
 - **`AlarmManager.setAlarmClock()`** rather than `setExactAndAllowWhileIdle()` — avoids the restricted `SCHEDULE_EXACT_ALARM` permission on Android 13+.
 - **Compose** for UI — only the overlay itself uses classic `View` (Compose-in-overlay is awkward).
 
+## Credits
+
+- **Idea** — Zarin Maisha
+
+### Translations
+
+- **Finnish** — Joonas Nivala
+
 ## License
 
-TBD.
+[GPL-3.0-or-later](LICENSE). Pause is free software: you may redistribute and modify it under
+the terms of the GNU General Public License, version 3 or (at your option) any later version.

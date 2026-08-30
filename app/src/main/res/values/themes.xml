@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Pause" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- AppCompat parent so MainActivity (AppCompatActivity, for per-app language) is happy.
+         The actual UI is Compose (PauseTheme); this is just the window/launch theme. -->
+    <style name="Theme.Pause" parent="Theme.AppCompat.Light.NoActionBar" />
 
     <!-- Theme used when inflating the overlay picker, so the platform NumberPicker /
          TimePicker spinners match the surface. Light variant here; values-night/themes.xml

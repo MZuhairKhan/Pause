@@ -5,6 +5,66 @@ All notable changes to Pause are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-08-30
+
+### Added
+- **Internationalization** — every user-facing string (including `<plurals>`) now lives in
+  `res/values/strings.xml` instead of being hardcoded in the Compose setup UI and the overlay
+  views, so the app can be translated without touching Kotlin.
+- **Finnish translation** (`values-fi`) — a complete translation of all 113 strings and
+  2 plurals, reviewed and corrected by Joonas Nivala over two rounds: once for the original
+  translation, and again for the strings this release reworded.
+- **Per-app language picker** — a Language step in the setup wizard, backed by AppCompat's
+  per-app locales. `res/xml/locales_config.xml` declares the shipped languages, which also
+  surfaces the system picker on Android 13+ (Settings → Apps → Pause → Language). On Android 12L
+  and below, `LocaleSupport.wrap()` applies the chosen locale to service contexts, which
+  AppCompat does not localize automatically.
+- **App-picker search** — the "apps to block" picker gains a search field with a clear button,
+  so long app lists are usable.
+- **Release workflow** — pushing a `v*` tag builds and tests the release APK, signs it when
+  signing secrets are configured (and warns loudly when they are not), then publishes a GitHub
+  Release with the APK, its SHA-256 checksum, and the notes from this file's matching section.
+- **F-Droid metadata** — `fastlane/metadata/android/en-US/` with the store title, short and full
+  descriptions, and per-version changelogs.
+
+### Changed
+- **Plainer wording throughout** — the floating control is now called the **bubble** everywhere
+  (it was previously split between "floating button" and "bubble"), and the developer-facing
+  "overlay service" is gone from the UI: "Start/Stop overlay service" is now "Show/Hide the
+  bubble", and the timer picker reuses that label instead of a second one for the same action.
+  "No-skip lock" is now "Minimum exercise time", and the app-blocking and Usage-access hints
+  describe what actually happens instead of referring to an unexplained "cover".
+- **Consistent unit abbreviations** — the compact suffix beside a number now uses `m` and `h`
+  in English (previously a mix of "5 min", "2h" and "2h 30m"). The timer picker's standalone
+  minutes label stays "min": a lone "m" sitting apart from the number wheel reads ambiguously.
+  Each language keeps its own convention — Finnish uses `min` and `t`.
+- **Matching quotation marks** — the same phrase appeared with curly quotes on the welcome
+  screen and straight quotes one tap away in settings. Both are curly now (Finnish uses its
+  own ”…” convention).
+- **The setup wizard is vertically centred.** Its pages were pinned to the top, leaving roughly
+  two thirds of a tall screen empty and reading as unfinished. Short pages now centre; longer
+  ones still grow and scroll from the top.
+- **Application ID renamed** `com.lifelineventures.pause` → `io.github.mzuhairkhan.pause` to match
+  the project's source repository, as F-Droid expects. **This changes the app's identity:** a
+  0.5.0 build installs alongside an existing 0.4.x install rather than upgrading it, and settings
+  from the old install are not carried over. Uninstall the old build first.
+- The app theme's parent is now `Theme.AppCompat.Light.NoActionBar`, since `MainActivity` had to
+  become an `AppCompatActivity` for per-app locales. This is only the window/launch theme — the
+  UI itself is still Compose (`PauseTheme`).
+- CI validates the Gradle wrapper's checksum before building, so a tampered wrapper JAR fails the
+  build rather than silently executing.
+
+### Fixed
+- **The bubble countdown was never translated** — it built its own "2h"/"5m"/"30s" labels in
+  code, so a Finnish user saw "2h" on the bubble while the notification correctly said "2 t".
+  It now uses string resources like the rest of the UI.
+- **The setup steppers were never translated** — the seconds/minutes suffixes were hardcoded
+  Kotlin defaults rather than string resources.
+- **The bubble sliders showed the wrong decimal separator** — the percent read-out was built by
+  Kotlin string interpolation, which always emits a period, so Finnish showed "12.2%" instead of
+  "12,2 %". It now formats in the active locale.
+- The `LICENSE` (GPL-3.0) is now reflected in the README, which still said the license was "TBD".
+
 ## [0.4.1] — 2026-06-19
 
 ### Changed
