@@ -35,6 +35,12 @@ updates:
       # a bot invites a broken build. Upgrade these deliberately, together.
       - dependency-name: "com.android.tools.build:gradle"
       - dependency-name: "org.jetbrains.kotlin:*"
+      # The wrapper is the third member of that trio and was NOT ignored, so a bot bumped it to
+      # 9.7.1 and broke every job on main: Gradle 9.6 removed the internal API AGP 8.13 uses
+      # ("Plugin 'com.android.internal.application' relies on ... InternalProblems"). AGP 8.x
+      # tops out at Gradle 9.5. It also decides the release APK's bytes, so it cannot move
+      # without re-verifying reproducibility.
+      - dependency-name: "gradle-wrapper"
 
   - package-ecosystem: github-actions
     directory: /

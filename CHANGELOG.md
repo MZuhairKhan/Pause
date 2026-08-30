@@ -132,6 +132,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Kotlin string interpolation, which always emits a period, so Finnish showed "12.2%" instead of
   "12,2 %". It now formats in the active locale.
 - The `LICENSE` (GPL-3.0) is now reflected in the README, which still said the license was "TBD".
+- **A Dependabot wrapper bump broke every build on `main`.** The Gradle wrapper was raised
+  8.14.5 → 9.7.1 and merged, but Gradle 9.6 removed `org.gradle.api.problems.internal.
+  InternalProblems`, which AGP 8.13 still uses — so lint, tests, the emulator job and the
+  release build all failed at configuration time. Reverted to 8.14.5. The ignore list already
+  held AGP and Kotlin and its own comment called the wrapper the third member of that trio, but
+  the wrapper was never actually listed; `gradle-wrapper` is now ignored too. AGP 8.x tops out
+  at Gradle 9.5, and the wrapper also determines the release APK's bytes, so it cannot move
+  without re-verifying reproducibility.
 - **A tagged release could publish an unsigned APK.** The release workflow warned and carried on
   when signing secrets were absent, producing a `Pause-<version>-unsigned.apk` that no device can
   install — and that F-Droid's `Binaries:` URL, which resolves to `Pause-<version>.apk`, would
