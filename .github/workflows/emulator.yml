@@ -62,7 +62,9 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-${{ matrix.api-level }}
+          # Profile is part of the key: a cached AVD from a different profile would be
+          # restored verbatim and silently ignore the profile change above.
+          key: avd-${{ matrix.api-level }}-pixel_5
 
       - name: Create AVD and generate snapshot
         if: steps.avd-cache.outputs.cache-hit != 'true'
@@ -70,6 +72,9 @@ jobs:
         with:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
+          # Default AVD is 320x640dp, far smaller than any real phone, which pushes most
+          # of the settings screen off-screen. Match the Roborazzi captures instead.
+          profile: pixel_5
           target: ${{ matrix.api-level == 26 && 'default' || 'google_apis' }}
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
@@ -84,56 +89,15 @@ jobs:
         with:
           api-level: ${{ matrix.api-level }}
           arch: x86_64
+          # Default AVD is 320x640dp, far smaller than any real phone, which pushes most
+          # of the settings screen off-screen. Match the Roborazzi captures instead.
+          profile: pixel_5
           target: ${{ matrix.api-level == 26 && 'default' || 'google_apis' }}
           force-avd-creation: false
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
-          script: |
-            # The action runs this with /usr/bin/sh (dash on the runners), so no bashisms:
-            # "set -o pipefail" is not POSIX and fails outright on line 1.
-            set -e
-            adb logcat -c
-
-            echo "::group::Instrumented tests"
-            ./gradlew connectedDebugAndroidTest --stacktrace
-            echo "::endgroup::"
-
-            echo "::group::Release build smoke test (R8/minify)"
-            # The release APK is unsigned; sign it with the debug key just to install it.
-            keystore="$HOME/.android/debug.keystore"
-            [ -f "$keystore" ] || keytool -genkeypair -keystore "$keystore" -alias androiddebugkey \
-              -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" \
-              -keyalg RSA -keysize 2048 -validity 10000
-            bt=$(ls -d "$ANDROID_HOME"/build-tools/* 2>/dev/null | sort -V | tail -n1)
-            [ -n "$bt" ] || { echo "::error::No build-tools found under $ANDROID_HOME."; exit 1; }
-            unsigned=app/build/outputs/apk/release/app-release-unsigned.apk
-            "$bt/zipalign" -p -f 4 "$unsigned" /tmp/aligned.apk
-            "$bt/apksigner" sign --ks "$keystore" --ks-pass pass:android \
-              --ks-key-alias androiddebugkey --key-pass pass:android --out /tmp/release.apk /tmp/aligned.apk
-
-            adb uninstall io.github.mzuhairkhan.pause || true
-            adb install -r /tmp/release.apk
-            adb shell am start -W -n io.github.mzuhairkhan.pause/.MainActivity
-            sleep 5
-
-            # Fail if the minified build crashed or R8 stripped something it needed.
-            if adb logcat -d | grep -E "FATAL EXCEPTION|ClassNotFoundException|NoSuchMethodError" \
-                 | grep -q .; then
-              echo "::error::Release (minified) build crashed on launch — see logcat artifact."
-              adb logcat -d > release-logcat.txt
-              exit 1
-            fi
-            # pidof is toybox on Android and not guaranteed everywhere; fall back to ps.
-            if ! adb shell "pidof io.github.mzuhairkhan.pause >/dev/null 2>&1 || ps -A 2>/dev/null | grep -q io.github.mzuhairkhan.pause"; then
-              echo "::error::Release build is not running after launch."
-              adb logcat -d > release-logcat.txt
-              exit 1
-            fi
-            echo "Release build launched and is running."
-            echo "::endgroup::"
-
-            adb logcat -d > release-logcat.txt
-            adb exec-out screencap -p > release-launch.png
+          # Single line on purpose: the action runs each script line in its own `sh -c`.
+          script: bash .github/scripts/emulator-smoke.sh
 
       - name: Upload emulator artifacts
         if: always()
