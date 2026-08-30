@@ -104,8 +104,42 @@ to `locales_config.xml` when its file lands.
 - [ ] **On-device verify the timer fires the wind-down** when backgrounded / screen-off / swiped
       from recents (the highest-risk functional path; grant "Ignore battery optimization").
 - [x] F-Droid metadata: `fastlane/metadata/android/en-US/` (title, short + full descriptions,
-      per-versionCode changelogs). Still to add: `images/` (icon + phone screenshots).
+      per-versionCode changelogs) **and `images/`** — 512x512 `icon.png` plus five 1080x2340
+      `phoneScreenshots/` (welcome, settings, break cover, language step, permissions step). Regenerate the screenshots with `gradlew recordRoborazziDebug` and
+      re-copy from `app/build/outputs/roborazzi/`; they are renders of the real UI, so they stay
+      honest as the app changes. F-Droid orders `phoneScreenshots` alphabetically, hence `1.png`…
+      Finnish images are deliberately *not* added yet: a locale's `images/` dir replaces the
+      en-US set rather than supplementing it, and only three Finnish captures exist, so Finnish
+      users would see fewer screenshots, not localized ones. Add `fi/` once the overlay screens
+      are captured in Finnish too.
+- [ ] **The two signature screens are missing from the listing.** The timer picker and the
+      breathing wind-down are what the app *is*, but `OverlayLayoutScreenshotTest` inflates their
+      layouts with no runtime state — preset buttons render unlabelled and the breathing screen
+      renders as a bare circle, because both are populated in `OverlayService` (around
+      `OverlayService.kt:773` and `:1022`). Capturing them honestly means driving that service
+      path under Robolectric rather than inflating the XML. Worth doing before the listing is
+      really good; do not stage them by hand, or the screenshots stop tracking the real UI.
+- [x] **Reproducible release build — verified.** `assembleRelease` is byte-identical across a
+      clean rebuild *and* across a fresh clone at a detached HEAD in a different directory
+      (`87e1b9d9…`, JDK 21, build cache off). `release { vcsInfo { include = false } }` drops
+      `META-INF/version-control-info.textproto`, which records the commit built and so matches
+      only for a rebuilder with the same git metadata — not one building from a tarball, a
+      shallow clone, or a moved tag. `dependenciesInfo { includeInApk/includeInBundle = false }`
+      is insurance rather than a fix: the Google-signed dependency blob lives in the APK signing
+      block, so it is already absent from our externally-signed unsigned APK, and the setting
+      stops the Play AAB or a future in-Gradle `signingConfig` reintroducing it. Nothing else
+      needed stripping — every file under `res/` is vector XML, so F-Droid's usual advice about
+      PNG crunching and generated densities is moot here.
+      The `Reproducible build` workflow guards all of this; it rebuilds from a fresh clone
+      precisely because two builds in one working tree share a git state and an absolute path,
+      and would agree even if the APK embedded either.
+      **Build with JDK 21** (what CI and Android Studio's JBR use); a different major JDK changes
+      the dex, and that is the one variance neither the workflow nor a local rebuild can catch —
+      pin it in the fdroiddata metadata and let F-Droid's verification prove it.
 - [ ] **fdroiddata submission** (source + issue-tracker URLs, license, `UpdateCheckMode: Tags`).
+      With the build reproducible, prefer `Binaries:` + `AllowedAPKSigningKeys:` so F-Droid
+      verifies and ships *our* signed APK instead of re-signing — see the signing-key decision
+      below.
 - [ ] Add a `<monochrome>` layer to the adaptive icon (themed-icon polish).
 
 ### Google Play — release plan
@@ -192,8 +226,14 @@ Google treats as sensitive. Ordered by what blocks what.
 - **GPLv3 and Play App Signing.** Google holds the signing key, so a user cannot rebuild and
   install their own binary. Many GPL apps ship on Play regardless, but decide consciously rather
   than discover the argument later.
-- **Two stores, two signing keys.** An F-Droid install and a Play install are different apps to
-  Android and cannot update each other. Pick which is canonical and say so in the README.
+- **Two stores, two signing keys — now avoidable, but only if decided before Play enrolment.**
+  By default an F-Droid install and a Play install are different apps to Android and cannot
+  update each other. The way out: the build is reproducible, so F-Droid can verify and publish
+  our own signed APK (`Binaries:` + `AllowedAPKSigningKeys:`) rather than re-signing. That only
+  helps if we also hold the Play key — meaning **upload our own key to Play App Signing** instead
+  of letting Google generate one. Google will not hand over a key it generated, so choosing
+  wrong here is permanent. If we take the default instead, pick which store is canonical and say
+  so in the README.
 - **No crash reporting.** The store description promises no analytics and no network access.
   Keeping that promise means shipping blind. That is a legitimate choice — just an explicit one.
 
