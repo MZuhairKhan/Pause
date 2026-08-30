@@ -18,17 +18,15 @@ import org.junit.runner.RunWith
  * The JVM unit tests cover the pure logic and Roborazzi renders the pixels; neither exercises
  * the real framework.
  *
- * Two things this file has to be careful about, both learned the hard way in CI:
+ * Three things this file has to be careful about, all learned from CI:
  *
  *  - The activity is launched explicitly rather than by `createAndroidComposeRule`. That rule
  *    launches during its own `before`, which runs *earlier* than `@Before`, so seeding
  *    SharedPreferences there is too late to choose which screen composes.
- *  - SharedPreferences survive between tests in the same process, so every test sets the
- *    onboarding flag itself instead of relying on a clean install.
- *
- * Assertions scroll before asserting: the CI emulator is only 320dp wide by 640dp tall, so most
- * of the settings screen sits below the fold and `assertIsDisplayed` would fail on content that
- * is present but off-screen.
+ *  - SharedPreferences survive between tests in the same process, so every test seeds the state
+ *    it depends on rather than assuming a clean install.
+ *  - The CI emulator is small, so assertions scroll before asserting: `assertIsDisplayed` fails
+ *    on content that exists but is below the fold.
  */
 @RunWith(AndroidJUnit4::class)
 class SetupSmokeTest {
@@ -55,17 +53,31 @@ class SetupSmokeTest {
             .assertIsDisplayed()
     }
 
-    /** The breathing section exposes the renamed "Minimum exercise time" setting. */
+    /**
+     * Sections are disclosure panels that start *expanded*, so tapping the header collapses.
+     * This walks collapse then expand, checking the renamed "Minimum exercise time" row follows.
+     *
+     * The row lives behind `if (breathingOn)`, so the toggle is seeded on: another test in the
+     * same process could otherwise have turned it off and taken the row with it.
+     */
     @Test
-    fun breathingSectionExpands() {
+    fun breathingSectionCollapsesAndExpands() {
+        SettingsStore.setBreathingEnabled(app, true)
         launchSettings()
-        compose.onNodeWithText(app.getString(R.string.section_breathing))
-            .performScrollTo()
-            .performClick()
+
+        val header = app.getString(R.string.section_breathing)
+        val row = app.getString(R.string.no_skip_lock)
+
+        // Expanded by default, so the row is there before anything is tapped.
+        compose.onNodeWithText(row).performScrollTo().assertIsDisplayed()
+
+        compose.onNodeWithText(header).performScrollTo().performClick()
         compose.waitForIdle()
-        compose.onNodeWithText(app.getString(R.string.no_skip_lock))
-            .performScrollTo()
-            .assertIsDisplayed()
+        compose.onNodeWithText(row).assertDoesNotExist()
+
+        compose.onNodeWithText(header).performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(row).performScrollTo().assertIsDisplayed()
     }
 }
 
