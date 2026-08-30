@@ -89,7 +89,9 @@ jobs:
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           script: |
-            set -eo pipefail
+            # The action runs this with /usr/bin/sh (dash on the runners), so no bashisms:
+            # "set -o pipefail" is not POSIX and fails outright on line 1.
+            set -e
             adb logcat -c
 
             echo "::group::Instrumented tests"
@@ -102,7 +104,8 @@ jobs:
             [ -f "$keystore" ] || keytool -genkeypair -keystore "$keystore" -alias androiddebugkey \
               -storepass android -keypass android -dname "CN=Android Debug,O=Android,C=US" \
               -keyalg RSA -keysize 2048 -validity 10000
-            bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)
+            bt=$(ls -d "$ANDROID_HOME"/build-tools/* 2>/dev/null | sort -V | tail -n1)
+            [ -n "$bt" ] || { echo "::error::No build-tools found under $ANDROID_HOME."; exit 1; }
             unsigned=app/build/outputs/apk/release/app-release-unsigned.apk
             "$bt/zipalign" -p -f 4 "$unsigned" /tmp/aligned.apk
             "$bt/apksigner" sign --ks "$keystore" --ks-pass pass:android \
@@ -120,7 +123,8 @@ jobs:
               adb logcat -d > release-logcat.txt
               exit 1
             fi
-            if ! adb shell pidof io.github.mzuhairkhan.pause > /dev/null; then
+            # pidof is toybox on Android and not guaranteed everywhere; fall back to ps.
+            if ! adb shell "pidof io.github.mzuhairkhan.pause >/dev/null 2>&1 || ps -A 2>/dev/null | grep -q io.github.mzuhairkhan.pause"; then
               echo "::error::Release build is not running after launch."
               adb logcat -d > release-logcat.txt
               exit 1
