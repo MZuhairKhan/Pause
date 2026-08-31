@@ -137,8 +137,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The emulator spawns `crashpad_handler` children and the runner action waits on the whole
   process tree rather than the emulator alone, so the orphans deadlock it
   (ReactiveCircus/android-emulator-runner#385); API 35 shuts down cleanly, API 26 does not. The
-  smoke script now SIGTERMs them as its last act — it has to happen inside the action's own
-  script, because a later workflow step never gets to run while the step ahead of it is hung.
+  smoke script now SIGTERMs them from an `EXIT` trap — it has to happen inside the action's own
+  script, because a later workflow step never gets to run while the step ahead of it is hung,
+  and it has to be a trap rather than a trailing line, because `set -e` means a failing test run
+  never reaches the end of the script.
+- **The API 26 emulator installed the APK before the device was ready.** The action waits for
+  `sys.boot_completed`, but the package manager is still coming up behind it — the boot log shows
+  `device offline` and a failed adb connect — so an install fired into that window died with
+  `Failure calling service package: Broken pipe (32)` and the job ran zero tests. The smoke
+  script now polls `pm path android` until it answers before handing over to Gradle.
 - **A Dependabot wrapper bump broke every build on `main`.** The Gradle wrapper was raised
   8.14.5 → 9.7.1 and merged, but Gradle 9.6 removed `org.gradle.api.problems.internal.
   InternalProblems`, which AGP 8.13 still uses — so lint, tests, the emulator job and the

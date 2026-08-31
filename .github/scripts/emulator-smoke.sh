@@ -10,7 +10,30 @@
 # script keeps normal shell semantics -- and lets us use bash rather than the runner's dash.
 set -euo pipefail
 
+# Work around ReactiveCircus/android-emulator-runner#385: the emulator spawns crashpad_handler
+# children, and the action's teardown waits on the whole process tree rather than the emulator
+# alone, so those orphans deadlock the step. It bites API 26 here; API 35 shuts down cleanly.
+# This has to run from inside the action's own script -- a later workflow step never gets to run
+# while the step ahead of it is hung -- and it has to be a trap rather than a trailing command,
+# because `set -e` means a failing test run exits before any trailing line is reached, which is
+# exactly when the emulator is most likely to leave orphans behind.
+trap 'pkill -SIGTERM crashpad_handler 2>/dev/null || true' EXIT
+
 PKG=io.github.mzuhairkhan.pause
+
+# The action waits for sys.boot_completed, but on API 26 the package manager is still coming up
+# behind it -- the boot log shows "device offline" and a failed adb connect -- and an install
+# fired at that window dies with "Failure calling service package: Broken pipe (32)" and runs
+# zero tests. Wait until pm actually answers before letting Gradle install anything.
+echo "Waiting for the package manager to answer..."
+for _ in $(seq 1 60); do
+  if adb shell pm path android >/dev/null 2>&1; then break; fi
+  sleep 2
+done
+adb shell pm path android >/dev/null 2>&1 || {
+  echo "::error::Package manager never became ready; the emulator is not usable."
+  exit 1
+}
 
 # Clearing the ring buffer fails on some API levels ("failed to clear the 'main' log") and is
 # only a convenience, so never let it end the run.
@@ -73,10 +96,3 @@ echo "Release build launched and is still running."
 echo "::endgroup::"
 
 adb exec-out screencap -p > release-launch.png || true
-
-# Work around ReactiveCircus/android-emulator-runner#385: the emulator spawns crashpad_handler
-# children, and the action's teardown waits on the whole process tree rather than the emulator
-# alone, so those orphans deadlock the step long after the tests have passed. It reliably bites
-# API 26 here while API 35 shuts down cleanly. Killing them from a later workflow step cannot
-# work -- the hung step never yields -- so it has to happen here, inside the action's own script.
-pkill -SIGTERM crashpad_handler 2>/dev/null || true
