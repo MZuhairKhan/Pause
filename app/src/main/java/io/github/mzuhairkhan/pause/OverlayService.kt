@@ -39,6 +39,8 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import android.view.accessibility.AccessibilityManager
 import android.view.animation.LinearInterpolator
 import android.widget.ImageView
@@ -67,6 +69,7 @@ class OverlayService : Service() {
     private var bubbleIcon: ImageView? = null
     private var bubbleCountdown: TextView? = null
     private var pickerView: View? = null
+    private var pickerBackRelease: (() -> Unit)? = null
 
     /** Live "time remaining" label inside the picker's active panel, when shown. */
     private var pickerRemaining: TextView? = null
@@ -78,6 +81,7 @@ class OverlayService : Service() {
 
     /** Full-screen breathing wind-down shown when a timer fires (the default stop mode). */
     private var breathingView: View? = null
+    private var breathingBackRelease: (() -> Unit)? = null
     private var breathingAnimator: ValueAnimator? = null
 
     /** Held while the wind-down is up, to pause other apps' media; null when not muting. */
@@ -88,6 +92,7 @@ class OverlayService : Service() {
 
     /** Full-screen cover shown over a blocked app during a "Stop for now" break. */
     private var blockView: View? = null
+    private var blockBackRelease: (() -> Unit)? = null
     private var blockRemaining: TextView? = null
     private var blockSubtitle: TextView? = null
 
@@ -819,6 +824,7 @@ class OverlayService : Service() {
 
         if (!safeAddView(view, params)) return
         view.requestFocus()
+        pickerBackRelease = registerBackCallback(view) { hidePicker() }
         pickerView = view
         refreshTicker()
     }
@@ -902,6 +908,35 @@ class OverlayService : Service() {
         }
     }
 
+    /**
+     * Registers a predictive-back callback on an overlay window, for API 33+.
+     *
+     * From Android 13 the platform routes back through OnBackInvokedDispatcher, and at
+     * targetSdk 36 that is on by default. KEYCODE_BACK does still reach the view tree on
+     * Android 16 -- but only through a legacy fallback AOSP itself logs as an error, and
+     * 16.0 and 16.1 already disagree about whether the forwarded up-event arrives cancelled.
+     * Relying on it would leave the no-skip lock working by accident. Registering a callback
+     * makes the window's intent explicit instead: the system classifies the gesture as handled
+     * and hands it to us, rather than falling through to its own back behaviour.
+     *
+     * The OnKeyListener at each site stays as the API 26-32 path, and as the fallback if
+     * registration is ever refused (it is silently ignored when the app opts out of
+     * predictive back).
+     *
+     * @param view root View, already attached via [safeAddView]; the dispatcher lookup
+     *   returns null for a detached view, so this must be called after the window is added.
+     * @param onBack run on the main thread when back is invoked. An empty body swallows back.
+     * @return a function that unregisters the callback, or null if nothing was registered
+     *   (below API 33, or no dispatcher available).
+     */
+    private fun registerBackCallback(view: View, onBack: () -> Unit): (() -> Unit)? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
+        val dispatcher = view.findOnBackInvokedDispatcher() ?: return null
+        val callback = OnBackInvokedCallback { onBack() }
+        dispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_OVERLAY, callback)
+        return { dispatcher.unregisterOnBackInvokedCallback(callback) }
+    }
+
     private fun accentColor(): Int = SettingsStore.accentColor(this)
 
     private fun wirePickerDismiss(view: View) {
@@ -910,7 +945,11 @@ class OverlayService : Service() {
         view.isFocusableInTouchMode = true
         view.setOnKeyListener { _, keyCode, event ->
             if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
-                hidePicker()
+                // On API 33+ the callback registered in showPicker() has already run, and the
+                // platform still forwards this up-event -- marked cancelled -- so acting on it
+                // would dismiss twice. Ignoring cancelled events is right regardless: a
+                // long-press back arrives the same way and never meant "dismiss the picker".
+                if (!event.isCanceled) hidePicker()
                 true
             } else {
                 false
@@ -919,6 +958,8 @@ class OverlayService : Service() {
     }
 
     private fun hidePicker() {
+        pickerBackRelease?.invoke()
+        pickerBackRelease = null
         pickerView?.let { safeRemoveView(it) }
         pickerView = null
         pickerRemaining = null
@@ -1046,7 +1087,9 @@ class OverlayService : Service() {
         }
 
         // Not skippable: the full-screen view swallows taps and BACK is consumed. The
-        // action buttons, revealed after the lock window, are the only way out.
+        // action buttons, revealed after the lock window, are the only way out. The key
+        // listener covers API 26-32; registerBackCallback below covers 33+, where back no
+        // longer reliably reaches it. Both simply consume, so a double-fire is harmless.
         view.isFocusableInTouchMode = true
         view.setOnKeyListener { _, keyCode, _ -> keyCode == KeyEvent.KEYCODE_BACK }
 
@@ -1059,6 +1102,7 @@ class OverlayService : Service() {
         )
         if (!safeAddView(view, params)) return
         view.requestFocus()
+        breathingBackRelease = registerBackCallback(view) { /* no-skip lock: back does nothing */ }
         breathingView = view
         // Silence whatever was playing (a video, music) so the wind-down isn't competing
         // with background media; focus is handed back when the wind-down closes.
@@ -1092,6 +1136,8 @@ class OverlayService : Service() {
     private fun hideBreathing(keepMute: Boolean = false) {
         breathingAnimator?.cancel()
         breathingAnimator = null
+        breathingBackRelease?.invoke()
+        breathingBackRelease = null
         breathingView?.let { safeRemoveView(it) }
         breathingView = null
         // A break that immediately follows keeps the mute, so there's no ~1s burst of the app's
@@ -1292,6 +1338,7 @@ class OverlayService : Service() {
             )
             if (!safeAddView(view, params)) return
             view.requestFocus()
+            blockBackRelease = registerBackCallback(view) { /* break cover: back does nothing */ }
             blockView = view
             blockRemaining = view.findViewById(R.id.block_remaining)
             blockSubtitle = view.findViewById(R.id.block_subtitle)
@@ -1304,6 +1351,8 @@ class OverlayService : Service() {
     }
 
     private fun hideBlockOverlay() {
+        blockBackRelease?.invoke()
+        blockBackRelease = null
         blockView?.let { safeRemoveView(it) }
         blockView = null
         blockRemaining = null
