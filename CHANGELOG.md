@@ -123,6 +123,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wasted effort.
 
 ### Fixed
+- **The overlay windows now claim BACK explicitly, instead of relying on an accident.** The
+  wind-down's no-skip lock and the "Stop for now" cover both depend on BACK being swallowed, and
+  both did that through an `OnKeyListener`. From Android 13 the platform routes BACK through
+  `OnBackInvokedDispatcher` instead, and at targetSdk 36 that is on by default. The key events
+  do still arrive on Android 16 — but only via a legacy fallback AOSP logs as an error, and
+  Android 16.0 and 16.1 already disagree about whether the forwarded up-event is marked
+  cancelled. So the lock was working by accident on a path being retired. Each overlay now
+  registers an `OnBackInvokedCallback` (API 33+): an empty one for the wind-down and the cover,
+  which is what makes the lock contractual rather than incidental, and one that dismisses for the
+  timer picker. The key listeners stay as the API 26-32 path, and as a fallback if registration
+  is ever refused. The picker additionally ignores *cancelled* BACK up-events, because on API 33+
+  the platform invokes the callback and still forwards the up-event — acting on both would
+  dismiss twice. A new instrumented test (`OverlayBackTest`) pins the two load-bearing facts on a
+  real device: that a Service-owned `TYPE_APPLICATION_OVERLAY` window exposes a dispatcher at
+  all, and that a registered callback both fires and leaves the window standing.
 - **The bubble countdown was never translated** — it built its own "2h"/"5m"/"30s" labels in
   code, so a Finnish user saw "2h" on the bubble while the notification correctly said "2 t".
   It now uses string resources like the rest of the UI.
