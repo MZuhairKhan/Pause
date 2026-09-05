@@ -10,12 +10,17 @@
 # script keeps normal shell semantics -- and lets us use bash rather than the runner's dash.
 set -euo pipefail
 
-# The step used to hang for 40 minutes AFTER the tests passed. The action runs us via
-# @actions/exec, whose Node process cannot exit while any surviving descendant still holds the
-# stdout/stderr pipes it inherited -- so a wedged emulator deadlocks the step no matter how the
-# tests went. An earlier attempt killed only crashpad_handler and did nothing, because the
-# emulator itself is the pipe holder. Tear it down here instead, redirecting everything to
-# /dev/null so nothing we spawn inherits those pipes either.
+# The step used to hang for 40 minutes AFTER the tests passed, whatever the result. The action's
+# own teardown awaits `adb emu kill`, and that await is what never returns: the emulator and the
+# adb server both outlive the command holding the stdio they inherited. (The runner itself is not
+# the culprit -- it gives up on inherited streams after ~5s -- so the block is inside the action's
+# Node process, not below it.) An earlier attempt killed only crashpad_handler and changed
+# nothing. Tear the whole thing down here first, with output redirected so nothing we spawn
+# inherits those pipes either, and the action's own kill then returns immediately.
+#
+# Verified: API 26 went from a 40-minute hang to a 4-minute pass exiting cleanly (outcome
+# success, not a timeout rescue). Cold-booting API 26 landed in the same change, so the two
+# are not separated -- do not assume either alone is sufficient.
 #
 # This must stay a trap (a trailing line is skipped by `set -e` on failure, which is exactly when
 # a wedged emulator is most likely) and it must NOT write the sentinel -- see the note below.
