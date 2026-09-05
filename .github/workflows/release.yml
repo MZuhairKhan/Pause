@@ -1,11 +1,11 @@
 name: Release
 
 # Cut a release by pushing a version tag:  git tag v0.4.2 && git push origin v0.4.2
-# Builds the release APK, signs it when signing secrets are configured (otherwise
-# publishes an unsigned APK and warns), and creates a GitHub Release with the APK,
-# its SHA-256, and release notes pulled from the matching CHANGELOG.md section.
+# Builds and signs the release APK, then creates a GitHub Release with the APK, its SHA-256,
+# and release notes pulled from the matching CHANGELOG.md section. The asset is named
+# Pause-<version>.apk, which is what F-Droid's `Binaries:` URL resolves to.
 #
-# Signing secrets (optional but required for an installable APK):
+# Signing secrets (required — the job fails without them):
 #   KEYSTORE_BASE64   base64 of your release keystore  (base64 -w0 release.jks)
 #   KEYSTORE_PASSWORD store password
 #   KEY_ALIAS         key alias
@@ -30,6 +30,15 @@ jobs:
     env:
       KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
     steps:
+      # Refuse to publish rather than ship an unsigned APK. It cannot be installed, and F-Droid
+      # resolves `Binaries:` to this exact filename — an unsigned or differently-named asset there
+      # fails its signature check and stalls the release.
+      - name: Require signing secrets
+        if: ${{ env.KEYSTORE_BASE64 == '' }}
+        run: |
+          echo "::error::No KEYSTORE_BASE64 secret set. A release APK must be signed: an unsigned one cannot be installed, and F-Droid's Binaries: URL expects Pause-<version>.apk signed with the key in AllowedAPKSigningKeys. Add KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD, then re-run."
+          exit 1
+
       - name: Resolve tag
         id: tag
         run: |
@@ -44,11 +53,11 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/actions/wrapper-validation@v6
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
@@ -80,25 +89,13 @@ jobs:
           "$build_tools/apksigner" verify --print-certs "$out"
           echo "apk=$out" >> "$GITHUB_OUTPUT"
 
-      - name: Stage unsigned APK
-        id: unsigned
-        if: ${{ env.KEYSTORE_BASE64 == '' }}
-        env:
-          VERSION: ${{ steps.tag.outputs.version }}
-        run: |
-          set -euo pipefail
-          out="Pause-$VERSION-unsigned.apk"
-          cp app/build/outputs/apk/release/app-release-unsigned.apk "$out"
-          echo "::warning::No KEYSTORE_BASE64 secret set — publishing an UNSIGNED APK that cannot be installed. Add signing secrets for installable builds."
-          echo "apk=$out" >> "$GITHUB_OUTPUT"
-
       - name: Checksum & release notes
         id: meta
         env:
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
           set -euo pipefail
-          apk="${{ steps.sign.outputs.apk || steps.unsigned.outputs.apk }}"
+          apk="${{ steps.sign.outputs.apk }}"
           sha256sum "$apk" > "$apk.sha256"
           echo "apk=$apk" >> "$GITHUB_OUTPUT"
           notes="$(awk -v v="$VERSION" '

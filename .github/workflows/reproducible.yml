@@ -1,0 +1,95 @@
+name: Reproducible build
+
+# F-Droid can publish OUR signed APK instead of re-signing with its own key, but only if it can
+# rebuild the exact same bytes from the tag. That makes a Play install and an F-Droid install the
+# same app, able to update each other — see the F-Droid section of ONBOARDING.md.
+#
+# The second build deliberately does NOT reuse this working tree. It runs from a fresh clone at a
+# detached HEAD in a different directory, because that is what F-Droid does — and because two
+# builds in one tree share a git state and an absolute path, so they would agree even if the APK
+# embedded either. That is exactly the variance `vcsInfo { include = false }` exists to remove.
+#
+# Still out of reach here: a different JDK major version or build-tools version changes the dex.
+# Only F-Droid's own verification proves that, so keep the JDK below in step with fdroiddata.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths:
+      - 'app/build.gradle.kts'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/libs.versions.toml'
+      - 'gradle/wrapper/gradle-wrapper.properties'
+      - '.github/workflows/reproducible.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  rebuild:
+    name: Build twice, compare bytes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      # Must match the JDK F-Droid builds with; a different major version changes the dex.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: First build (this working tree)
+        run: |
+          set -euo pipefail
+          ./gradlew --no-build-cache clean assembleRelease --stacktrace
+          cp app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/build1.apk"
+
+      # A different path, and a detached HEAD with no branch name — as F-Droid sees it.
+      - name: Second build (fresh clone, detached HEAD, different path)
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          git clone --quiet . "$RUNNER_TEMP/rebuild"
+          git -C "$RUNNER_TEMP/rebuild" checkout --quiet --detach "$sha"
+          cd "$RUNNER_TEMP/rebuild"
+          ./gradlew --no-build-cache clean assembleRelease --stacktrace
+          cp app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/build2.apk"
+
+      - name: Compare
+        id: compare
+        run: |
+          set -euo pipefail
+          sha256sum "$RUNNER_TEMP/build1.apk" "$RUNNER_TEMP/build2.apk"
+          if cmp -s "$RUNNER_TEMP/build1.apk" "$RUNNER_TEMP/build2.apk"; then
+            echo "Byte-identical across two independent checkouts ✔"
+          else
+            echo "::error::The release APK is not reproducible — two clean builds differ."
+            exit 1
+          fi
+
+      - name: Diff the two APKs
+        if: failure() && steps.compare.outcome == 'failure'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq diffoscope
+          diffoscope --max-report-size 2000000             "$RUNNER_TEMP/build1.apk" "$RUNNER_TEMP/build2.apk" || true
+
+      - name: Upload both APKs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: non-reproducible-apks
+          path: |
+            ${{ runner.temp }}/build1.apk
+            ${{ runner.temp }}/build2.apk
+          if-no-files-found: ignore
