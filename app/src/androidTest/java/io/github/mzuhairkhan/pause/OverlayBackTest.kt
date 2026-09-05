@@ -8,15 +8,9 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.view.View
 import android.view.WindowManager
-import android.window.OnBackInvokedCallback
-import android.window.OnBackInvokedDispatcher
-import androidx.annotation.RequiresApi
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -44,8 +38,10 @@ import org.junit.runner.RunWith
  *  - The appops grant has to be waited on. Closing the shell descriptor without draining it lets
  *    addView race ahead of the grant, which surfaces as BadTokenException "permission denied for
  *    window type 2038" -- seen on the slower API 26 image.
- *  - findOnBackInvokedDispatcher() does not exist below API 33, so calling it there is a
- *    NoSuchMethodError, not a null. The 33+ work lives in its own @RequiresApi method.
+ *  - Every API 33 type lives in [Api33Back], not here. @RequiresApi is a lint contract, not a
+ *    runtime one: an OnBackInvokedDispatcher in this class's signatures stops ART on API 26
+ *    loading the class at all, and the file dies with "Failed to instantiate test runner class"
+ *    before any assertion runs.
  *
  * There is no `Assume`/skip anywhere: the CI smoke script fails the build on skipped instrumented
  * tests, so each case asserts the behaviour appropriate to its API level instead.
@@ -139,10 +135,10 @@ class OverlayBackTest {
     fun overlayWindowExposesBackDispatcher() {
         withOverlayWindow { view ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                assertNotNull(
+                assertTrue(
                     "No OnBackInvokedDispatcher on a TYPE_APPLICATION_OVERLAY window: the " +
                         "overlay back callbacks would silently never register.",
-                    onMain { dispatcherOf(view) }
+                    onMain { Api33Back.hasDispatcher(view) }
                 )
             } else {
                 // The API does not exist here at all, so BACK can only arrive as a key event.
@@ -153,50 +149,28 @@ class OverlayBackTest {
     }
 
     /**
-     * A registered callback fires when BACK is pressed, and -- the part that matters for the
-     * lock -- the window survives it. A callback that registered but did not fire, or fired but
-     * let the window be torn down, would each defeat the wind-down's no-skip lock.
+     * BACK behaves as this device's back regime implies, and the window survives it either way.
+     *
+     * Deliberately not "the callback always fires": on Android 13/14/15 this app is not opted
+     * into predictive back -- the device's package parser decides, and the default is off there --
+     * so a registered callback is silently never invoked and the OnKeyListener carries BACK. Only
+     * on Android 16, where targetSdk 36 turns it on, does the callback become the live path.
+     * [Api33Back] asserts whichever applies, so this holds on all three CI legs.
      */
     @Test
-    fun registeredCallbackConsumesBackAndLeavesTheWindowUp() {
+    fun backBehavesAccordingToTheDevicesBackRegime() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             // Below 33 there is no dispatcher to exercise; the OnKeyListener carries BACK.
             // Asserted explicitly rather than skipped, because CI fails on skipped tests.
             withOverlayWindow { view -> assertTrue(onMain { view.isAttachedToWindow }) }
             return
         }
-        withOverlayWindow { view -> assertBackIsConsumed(view) }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    private fun dispatcherOf(view: View): OnBackInvokedDispatcher? =
-        view.findOnBackInvokedDispatcher()
-
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    private fun assertBackIsConsumed(view: View) {
-        val fired = CountDownLatch(1)
-        val callback = OnBackInvokedCallback { fired.countDown() }
-        val dispatcher = onMain {
-            val d = dispatcherOf(view)
-            d?.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_OVERLAY, callback)
-            view.requestFocus()
-            d
-        }
-        assertNotNull("No dispatcher to register against.", dispatcher)
-        instrumentation.waitForIdleSync()
-        try {
-            shell("input keyevent 4")
-            assertTrue(
-                "BACK did not reach the registered OnBackInvokedCallback.",
-                fired.await(5, TimeUnit.SECONDS)
+        withOverlayWindow { view ->
+            Api33Back.assertBackBehaviour(
+                view = view,
+                onMain = { block -> onMain { block() } },
+                sendBack = { shell("input keyevent 4") }
             )
-            instrumentation.waitForIdleSync()
-            assertTrue(
-                "The overlay window was torn down by BACK; an empty callback must swallow it.",
-                onMain { view.isAttachedToWindow }
-            )
-        } finally {
-            onMain { dispatcher?.unregisterOnBackInvokedCallback(callback) }
         }
     }
 }
