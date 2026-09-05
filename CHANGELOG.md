@@ -43,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   emulator matrix widened to API 26, 35 and 36.
 
 ### Fixed
+- **Two more version pins that existed only as comments.** core-ktx was held at 1.18.0 in a
+  comment, so a bot proposed 1.19.0, which needs compileSdk 37 and fails `checkDebugAarMetadata`
+  outright. Roborazzi was capped at 1.66 for a Kotlin-metadata reason, but 1.65 breaks too — it
+  moves `captureRoboImage` and every call in `ScreenshotTest.kt` stops resolving. Both are now
+  rules Dependabot obeys rather than notes it cannot read.
 - **Back is claimed explicitly** by the breathing wind-down, the block cover and the timer picker
   via `OnBackInvokedCallback` on API 33+. The no-skip lock had been working by accident on a
   legacy key-event path that Android is retiring; the key listeners remain the path below 33.

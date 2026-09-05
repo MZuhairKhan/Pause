@@ -27,10 +27,19 @@ updates:
           - "io.github.takahirom.roborazzi*"
           - "androidx.test*"
     ignore:
-      # Pinned deliberately: 1.66+ ships Kotlin 2.3 metadata, which Kotlin 2.1 cannot read.
-      # Revisit only alongside a Kotlin upgrade.
+      # Pinned deliberately, and tighter than it looks like it needs to be. 1.66+ ships Kotlin 2.3
+      # metadata that Kotlin 2.1 cannot read -- but 1.65 also breaks, for an unrelated reason: it
+      # moves `captureRoboImage`, so every call in ScreenshotTest.kt stops resolving (#6). The
+      # versions between 1.60 and 1.65 are untested, so anything above 1.60 is a deliberate
+      # migration rather than a bump. Revisit alongside a Kotlin upgrade.
       - dependency-name: "io.github.takahirom.roborazzi*"
-        versions: [">=1.66.0"]
+        versions: [">=1.61.0"]
+      # core-ktx 1.19.0 requires compileSdk 37; we are on 36. Verified, not assumed:
+      # checkDebugAarMetadata fails with "compileSdk of at least 37". The pin was recorded only as
+      # a comment in libs.versions.toml, so a bot proposed 1.19.0 anyway (#4). Lift this together
+      # with a compileSdk bump.
+      - dependency-name: "androidx.core:core-ktx"
+        versions: [">=1.19.0"]
       # AGP and Kotlin are coupled to each other and to the Gradle wrapper; bumping either from
       # a bot invites a broken build. Upgrade these deliberately, together.
       #
