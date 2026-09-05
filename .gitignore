@@ -55,3 +55,6 @@ Pause-*-translation-review*.docx
 
 # Throwaway vector-drawable previews (view-vector-drawable skill)
 preview/
+
+# Sentinel written by .github/scripts/emulator-smoke.sh when run locally.
+emulator-smoke-ok

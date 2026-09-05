@@ -137,10 +137,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The emulator spawns `crashpad_handler` children and the runner action waits on the whole
   process tree rather than the emulator alone, so the orphans deadlock it
   (ReactiveCircus/android-emulator-runner#385); API 35 shuts down cleanly, API 26 does not. The
-  smoke script now SIGTERMs them from an `EXIT` trap — it has to happen inside the action's own
-  script, because a later workflow step never gets to run while the step ahead of it is hung,
-  and it has to be a trap rather than a trailing line, because `set -e` means a failing test run
-  never reaches the end of the script.
+  first fix — SIGTERMing `crashpad_handler` — was wrong: the emulator *itself* holds those pipes,
+  so killing its children changed nothing. The script's `EXIT` trap now tears the emulator down
+  directly (`adb emu kill`, then `SIGKILL` on `qemu-system-x86_64`), with all output redirected so
+  nothing it spawns inherits the pipes either. Two further guards make the leg trustworthy rather
+  than merely unblocked: the emulator step is bounded by `timeout-minutes` and marked
+  `continue-on-error`, and the job's verdict now comes from a sentinel file the script writes on
+  its straight-line path — never from its trap, which fires on failure too. The step's own exit
+  status is reported as a warning only, because a clean API 26 run can still exit dirty.
+- **The API 26 hang tracked the AVD cache, not the API level.** Every cache-miss API 26 job
+  terminated normally; every cache-hit one wedged — a Quick Boot snapshot saved on one runner VM
+  and restored onto another. API 26 now cold-boots (`-no-snapshot`, no cache), which is *faster*
+  than restoring the snapshot was, and the cache key is bumped so the implicated entry cannot come
+  back. API 35 and 36 keep their caches.
+- **A green emulator job could mean nothing had been tested.** `connectedDebugAndroidTest` exits 0
+  when zero tests run, which this repo had already hit — an install failure produced "Starting 0
+  tests / Finished 0 tests" under a successful build. The smoke script now parses the result XML
+  and fails unless tests actually ran and passed. The crash-buffer capture no longer fails open
+  either: it was `|| true`, so an unreadable buffer left an empty file that the crash grep read as
+  a clean launch.
+- **An API 36 leg** (`[26, 35, 36]`), so the level the app actually targets is exercised on a real
+  runtime. 26 is minSdk, 36 is targetSdk, and 35 stays as the control — it is the one leg with a
+  long green history.
 - **The API 26 emulator installed the APK before the device was ready.** The action waits for
   `sys.boot_completed`, but the package manager is still coming up behind it — the boot log shows
   `device offline` and a failed adb connect — so an install fired into that window died with

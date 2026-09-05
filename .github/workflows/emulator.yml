@@ -30,8 +30,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 26 is minSdk, 35 is targetSdk — the two ends most likely to break.
-        api-level: [26, 35]
+        # 26 is minSdk and 36 is targetSdk — the two ends most likely to break. 35 stays as the
+        # in-between level: it is the one leg with a long green history, so it is the control when
+        # the other two misbehave.
+        api-level: [26, 35, 36]
     steps:
       - uses: actions/checkout@v7
 
@@ -55,7 +57,13 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # API 26 is deliberately excluded from AVD caching. Its 40-minute teardown hangs correlate
+      # exactly with a cache HIT: every cache-miss API 26 job terminated normally and every
+      # cache-hit one wedged, apparently because a Quick Boot snapshot saved on one runner VM is
+      # restored onto another. Cold-booting it costs nothing measurable — restoring and loading
+      # the cached snapshot was slower than booting from scratch.
       - name: Cache AVD
+        if: matrix.api-level != 26
         uses: actions/cache@v6
         id: avd-cache
         with:
@@ -63,11 +71,12 @@ jobs:
             ~/.android/avd/*
             ~/.android/adb*
           # Profile is part of the key: a cached AVD from a different profile would be
-          # restored verbatim and silently ignore the profile change above.
-          key: avd-${{ matrix.api-level }}-pixel_5
+          # restored verbatim and silently ignore the profile change above. -v2 retires the
+          # earlier keys, one of which holds a snapshot implicated in the API 26 hangs.
+          key: avd-${{ matrix.api-level }}-pixel_5-v2
 
       - name: Create AVD and generate snapshot
-        if: steps.avd-cache.outputs.cache-hit != 'true'
+        if: matrix.api-level != 26 && steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
@@ -84,7 +93,24 @@ jobs:
       - name: Build APKs
         run: ./gradlew assembleDebug assembleRelease --stacktrace
 
+      # Belt and braces: the script clears the sentinel too, but that only helps once the script
+      # is running. If the emulator step dies before that (SDK install failure, boot timeout), a
+      # stale sentinel from an earlier attempt would be read as a pass.
+      - name: Reset smoke-test sentinel
+        run: rm -f "$GITHUB_WORKSPACE/emulator-smoke-ok"
+
+      # continue-on-error + a step timeout, because this step's exit status is not trustworthy:
+      # the action's Node process cannot exit while the emulator still holds the stdout pipes it
+      # inherited, so a wedged emulator hangs the step long after the tests have passed or failed.
+      # A step timeout reports Failed (not Cancelled), which continue-on-error rescues, so the
+      # following step still runs. The real verdict comes from the sentinel the script writes.
+      # The action has no post phase, so there is nothing left running after the timeout fires.
       - name: Instrumented tests + release smoke test
+        id: emu
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          API_LEVEL: ${{ matrix.api-level }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
@@ -94,10 +120,34 @@ jobs:
           profile: pixel_5
           target: ${{ matrix.api-level == 26 && 'default' || 'google_apis' }}
           force-avd-creation: false
-          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: ${{ matrix.api-level == 26 && '-no-snapshot' || '-no-snapshot-save' }} -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
           # Single line on purpose: the action runs each script line in its own `sh -c`.
           script: bash .github/scripts/emulator-smoke.sh
+
+      # The actual gate. The sentinel exists only if the instrumented tests ran, passed, and the
+      # minified release build launched and stayed up — the script writes it on its straight-line
+      # path, never from its EXIT trap, so a failed run cannot produce one.
+      #
+      # Deliberately NOT gated on steps.emu.outcome: a clean API 26 run can still report failure
+      # after the hang, and gating on it would reintroduce the coupling this design removes.
+      # outcome is printed as diagnostics only. (conclusion is useless here — under
+      # continue-on-error it is always 'success'.)
+      - name: Check smoke result
+        env:
+          EMU_OUTCOME: ${{ steps.emu.outcome }}
+        run: |
+          set -euo pipefail
+          sentinel="$GITHUB_WORKSPACE/emulator-smoke-ok"
+          echo "emulator step outcome: $EMU_OUTCOME"
+          if [ ! -f "$sentinel" ]; then
+            echo "::error::No sentinel: the instrumented tests or the release smoke test did not complete successfully on API ${{ matrix.api-level }}. See the step above for the failure, or the emulator artifact."
+            exit 1
+          fi
+          echo "Sentinel found: $(cat "$sentinel")"
+          if [ "$EMU_OUTCOME" != "success" ]; then
+            echo "::warning::Tests passed but the emulator step did not exit cleanly (outcome: $EMU_OUTCOME) — most likely the known API 26 teardown hang."
+          fi
 
       - name: Upload emulator artifacts
         if: always()
