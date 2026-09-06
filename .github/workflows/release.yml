@@ -93,11 +93,22 @@ jobs:
           unsigned="app/build/outputs/apk/release/app-release-unsigned.apk"
           out="Pause-$VERSION.apk"
           "$build_tools/zipalign" -p -f 4 "$unsigned" "$RUNNER_TEMP/aligned.apk"
+          # Both flags below exist so F-Droid can verify this APK against its own rebuild. It
+          # copies our signing block onto the APK it builds, which only works if ours is a plain
+          # AGP build plus that block and nothing else.
+          #   --v1-signing-enabled false : v1 adds MANIFEST.MF and the .SF/.RSA pair as real ZIP
+          #     entries a rebuild does not have. Not needed anyway: v2/v3 cover API 24+, minSdk 26.
+          #   --alignment-preserved      : without it apksigner re-aligns while inserting the
+          #     block, changing the local-header padding of ~160 entries.
+          # Verified locally: with both, the signed APK's ZIP structure matches AGP's output
+          # exactly -- 0 added entries, 0 padding changes.
           "$build_tools/apksigner" sign \
             --ks "$RUNNER_TEMP/keystore.jks" \
             --ks-pass env:KEYSTORE_PASSWORD \
             --ks-key-alias "$KEY_ALIAS" \
             --key-pass env:KEY_PASSWORD \
+            --v1-signing-enabled false \
+            --alignment-preserved \
             --out "$out" "$RUNNER_TEMP/aligned.apk"
           "$build_tools/apksigner" verify --print-certs "$out"
           echo "apk=$out" >> "$GITHUB_OUTPUT"

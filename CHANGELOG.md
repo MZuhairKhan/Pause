@@ -43,6 +43,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   emulator matrix widened to API 26, 35 and 36.
 
 ### Fixed
+- **The released APK could not be verified against F-Droid's rebuild.** The build itself was
+  reproducible — F-Droid rebuilt it from the tag and every file inside matched, byte for byte —
+  but signing changed the archive around them. `apksigner` was adding v1 JAR signatures
+  (`MANIFEST.MF` plus the `.SF`/`.RSA` pair, three ZIP entries a rebuild has no way to produce)
+  and re-aligning while inserting the signing block, which shifted the local-header padding of
+  about 160 entries. Since F-Droid copies our signing block onto the APK *it* builds, either
+  alone breaks the digest. Signing now passes `--v1-signing-enabled false` (v2/v3 cover API 24+,
+  and minSdk is 26) and `--alignment-preserved`; the signed APK's ZIP structure then matches
+  AGP's output exactly.
 - **Two more version pins that existed only as comments.** core-ktx was held at 1.18.0 in a
   comment, so a bot proposed 1.19.0, which needs compileSdk 37 and fails `checkDebugAarMetadata`
   outright. Roborazzi was capped at 1.66 for a Kotlin-metadata reason, but 1.65 breaks too — it
