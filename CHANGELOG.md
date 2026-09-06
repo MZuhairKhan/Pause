@@ -123,6 +123,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wasted effort.
 
 ### Fixed
+- **A malformed signing secret failed the release with `base64: invalid input`.** The value is
+  5704 characters and had been pasted into the web UI, which is enough to pick up wrapping or
+  CRLF. The signing step now strips whitespace before decoding, and checks the decoded bytes
+  actually start like a keystore (PKCS12 `3082` or JKS `feedfeed`) — a truncated or wrong-file
+  secret decodes cleanly and only fails later, inside `apksigner`, with a far less obvious error.
+  Both failures now say what to do: re-set the secret from the file rather than pasting it.
 - **The overlay windows now claim BACK explicitly, instead of relying on an accident.** The
   wind-down's no-skip lock and the "Stop for now" cover both depend on BACK being swallowed, and
   both did that through an `OnKeyListener`. From Android 13 the platform routes BACK through
