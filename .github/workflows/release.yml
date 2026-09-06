@@ -110,16 +110,30 @@ jobs:
           set -euo pipefail
           apk="${{ steps.sign.outputs.apk }}"
           sha256sum "$apk" > "$apk.sha256"
+          APK_SHA="$apk.sha256"
           echo "apk=$apk" >> "$GITHUB_OUTPUT"
-          notes="$(awk -v v="$VERSION" '
-            index($0, "## [" v "]") == 1 {f=1; next}
-            f && index($0, "## [") == 1 {exit}
-            f {print}
-          ' CHANGELOG.md | sed '/./,$!d')"
-          if [ -n "$notes" ]; then
-            { echo "## Pause $VERSION"; echo; echo "$notes"; } > RELEASE_NOTES.md
+          # Release notes come from the store changelog, not from CHANGELOG.md. The latter is the
+          # developer record -- 0.5.0's section alone is ~17k characters -- and dumping it here
+          # buries what a user actually wants to know. This file is the user-facing text we
+          # already write for F-Droid, so both surfaces say the same short thing.
+          code="$(grep -oP 'versionCode\s*=\s*\K[0-9]+' app/build.gradle.kts | head -n1)"
+          store="fastlane/metadata/android/en-US/changelogs/${code}.txt"
+          if [ -n "$code" ] && [ -f "$store" ]; then
+            {
+              echo "## Pause $VERSION"
+              echo
+              cat "$store"
+              echo
+              echo "Full technical changelog: [CHANGELOG.md](https://github.com/${GITHUB_REPOSITORY}/blob/v${VERSION}/CHANGELOG.md)"
+              echo
+              echo "\`\`\`"
+              echo "SHA-256  $(cut -d' ' -f1 "$APK_SHA")"
+              echo "Signing certificate SHA-256  9a251241d05e6acfedaeff3c457574a568278d47c2a6d8d0b22f0ee36689268f"
+              echo "\`\`\`"
+            } > RELEASE_NOTES.md
             echo "have_notes=1" >> "$GITHUB_OUTPUT"
           else
+            echo "::warning::No store changelog at $store; falling back to generated notes."
             echo "have_notes=0" >> "$GITHUB_OUTPUT"
           fi
 

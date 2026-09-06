@@ -1,4 +1,6 @@
-• Pause now speaks Finnish, and a Language step in setup lets you pick it (Android 13+ also lists Pause in the system per-app language settings).
-• All app text has moved into translatable resources, so more languages can follow.
+• Pause now speaks Finnish, with a Language step in setup.
+• On Android 16 a running timer pins to the top of the shade, with the time left in the status bar.
+• Back is now held properly by the breathing wind-down and the "Stop for now" cover.
 • The "apps to block" picker gains a search box.
-• Note: this version has a new package name, so it installs alongside older builds instead of updating them — uninstall the old one and set your preferences again.
+• Builds are reproducible and can be verified byte for byte.
+• Note: the package name changed, so this installs alongside an older Pause rather than updating it. Uninstall the old one first.
