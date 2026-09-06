@@ -40,6 +40,13 @@ updates:
       # with a compileSdk bump.
       - dependency-name: "androidx.core:core-ktx"
         versions: [">=1.19.0"]
+      # compose-bom 2026.08.00 pulls Compose 1.12, which requires compileSdk 37 AND Android
+      # Gradle plugin 9.1+; checkReleaseAarMetadata fails on both counts. This needs its own rule:
+      # the AGP pin does not cover it, since Dependabot proposes the BOM independently and only
+      # discovers the AGP requirement at build time (#5, and again as #18 after the first fix).
+      # Lift together with the AGP/Kotlin/wrapper upgrade.
+      - dependency-name: "androidx.compose:compose-bom"
+        versions: [">=2025.01.00"]
       # AGP and Kotlin are coupled to each other and to the Gradle wrapper; bumping either from
       # a bot invites a broken build. Upgrade these deliberately, together.
       #

@@ -43,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   emulator matrix widened to API 26, 35 and 36.
 
 ### Fixed
+- **compose-bom needed its own pin after all.** It was left to the AGP rule on the reasoning that
+  2026.08.00 requires AGP 9.1+, but Dependabot proposes the BOM independently and only meets that
+  requirement at build time, so the same bump came straight back. Pinned directly.
 - **The released APK could not be verified against F-Droid's rebuild.** The build itself was
   reproducible — F-Droid rebuilt it from the tag and every file inside matched, byte for byte —
   but signing changed the archive around them. `apksigner` was adding v1 JAR signatures
