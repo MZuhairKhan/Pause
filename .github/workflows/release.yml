@@ -76,7 +76,20 @@ jobs:
         run: |
           set -euo pipefail
           build_tools="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n1)"
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore.jks"
+
+          # Strip whitespace before decoding: a value pasted into the web UI can pick up wrapping
+          # or CRLF, and plain `base64 -d` then dies with the unhelpful "invalid input".
+          printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/keystore.jks" || {
+            echo "::error::KEYSTORE_BASE64 is not valid base64. Re-set it from the file rather than pasting: gh secret set KEYSTORE_BASE64 < keystore.base64.txt (generate with: base64 -w0 release.jks > keystore.base64.txt)."
+            exit 1
+          }
+          # A truncated or wrong-file secret decodes fine but is not a keystore, and apksigner's
+          # error for that is far less obvious than this one.
+          magic="$(head -c 2 "$RUNNER_TEMP/keystore.jks" | xxd -p)"
+          if [ "$magic" != "3082" ] && [ "$magic" != "feed" ]; then
+            echo "::error::KEYSTORE_BASE64 decoded to $(wc -c < "$RUNNER_TEMP/keystore.jks") bytes that are neither PKCS12 nor JKS. The secret is truncated or holds the wrong file."
+            exit 1
+          fi
           unsigned="app/build/outputs/apk/release/app-release-unsigned.apk"
           out="Pause-$VERSION.apk"
           "$build_tools/zipalign" -p -f 4 "$unsigned" "$RUNNER_TEMP/aligned.apk"
