@@ -64,6 +64,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   if the bytes differ, running `diffoscope` over the pair when they do.
 
 ### Changed
+- **Release notes are the store changelog now, not the whole CHANGELOG section.** The release
+  workflow was pasting the entire `## [x.y.z]` block into the GitHub Release — 0.5.0's ran to
+  about 17,000 characters, which buries what a user actually wants to know. It now uses
+  `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`, the user-facing text already
+  written for F-Droid, so both surfaces say the same short thing, and links to `CHANGELOG.md`
+  for the detail. The APK's SHA-256 and the signing certificate's fingerprint are printed
+  alongside, so a download can be checked without digging through the workflow.
+- **The README is shorter.** The roadmap and the design-decisions list were both stale — the
+  roadmap still showed the app at "Phase 4" and the tech stack claimed target SDK 35 — and both
+  duplicated `ONBOARDING.md`, which is where that detail is maintained. What is left is what a
+  visitor needs: what it does, where to download it, how to build it, and where to contribute.
 - **The stepper buttons are readable by a screen reader.** The +/- controls in the setup
   screen were bare glyphs with no label, so TalkBack gave no indication of what they changed.
   They now announce the setting by name.
