@@ -120,8 +120,12 @@ class SetupSmokeTest {
             compose.onNodeWithText(app.getString(R.string.start_overlay)).assertIsEnabled()
         } finally {
             // Restore so a later test in this process (they share SharedPreferences and, it
-            // turns out, permission state too) does not inherit a revoked permission.
+            // turns out, permission state too) does not inherit a revoked permission. The appop
+            // needs resetting too: revoking the permission also denies POST_NOTIFICATION, and
+            // re-granting the permission alone leaves notify() silently dropping everything,
+            // which broke BubbleHideTest on API 33+ while API 26 (no runtime permission) passed.
             shell("pm grant ${app.packageName} android.permission.POST_NOTIFICATIONS")
+            shell("appops set ${app.packageName} POST_NOTIFICATION allow")
         }
     }
 }

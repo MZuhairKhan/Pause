@@ -49,6 +49,31 @@ class BubbleHideTest {
         }
     }
 
+    /**
+     * Ensures notifications can actually be posted before anything asserts on them.
+     *
+     * Both are needed, and neither is redundant: `SetupSmokeTest` revokes POST_NOTIFICATIONS to
+     * prove the bubble starts without it, and revoking also denies the POST_NOTIFICATION appop.
+     * Its `finally` re-granted only the permission, so `notify()` kept silently dropping every
+     * notification and this test saw an empty shade -- on API 33+ only, since
+     * `canPostNotifications()` short-circuits to true below it. That is exactly why API 26 passed
+     * while API 35 and 36 failed. Granting here as well keeps this test independent of whether
+     * another class ran first, mirroring how [allowOverlays] grants rather than assumes.
+     */
+    private fun allowNotifications() {
+        shell("pm grant ${app.packageName} android.permission.POST_NOTIFICATIONS")
+        shell("appops set ${app.packageName} POST_NOTIFICATION allow")
+        val nm = app.getSystemService(NotificationManager::class.java)
+        val deadline = SystemClock.uptimeMillis() + 10_000
+        while (!nm.areNotificationsEnabled() && SystemClock.uptimeMillis() < deadline) {
+            Thread.sleep(100)
+        }
+        assertTrue(
+            "Notifications are still disabled for ${app.packageName}; nothing could be asserted.",
+            nm.areNotificationsEnabled()
+        )
+    }
+
     private fun awaitState(timeoutMs: Long = 5_000, condition: () -> Boolean) {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
         while (!condition() && SystemClock.uptimeMillis() < deadline) {
@@ -98,12 +123,11 @@ class BubbleHideTest {
         val deadline = SystemClock.uptimeMillis() + timeoutMs
         while (SystemClock.uptimeMillis() < deadline) {
             lastSeen = nm.activeNotifications.map { it.notification.actions?.map { a -> a.title.toString() }.orEmpty() }
-            // Looking for a match among whatever is posted, not demanding exactly one
-            // notification exist: a previous test's onDestroy() sets _running.value = false as
-            // its first line but posts the idle notification several statements later, so a
-            // stale second notification can still be resolving when the next test starts. What
-            // this test actually needs is proof that the hidden-state notification with these
-            // two actions exists, not an assertion about how many notifications there are.
+            // Matching among whatever is posted rather than demanding exactly one notification:
+            // a previous test's onDestroy() flips _running.value false as its first line but
+            // posts the idle notification several statements later, so a second notification can
+            // still be resolving when this one is read. What this test needs is proof that the
+            // hidden-state notification carrying these two actions exists, not a count.
             if (lastSeen.any { it == expected }) return
             Thread.sleep(50)
         }
@@ -131,6 +155,7 @@ class BubbleHideTest {
     @Test
     fun hidingWhileRunningKeepsTheServiceAliveAndAddsNotificationActions() {
         allowOverlays()
+        allowNotifications()
         try {
             OverlayService.start(app)
             awaitState { OverlayService.running.value }
