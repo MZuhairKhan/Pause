@@ -57,10 +57,23 @@ class BubbleHideTest {
         }
     }
 
-    /** Opens the bubble and taps the 5-minute preset, exactly as a user would. */
+    /**
+     * Opens the bubble and taps the 5-minute preset, exactly as a user would.
+     *
+     * Waits for the bubble to actually appear on screen rather than trusting
+     * [OverlayService.running] alone: that flips true in `onCreate()`, which runs before
+     * `onStartCommand()` gets to `showBubble()` -- so a caller can observe `running == true`
+     * while the bubble view has not been added yet. This raced and failed intermittently in CI
+     * before this wait was added.
+     */
     private fun scheduleFiveMinuteTimer() {
-        val bubble = device.findObject(By.desc(app.getString(R.string.overlay_bubble_description)))
-        checkNotNull(bubble) { "Bubble not found on screen after starting the service." }
+        val desc = app.getString(R.string.overlay_bubble_description)
+        assertTrue(
+            "Bubble never appeared on screen after starting the service.",
+            device.wait(Until.hasObject(By.desc(desc)), 10_000)
+        )
+        val bubble = device.findObject(By.desc(desc))
+        checkNotNull(bubble) { "Bubble matched by wait() but not by the immediate findObject()." }
         bubble.click()
         assertTrue(
             "Timer picker's 5-minute chip never appeared.",
@@ -70,6 +83,27 @@ class BubbleHideTest {
         checkNotNull(chip) { "5-minute chip disappeared before it could be tapped." }
         chip.click()
         device.waitForIdle()
+    }
+
+    /**
+     * Polls for the posted notification to carry the given action titles, rather than reading
+     * [NotificationManager.getActiveNotifications] once. `hideBubbleOrStop()` flips
+     * [OverlayService.bubbleHidden] one line before it calls `updateNotification()` -- both
+     * happen on the service's main thread, but this test observes them from the instrumentation
+     * thread, so awaiting `bubbleHidden` alone does not guarantee the notify() call has landed
+     * yet. This raced and failed intermittently in CI before this wait replaced a single read.
+     */
+    private fun awaitNotificationActions(expected: List<String>, timeoutMs: Long = 5_000) {
+        val nm = app.getSystemService(NotificationManager::class.java)
+        var lastSeen: List<String>? = null
+        val deadline = SystemClock.uptimeMillis() + timeoutMs
+        while (SystemClock.uptimeMillis() < deadline) {
+            val posted = nm.activeNotifications.singleOrNull()
+            lastSeen = posted?.notification?.actions?.map { it.title.toString() }
+            if (lastSeen == expected) return
+            Thread.sleep(50)
+        }
+        assertEquals("Notification actions never matched.", expected, lastSeen)
     }
 
     /** Sends ACTION_STOP directly -- the same routed path the notification's Stop action uses. */
@@ -104,16 +138,11 @@ class BubbleHideTest {
                 OverlayService.bubbleHidden.value
             )
 
-            val nm = app.getSystemService(NotificationManager::class.java)
-            val posted = nm.activeNotifications.singleOrNull()
-            checkNotNull(posted) { "Expected exactly one posted notification." }
-            val actionTitles = posted.notification.actions?.map { it.title.toString() }.orEmpty()
-            assertEquals(
+            awaitNotificationActions(
                 listOf(
                     app.getString(R.string.overlay_notification_show),
                     app.getString(R.string.overlay_notification_stop)
-                ),
-                actionTitles
+                )
             )
         } finally {
             stopService()
