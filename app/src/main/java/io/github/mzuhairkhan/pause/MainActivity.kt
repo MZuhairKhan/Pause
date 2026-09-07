@@ -244,7 +244,11 @@ private fun SettingsScreen(
 
         Button(
             modifier = Modifier.fillMaxWidth(),
-            enabled = overlayGranted && notificationsGranted,
+            // Only the overlay permission is load-bearing: startForeground() succeeds without
+            // POST_NOTIFICATIONS, it just silently skips the notification (canPostNotifications()
+            // already guards that). Requiring it here blocked the bubble entirely for anyone who
+            // denies notifications, with no way to start it at all.
+            enabled = overlayGranted,
             onClick = {
                 if (serviceRunning) {
                     OverlayService.stop(context)
@@ -816,7 +820,9 @@ private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
                         else LocaleListCompat.forLanguageTags(selectedLang)
                     )
                     SettingsStore.setOnboardingComplete(context, true)
-                    if (Settings.canDrawOverlays(context) && notificationsGranted) {
+                    // Only the overlay permission gates starting; see the matching comment on
+                    // the Settings screen's Start button for why notificationsGranted does not.
+                    if (Settings.canDrawOverlays(context)) {
                         OverlayService.start(context)
                     }
                     onFinish()

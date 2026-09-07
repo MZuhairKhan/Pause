@@ -43,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   emulator matrix widened to API 26, 35 and 36.
 
 ### Fixed
+- **The bubble could not be started at all if notification permission was denied**, even with
+  overlay permission granted — found by an F-Droid reviewer testing on-device. Notification
+  permission is not load-bearing: `startForeground()` succeeds without it, it just silently
+  skips posting the notification. The Start button and the setup wizard now gate on overlay
+  permission only.
 - **compose-bom needed its own pin after all.** It was left to the AGP rule on the reasoning that
   2026.08.00 requires AGP 9.1+, but Dependabot proposes the BOM independently and only meets that
   requirement at build time, so the same bump came straight back. Pinned directly.
