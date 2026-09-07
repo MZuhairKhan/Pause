@@ -12,7 +12,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -95,15 +94,24 @@ class BubbleHideTest {
      */
     private fun awaitNotificationActions(expected: List<String>, timeoutMs: Long = 5_000) {
         val nm = app.getSystemService(NotificationManager::class.java)
-        var lastSeen: List<String>? = null
+        var lastSeen: List<List<String>> = emptyList()
         val deadline = SystemClock.uptimeMillis() + timeoutMs
         while (SystemClock.uptimeMillis() < deadline) {
-            val posted = nm.activeNotifications.singleOrNull()
-            lastSeen = posted?.notification?.actions?.map { it.title.toString() }
-            if (lastSeen == expected) return
+            lastSeen = nm.activeNotifications.map { it.notification.actions?.map { a -> a.title.toString() }.orEmpty() }
+            // Looking for a match among whatever is posted, not demanding exactly one
+            // notification exist: a previous test's onDestroy() sets _running.value = false as
+            // its first line but posts the idle notification several statements later, so a
+            // stale second notification can still be resolving when the next test starts. What
+            // this test actually needs is proof that the hidden-state notification with these
+            // two actions exists, not an assertion about how many notifications there are.
+            if (lastSeen.any { it == expected }) return
             Thread.sleep(50)
         }
-        assertEquals("Notification actions never matched.", expected, lastSeen)
+        assertTrue(
+            "Notification actions never matched. expected: $expected, active notifications' " +
+                "actions: $lastSeen",
+            lastSeen.any { it == expected }
+        )
     }
 
     /** Sends ACTION_STOP directly -- the same routed path the notification's Stop action uses. */
