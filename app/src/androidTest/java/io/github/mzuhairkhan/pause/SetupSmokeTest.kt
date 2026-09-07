@@ -1,6 +1,8 @@
 package io.github.mzuhairkhan.pause
 
+import android.Manifest
 import android.app.Application
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.provider.Settings
@@ -102,18 +104,43 @@ class SetupSmokeTest {
     }
 
     /**
+     * Grants or revokes POST_NOTIFICATIONS via [android.app.UiAutomation] rather than
+     * `pm grant`/`pm revoke`.
+     *
+     * The shell commands cannot be used here: revoking a runtime permission that is genuinely
+     * held makes the platform kill the owning process, and the instrumentation shares that
+     * process, so the whole run dies mid-test with an empty failure and the remaining tests
+     * never start. Android says so itself in logcat -- "UiAutomation.revokeRuntimePermission()
+     * is more robust and should be used instead of 'pm revoke'" -- right before
+     * `Process ... exited due to signal 9 (Killed)`.
+     *
+     * A no-op below API 33, where POST_NOTIFICATIONS is not a runtime permission at all: there
+     * is nothing to deny, and `OverlayService.canPostNotifications()` short-circuits to true.
+     * The assertion below still holds there, it just is not exercising a denial.
+     */
+    private fun setNotificationPermission(granted: Boolean) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        if (granted) {
+            automation.grantRuntimePermission(app.packageName, Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            automation.revokeRuntimePermission(app.packageName, Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    /**
      * The Start button must work with only the overlay permission -- POST_NOTIFICATIONS is not
      * load-bearing. `startForeground()` succeeds without it; it only silently skips the
      * notification (`OverlayService.canPostNotifications()` already guards that). Gating the
      * button on it made the bubble unstartable for anyone who denies notifications, with no way
      * to recover -- found by an external F-Droid reviewer testing on a real device.
      *
-     * Revokes POST_NOTIFICATIONS and grants the overlay permission independently via shell, since
-     * the Gradle-installed test APK has every manifest permission auto-granted by default.
+     * Revokes POST_NOTIFICATIONS and grants the overlay permission independently, since the
+     * Gradle-installed test APK has every manifest permission auto-granted by default.
      */
     @Test
     fun startButtonWorksWithoutNotificationPermission() {
-        shell("pm revoke ${app.packageName} android.permission.POST_NOTIFICATIONS")
+        setNotificationPermission(granted = false)
         allowOverlays()
         try {
             launchSettings()
@@ -124,7 +151,7 @@ class SetupSmokeTest {
             // needs resetting too: revoking the permission also denies POST_NOTIFICATION, and
             // re-granting the permission alone leaves notify() silently dropping everything,
             // which broke BubbleHideTest on API 33+ while API 26 (no runtime permission) passed.
-            shell("pm grant ${app.packageName} android.permission.POST_NOTIFICATIONS")
+            setNotificationPermission(granted = true)
             shell("appops set ${app.packageName} POST_NOTIFICATION allow")
         }
     }

@@ -1,8 +1,10 @@
 package io.github.mzuhairkhan.pause
 
+import android.Manifest
 import android.app.Application
 import android.app.NotificationManager
 import android.content.Intent
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.provider.Settings
@@ -52,16 +54,23 @@ class BubbleHideTest {
     /**
      * Ensures notifications can actually be posted before anything asserts on them.
      *
-     * Both are needed, and neither is redundant: `SetupSmokeTest` revokes POST_NOTIFICATIONS to
-     * prove the bubble starts without it, and revoking also denies the POST_NOTIFICATION appop.
-     * Its `finally` re-granted only the permission, so `notify()` kept silently dropping every
-     * notification and this test saw an empty shade -- on API 33+ only, since
-     * `canPostNotifications()` short-circuits to true below it. That is exactly why API 26 passed
-     * while API 35 and 36 failed. Granting here as well keeps this test independent of whether
+     * Both the permission and the appop are needed. `SetupSmokeTest` revokes POST_NOTIFICATIONS
+     * to prove the bubble starts without it, and revoking also denies the POST_NOTIFICATION
+     * appop; restoring only the permission leaves `notify()` silently dropping everything, which
+     * this test saw as an empty shade -- on API 33+ only, since `canPostNotifications()`
+     * short-circuits to true below it. That is exactly why API 26 passed while 35 and 36 failed.
+     * That class restores both now, but doing it here too keeps this test independent of whether
      * another class ran first, mirroring how [allowOverlays] grants rather than assumes.
      */
     private fun allowNotifications() {
-        shell("pm grant ${app.packageName} android.permission.POST_NOTIFICATIONS")
+        // UiAutomation rather than `pm grant`, matching SetupSmokeTest: the shell form kills the
+        // owning process when it really changes a runtime permission, and that process is this
+        // test's own. See setNotificationPermission() there for the logcat evidence.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            instrumentation.uiAutomation.grantRuntimePermission(
+                app.packageName, Manifest.permission.POST_NOTIFICATIONS
+            )
+        }
         shell("appops set ${app.packageName} POST_NOTIFICATION allow")
         val nm = app.getSystemService(NotificationManager::class.java)
         val deadline = SystemClock.uptimeMillis() + 10_000
