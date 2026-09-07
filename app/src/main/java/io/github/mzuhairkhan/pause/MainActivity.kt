@@ -186,6 +186,7 @@ private fun SettingsScreen(
     var notificationsGranted by remember { mutableStateOf(hasNotificationPermission(context)) }
     var batteryExempt by remember { mutableStateOf(isBatteryOptimizationIgnored(context)) }
     val serviceRunning by OverlayService.running.collectAsState()
+    val bubbleHidden by OverlayService.bubbleHidden.collectAsState()
     var showCountdown by remember { mutableStateOf(SettingsStore.showCountdown(context)) }
     var inhale by remember { mutableStateOf(SettingsStore.inhaleSeconds(context)) }
     var hold by remember { mutableStateOf(SettingsStore.holdSeconds(context)) }
@@ -242,6 +243,12 @@ private fun SettingsScreen(
     ) {
         Hero(accentColor)
 
+        // Whether tapping the button should make the bubble appear (vs. hide it). True both when
+        // nothing is running yet and when a timer is running but the bubble is deliberately
+        // hidden -- either way this button's only job is "make the bubble appear"; the
+        // notification is what offers an actual Stop while hidden.
+        val showBubbleLabel = !serviceRunning || bubbleHidden
+
         Button(
             modifier = Modifier.fillMaxWidth(),
             // Only the overlay permission is load-bearing: startForeground() succeeds without
@@ -250,8 +257,11 @@ private fun SettingsScreen(
             // denies notifications, with no way to start it at all.
             enabled = overlayGranted,
             onClick = {
-                if (serviceRunning) {
-                    OverlayService.stop(context)
+                if (!showBubbleLabel) {
+                    // A timer is running and the bubble is visible: hide it. hide() itself
+                    // decides whether that means "keep the timer running, just drop the view" or
+                    // a full stop -- see OverlayService.hideBubbleOrStop().
+                    OverlayService.hide(context)
                 } else if (Settings.canDrawOverlays(context)) {
                     OverlayService.start(context)
                 } else {
@@ -262,7 +272,7 @@ private fun SettingsScreen(
                 }
             }
         ) {
-            Text(if (serviceRunning) stringResource(R.string.stop_overlay) else stringResource(R.string.start_overlay))
+            Text(if (showBubbleLabel) stringResource(R.string.start_overlay) else stringResource(R.string.stop_overlay))
         }
 
         PermissionsSection(

@@ -13,6 +13,9 @@
     <string name="overlay_notification_off_title">Pause</string>
     <string name="overlay_notification_off_text">Paina Käynnistä näyttääksesi kuplan.</string>
     <string name="overlay_notification_start">Käynnistä</string>
+    <!-- TODO: unreviewed, add to the next Finnish review round. -->
+    <string name="overlay_notification_show">Näytä</string>
+    <string name="overlay_notification_stop">Lopeta</string>
     <string name="overlay_notification_active_soon">Hälytys alle minuutin kuluttua</string>
     <string name="overlay_notification_active_minutes">Hälytykseen %1$d min</string>
     <string name="overlay_notification_active_hours">Hälytykseen %1$d t</string>
@@ -42,6 +45,8 @@
     <string name="breathing_keep">Jatka selaamista</string>
     <string name="breathing_stop">Lopeta toistaiseksi</string>
     <string name="breathing_snooze">Torkuta %1$d min</string>
+    <!-- TODO: unreviewed, add to the next Finnish review round. -->
+    <string name="breathing_home">Kotiin</string>
     <string name="breathing_done">Harjoitus ohi</string>
 
     <string name="block_title">Tauolla</string>
