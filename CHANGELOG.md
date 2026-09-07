@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   screenshots, the latter generated from the existing Roborazzi tests.
 - **Search field** in the "apps to block" picker.
 - **Dependabot** for Gradle and Actions, with AGP, Kotlin, the Gradle wrapper and core-ktx pinned.
+- **An always-visible "Go home" escape from the breathing wind-down**, reachable even during the
+  non-skippable lock window — the three existing exit buttons only appear once the lock elapses.
+  Requested by the same F-Droid reviewer, who could not find any way out mid-lock.
+- **Show/Stop actions on the notification while the bubble is hidden with a timer running** —
+  the only remaining control surface once hidden, alongside the Settings screen's "Show the
+  bubble".
 
 ### Changed
 - **This changelog is a third of its former size.** Entries had grown into paragraphs explaining
@@ -43,6 +49,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   emulator matrix widened to API 26, 35 and 36.
 
 ### Fixed
+- **Hiding the bubble while a timer was running cancelled the timer outright** — reported by the
+  same reviewer, who found the notification claimed the timer was still running after a manual
+  restart. It wasn't (hiding fully destroyed and recreated the service, which reset the in-memory
+  countdown before the restart's notification was ever built), but the underlying complaint was
+  real: "Hide the bubble" cancelled the alarm, contrary to what its own label implies. Hiding now
+  only cancels when idle; with a timer running, it just drops the bubble view and leaves the
+  service, the alarm, and the ticker alone, whether triggered from the Settings button or by
+  dragging the bubble onto the dismiss target. The notification's new Show/Stop actions (and
+  Settings' "Show the bubble") are the only way back from there.
 - **The bubble could not be started at all if notification permission was denied**, even with
   overlay permission granted — found by an F-Droid reviewer testing on-device. Notification
   permission is not load-bearing: `startForeground()` succeeds without it, it just silently
