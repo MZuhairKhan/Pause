@@ -1,13 +1,7 @@
 package io.github.mzuhairkhan.pause
 
-import android.Manifest
 import android.app.Application
-import android.os.Build
-import android.os.ParcelFileDescriptor
-import android.os.SystemClock
-import android.provider.Settings
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -15,7 +9,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -47,22 +40,6 @@ class SetupSmokeTest {
         SettingsStore.setOnboardingComplete(app, true)
         ActivityScenario.launch(MainActivity::class.java)
         compose.waitForIdle()
-    }
-
-    private fun shell(command: String) {
-        val fd: ParcelFileDescriptor =
-            InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
-        // Draining is what makes this synchronous; closing the descriptor early does not mean
-        // the command has run (see OverlayBackTest for the same gotcha with appops grants).
-        ParcelFileDescriptor.AutoCloseInputStream(fd).use { it.readBytes() }
-    }
-
-    private fun allowOverlays() {
-        shell("appops set ${app.packageName} SYSTEM_ALERT_WINDOW allow")
-        val deadline = SystemClock.uptimeMillis() + 10_000
-        while (!Settings.canDrawOverlays(app) && SystemClock.uptimeMillis() < deadline) {
-            Thread.sleep(100)
-        }
     }
 
     /** The settings screen renders, and its main action uses the current wording. */
@@ -103,58 +80,10 @@ class SetupSmokeTest {
         compose.onNodeWithText(row).performScrollTo().assertIsDisplayed()
     }
 
-    /**
-     * Grants or revokes POST_NOTIFICATIONS via [android.app.UiAutomation] rather than
-     * `pm grant`/`pm revoke`.
-     *
-     * The shell commands cannot be used here: revoking a runtime permission that is genuinely
-     * held makes the platform kill the owning process, and the instrumentation shares that
-     * process, so the whole run dies mid-test with an empty failure and the remaining tests
-     * never start. Android says so itself in logcat -- "UiAutomation.revokeRuntimePermission()
-     * is more robust and should be used instead of 'pm revoke'" -- right before
-     * `Process ... exited due to signal 9 (Killed)`.
-     *
-     * A no-op below API 33, where POST_NOTIFICATIONS is not a runtime permission at all: there
-     * is nothing to deny, and `OverlayService.canPostNotifications()` short-circuits to true.
-     * The assertion below still holds there, it just is not exercising a denial.
-     */
-    private fun setNotificationPermission(granted: Boolean) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
-        if (granted) {
-            automation.grantRuntimePermission(app.packageName, Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            automation.revokeRuntimePermission(app.packageName, Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
-
-    /**
-     * The Start button must work with only the overlay permission -- POST_NOTIFICATIONS is not
-     * load-bearing. `startForeground()` succeeds without it; it only silently skips the
-     * notification (`OverlayService.canPostNotifications()` already guards that). Gating the
-     * button on it made the bubble unstartable for anyone who denies notifications, with no way
-     * to recover -- found by an external F-Droid reviewer testing on a real device.
-     *
-     * Revokes POST_NOTIFICATIONS and grants the overlay permission independently, since the
-     * Gradle-installed test APK has every manifest permission auto-granted by default.
-     */
-    @Test
-    fun startButtonWorksWithoutNotificationPermission() {
-        setNotificationPermission(granted = false)
-        allowOverlays()
-        try {
-            launchSettings()
-            compose.onNodeWithText(app.getString(R.string.start_overlay)).assertIsEnabled()
-        } finally {
-            // Restore so a later test in this process (they share SharedPreferences and, it
-            // turns out, permission state too) does not inherit a revoked permission. The appop
-            // needs resetting too: revoking the permission also denies POST_NOTIFICATION, and
-            // re-granting the permission alone leaves notify() silently dropping everything,
-            // which broke BubbleHideTest on API 33+ while API 26 (no runtime permission) passed.
-            setNotificationPermission(granted = true)
-            shell("appops set ${app.packageName} POST_NOTIFICATION allow")
-        }
-    }
+    // The "Start button works without notification permission" regression lives in
+    // SettingsGatingTest on the JVM, not here. Asserting it on-device meant revoking the real
+    // POST_NOTIFICATIONS, and revoking a permission the app actually holds makes the platform
+    // kill the owning process -- this one. See that class for the full account.
 }
 
 /** The first-run wizard, from a clean install. */
