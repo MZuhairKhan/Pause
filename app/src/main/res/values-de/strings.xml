@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Machine-assisted first-pass draft, not yet reviewed by a German speaker.
+     Excluded from the build by androidResources.localeFilters until a translator signs it off. -->
+    <string name="overlay_channel_name">Pause-Bubble</string>
+    <string name="overlay_channel_description">Hält die Pause-Bubble sichtbar, während du andere Apps nutzt.</string>
+    <string name="overlay_notification_title">Pause ist bereit</string>
+    <string name="overlay_notification_text">Tippe auf die Bubble, um einen Timer zu stellen.</string>
+    <string name="overlay_notification_off_text">Tippe auf Start, um die Bubble anzuzeigen.</string>
+    <string name="overlay_notification_start">Start</string>
+    <string name="overlay_notification_active_soon">Alarm in unter einer Minute</string>
+    <string name="overlay_notification_active_minutes">Alarm in %1$d min</string>
+    <string name="overlay_notification_active_hours">Alarm in %1$d Std.</string>
+    <string name="overlay_notification_active_hm">Alarm in %1$d Std. %2$d Min.</string>
+    <string name="overlay_bubble_description">Pause-Bubble</string>
+    <string name="dismiss_description">Zum Ausblenden hierher ziehen</string>
+
+    <!-- Compact unit suffixes shown beside a number (bubble countdown, setup steppers). -->
+    <string name="unit_hours_short">%1$d h</string>
+    <string name="unit_minutes_short">%1$d min</string>
+    <string name="unit_seconds_short">%1$d s</string>
+
+    <!-- Timer picker (Phase 3) -->
+    <string name="picker_title">Pausen-Timer stellen</string>
+    <string name="picker_subtitle">Eine Dauer herunterzählen oder einen Wecker stellen</string>
+    <string name="picker_mode_duration">Dauer</string>
+    <string name="picker_mode_alarm">Wecker</string>
+    <string name="picker_custom_start">Start</string>
+    <string name="picker_set_alarm">Wecker stellen</string>
+    <string name="picker_cancel">Timer abbrechen</string>
+    <string name="picker_active_title">Pausen-Timer</string>
+    <string name="picker_remaining_label">Verbleibende Zeit</string>
+    <string name="picker_show_countdown">Countdown anzeigen</string>
+
+    <!-- 4-7-8 breathing wind-down (default stop mode) -->
+    <string name="breathing_in">Einatmen</string>
+    <string name="breathing_hold">Anhalten</string>
+    <string name="breathing_out">Ausatmen</string>
+    <string name="breathing_keep">Weiter scrollen</string>
+    <string name="breathing_stop">Vorerst stoppen</string>
+    <string name="breathing_snooze">%1$d min schlummern</string>
+    <string name="breathing_done">Zeit ist um</string>
+
+    <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
+    <string name="block_title">Pause läuft</string>
+    <string name="block_subtitle">%1$s ist pausiert</string>
+    <string name="block_subtitle_generic">Diese App</string>
+    <string name="block_go_home">Zum Startbildschirm</string>
+    <string name="block_end_early">Pause früher beenden</string>
+    <string name="block_confirm_title">Pause früher beenden?</string>
+    <string name="block_confirm_end">Pause beenden</string>
+
+    <!-- Setup screen (Compose) -->
+    <string name="start_overlay">Bubble anzeigen</string>
+    <string name="stop_overlay">Bubble ausblenden</string>
+    <string name="permissions_title">Berechtigungen</string>
+    <string name="all_set">Alles erledigt ✓</string>
+    <string name="perm_overlay">Über anderen Apps anzeigen</string>
+    <string name="perm_notifications">Benachrichtigungen senden</string>
+    <string name="perm_battery">Akku-Optimierung ignorieren</string>
+    <string name="perm_usage">Nutzungszugriff (optional)</string>
+    <string name="perm_grant">Erlauben</string>
+    <string name="perm_granted">Erteilt</string>
+    <string name="hero_tagline">Eine Bubble, die du antippst, um einen „Schluss mit dieser App“-Timer zu stellen.</string>
+
+    <string name="section_bubble">Blase</string>
+    <string name="show_countdown_title">Countdown auf der Blase anzeigen</string>
+    <string name="show_countdown_subtitle">Aus zeigt stattdessen eine ablaufende Sanduhr.</string>
+    <string name="match_icon_size">An die Symbolgröße anpassen von:</string>
+    <string name="preset_custom">Benutzerdefiniert</string>
+    <string name="bubble_size">Größe</string>
+    <string name="bubble_edge_gap">Randabstand</string>
+    <string name="bubble_size_readout">Tatsächliche Größe ≈ %1$ddp · %2$ddp vom Rand</string>
+    <string name="slider_readout">%1$s · %2$s %%</string>
+
+    <string name="section_appearance">Erscheinungsbild</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Hell</string>
+    <string name="theme_dark">Dunkel</string>
+    <string name="custom_color">Eigene Farbe</string>
+    <string name="custom_color_pick">Wählen…</string>
+    <string name="custom_color_preview">Vorschau</string>
+    <string name="done">Fertig</string>
+
+    <string name="section_breathing">Entspannungsatmung</string>
+    <string name="breathing_toggle">Atemübung</string>
+    <string name="breathing_toggle_subtitle">Aus überspringt die Übung – der Timer endet nur mit den Optionen zum Schließen.</string>
+    <string name="no_skip_lock">Mindestdauer der Übung</string>
+    <!-- Screen-reader labels for the stepper buttons; %1$s is the setting being changed. -->
+    <string name="snooze_length">Schlummerdauer</string>
+
+    <string name="section_app_blocking">App-Sperre</string>
+    <string name="app_blocking_desc">\"Vorerst stoppen\" überdeckt diese Apps, wenn du sie während der Pause öffnest.</string>
+    <string name="usage_needed">Benötigt die Berechtigung „Nutzungszugriff“ oben, um zu erkennen, wenn du eine blockierte App öffnest.</string>
+    <string name="break_length">Pausendauer</string>
+    <string name="apps_chosen_none">Keine Apps ausgewählt</string>
+    <string name="choose">Auswählen…</string>
+
+    <string name="apps_to_block">Zu sperrende Apps</string>
+    <string name="apps_to_block_subtitle">Wenn du diese während einer Pause öffnest, erscheint eine bildschirmfüllende Erinnerung.</string>
+    <string name="search_apps">Apps suchen</string>
+    <string name="clear_search">Suche löschen</string>
+    <string name="no_apps_found">Keine Apps gefunden</string>
+    <string name="no_apps_match">Keine Apps passen zu “%1$s”</string>
+    <string name="clear_all">Alle entfernen</string>
+
+    <!-- First-run setup wizard -->
+    <string name="onb_welcome_title">Willkommen bei Pause</string>
+    <string name="onb_welcome_body">Eine Bubble, mit der du einen „Schluss mit dieser App“-Timer stellst. Richten wir sie ein.</string>
+    <string name="onb_language_title">Sprache</string>
+    <string name="onb_language_body">Wähle deine Sprache. Du kannst sie später in den Einstellungen deines Telefons ändern.</string>
+    <string name="lang_system">Systemstandard</string>
+    <string name="onb_permissions_title">Berechtigungen</string>
+    <string name="onb_permissions_body">Pause braucht ein paar Berechtigungen, um die Bubble und ihre Erinnerungen anzuzeigen.</string>
+    <string name="onb_size_title">Welche App nutzt du am meisten?</string>
+    <string name="onb_size_body">Wir passen die Größe der Bubble an die Schaltflächen dieser App an.</string>
+    <string name="onb_apps_title">Ablenkende Apps blockieren</string>
+    <string name="onb_apps_body">Optional — erteile den Nutzungszugriff und wähle dann die Apps, die eine Pause abdecken soll.</string>
+    <string name="onb_done_title">Alles bereit</string>
+    <string name="onb_done_body">Tippe auf Los geht\'s, um die Bubble anzuzeigen.</string>
+    <string name="onb_back">Zurück</string>
+    <string name="onb_next">Weiter</string>
+    <string name="onb_get_started">Los geht\'s</string>
+</resources>

@@ -62,6 +62,18 @@ the Android 13+ per-app language picker (Settings → Apps → Pause → Languag
 
 Currently shipped: **English** (default) + **Finnish** (`fi`, reviewed by Joonas Nivala).
 
+Also in the tree but **not shipped**: `de`, `es`, `it`, `pt`, `sv`, `tr`. These are the
+machine-assisted drafts from the review documents, extracted so translators have something to
+correct rather than a blank slate; no native speaker has signed any of them off. `androidResources.localeFilters` in `app/build.gradle.kts` pins the APK to `en` and `fi`, which
+is what actually keeps them out of a build — resource resolution follows the device locale and
+ignores `locales_config.xml`. To ship one: get it reviewed, add its code to `localeFilters` and
+a `<locale>` to `locales_config.xml`.
+
+Seven entries have no draft in any of the six (the two plurals, both `stepper_*` labels and
+`picker_minutes_label` — the review documents predate them). They carry
+`tools:ignore="MissingTranslation"` in `values/strings.xml`; drop that once the languages fill
+them in.
+
 **Round 2 reviewed.** The 22 strings changed after Joonas's first pass (the `kelluva painike`
 → `kupla` terminology switch, the `peiteilmoituspalvelu` → `Näytä/Piilota kupla` rewording,
 `breathing_done` → `Harjoitus ohi`, the new `unit_*` / `slider_readout` resources and the
@@ -218,7 +230,8 @@ Google treats as sensitive. Ordered by what blocks what.
       canvas where the adaptive-icon safe zone is about 61%. It will read noticeably smaller than
       neighbouring icons. The notification icon, by contrast, is correct.
 - [ ] Delete the four dead `reminder_*` strings (unreferenced; superseded by the wind-down).
-- [ ] Finnish re-review (21 strings) and the six other languages currently out for review.
+- [ ] Finnish re-review (21 strings). The six other languages never came back from review — their
+      drafts are seeded in-tree and gated out of the build; Weblate is the way to get them corrected.
 - [ ] Instrumented tests — `app/src/androidTest` does not exist. The overlay, alarm and
       app-blocking paths are exactly what unit tests cannot reach.
 

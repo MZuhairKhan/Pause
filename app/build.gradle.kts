@@ -59,6 +59,15 @@ android {
         compose = true
     }
 
+    androidResources {
+        // values-de/es/it/pt/sv/tr are machine-assisted drafts seeded for translators to
+        // correct; they are in the tree so Weblate has something to import, but they must not
+        // reach users until a speaker has signed them off. Resource resolution keys off the
+        // device locale and ignores locales_config.xml, so this filter is what actually keeps
+        // them out of the APK. Add a code here as each language is reviewed.
+        localeFilters += listOf("en", "fi")
+    }
+
     testOptions {
         unitTests {
             // Roborazzi/Robolectric render real layouts, so unit tests need resources.

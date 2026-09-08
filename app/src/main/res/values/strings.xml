@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">Pause</string>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name" translatable="false">Pause</string>
     <string name="overlay_channel_name">Pause bubble</string>
     <string name="overlay_channel_description">Keeps the Pause bubble on screen while you use other apps.</string>
     <string name="overlay_notification_title">Pause is ready</string>
-    <string name="overlay_notification_title_running">Pause</string>
+    <string name="overlay_notification_title_running" translatable="false">Pause</string>
     <string name="overlay_notification_text">Tap the bubble to set a timer.</string>
-    <string name="overlay_notification_off_title">Pause</string>
+    <string name="overlay_notification_off_title" translatable="false">Pause</string>
     <string name="overlay_notification_off_text">Tap Start to show the bubble.</string>
     <string name="overlay_notification_start">Start</string>
     <string name="overlay_notification_active_soon">Alarm in under a minute</string>
@@ -26,7 +26,7 @@
     <string name="picker_subtitle">Count down a duration, or set a clock alarm</string>
     <string name="picker_mode_duration">Duration</string>
     <string name="picker_mode_alarm">Alarm</string>
-    <string name="picker_minutes_label">min</string>
+    <string name="picker_minutes_label" tools:ignore="MissingTranslation">min</string>
     <string name="picker_custom_start">Start</string>
     <string name="picker_set_alarm">Set alarm</string>
     <string name="picker_cancel">Cancel timer</string>
@@ -70,9 +70,9 @@
     <string name="show_countdown_title">Show countdown on the bubble</string>
     <string name="show_countdown_subtitle">Off shows a draining hourglass instead.</string>
     <string name="match_icon_size">Match the icon size of:</string>
-    <string name="preset_instagram">Instagram</string>
-    <string name="preset_tiktok">TikTok</string>
-    <string name="preset_shorts">Shorts</string>
+    <string name="preset_instagram" translatable="false">Instagram</string>
+    <string name="preset_tiktok" translatable="false">TikTok</string>
+    <string name="preset_shorts" translatable="false">Shorts</string>
     <string name="preset_custom">Custom</string>
     <string name="bubble_size">Size</string>
     <string name="bubble_edge_gap">Edge gap</string>
@@ -93,8 +93,8 @@
     <string name="breathing_toggle_subtitle">Off skips the exercise — the timer ends with just the dismiss options.</string>
     <string name="no_skip_lock">Minimum exercise time</string>
     <!-- Screen-reader labels for the stepper buttons; %1$s is the setting being changed. -->
-    <string name="stepper_decrease">Decrease %1$s</string>
-    <string name="stepper_increase">Increase %1$s</string>
+    <string name="stepper_decrease" tools:ignore="MissingTranslation">Decrease %1$s</string>
+    <string name="stepper_increase" tools:ignore="MissingTranslation">Increase %1$s</string>
     <string name="snooze_length">Snooze length</string>
 
     <string name="section_app_blocking">App blocking</string>
@@ -112,11 +112,11 @@
     <string name="no_apps_match">No apps match “%1$s”</string>
     <string name="clear_all">Clear all</string>
 
-    <plurals name="apps_chosen">
+    <plurals name="apps_chosen" tools:ignore="MissingTranslation">
         <item quantity="one">%1$d app chosen</item>
         <item quantity="other">%1$d apps chosen</item>
     </plurals>
-    <plurals name="apps_selected">
+    <plurals name="apps_selected" tools:ignore="MissingTranslation">
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>
     </plurals>
