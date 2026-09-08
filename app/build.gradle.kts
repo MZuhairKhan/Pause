@@ -93,8 +93,4 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
-    // UiAutomator, not Espresso, for tests that must reach the overlay's own
-    // TYPE_APPLICATION_OVERLAY windows -- a separate top-level window from the host Activity
-    // that Espresso's root matching cannot reliably target.
-    androidTestImplementation(libs.androidx.test.uiautomator)
 }

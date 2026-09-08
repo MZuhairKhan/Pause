@@ -232,3 +232,18 @@ class CompactDurationTest {
         assertEquals(CompactDuration.Parts(CompactDuration.Scale.SECONDS, 0), CompactDuration.of(0))
     }
 }
+
+class CloseSystemDialogsTest {
+    @Test
+    fun `homekey and recentapps close the overlay`() {
+        assertTrue(CloseSystemDialogs.closesOverlayForReason("homekey"))
+        assertTrue(CloseSystemDialogs.closesOverlayForReason("recentapps"))
+    }
+
+    @Test
+    fun `an unrelated or missing reason leaves the overlay up`() {
+        assertFalse(CloseSystemDialogs.closesOverlayForReason("lock"))
+        assertFalse(CloseSystemDialogs.closesOverlayForReason("assist"))
+        assertFalse(CloseSystemDialogs.closesOverlayForReason(null))
+    }
+}

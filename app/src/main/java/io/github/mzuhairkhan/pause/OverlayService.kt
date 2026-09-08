@@ -13,8 +13,10 @@ import android.app.PendingIntent
 import android.app.Service
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.content.res.ColorStateList
@@ -82,6 +84,7 @@ class OverlayService : Service() {
     /** Full-screen breathing wind-down shown when a timer fires (the default stop mode). */
     private var breathingView: View? = null
     private var breathingBackRelease: (() -> Unit)? = null
+    private var breathingHomeRelease: (() -> Unit)? = null
     private var breathingAnimator: ValueAnimator? = null
 
     /** Held while the wind-down is up, to pause other apps' media; null when not muting. */
@@ -202,7 +205,7 @@ class OverlayService : Service() {
                 // same way the real fired path does, and showBreathing() no-ops if it's up.
                 endTimeMillis > 0L && breathingView == null && blockUntilMillis == 0L -> {
                     resetToIdle()
-                    showBreathingForFiredTimer()
+                    showBreathing()
                 }
             }
         }
@@ -220,7 +223,6 @@ class OverlayService : Service() {
         ensureChannel(this)
         restoreStrandedVolume()
         _running.value = true
-        _bubbleHidden.value = false
     }
 
     /**
@@ -259,7 +261,7 @@ class OverlayService : Service() {
             // doesn't require foreground status — rather than letting the timer expire silently.
             // Otherwise degrade by stopping; onDestroy re-posts the persistent "Start" notice.
             if (intent?.action == ACTION_TIMER_FIRED && Settings.canDrawOverlays(this)) {
-                showBreathingForFiredTimer()
+                showBreathing()
                 return START_NOT_STICKY
             }
             stopSelf()
@@ -267,39 +269,18 @@ class OverlayService : Service() {
         }
 
         // A bubble-metrics refresh (alignment changed in the app) re-applies size and padding to
-        // the live bubble without disturbing a running timer. If the bubble is deliberately
-        // hidden, leave it that way rather than resurrecting it just because a setting changed
-        // (e.g. the size slider) — only fall through to a real start if the overlay was never up
-        // at all this session.
-        if (intent?.action == ACTION_REFRESH_BUBBLE) {
-            if (bubbleView != null) applyBubbleMetrics()
-            if (bubbleView != null || _bubbleHidden.value) return START_STICKY
-        }
-
-        // Hiding the bubble while a timer is running leaves the timer alone; the notification
-        // (or Settings) becomes the only way to bring the bubble back or stop it outright.
-        if (intent?.action == ACTION_HIDE_BUBBLE) {
-            hideBubbleOrStop()
+        // the live bubble without disturbing a running timer. If the overlay isn't up yet, fall
+        // through to the normal start below so the bubble appears at the saved metrics.
+        if (intent?.action == ACTION_REFRESH_BUBBLE && bubbleView != null) {
+            applyBubbleMetrics()
             return START_STICKY
         }
 
-        // A notification action can only launch an Intent, not call stopService() directly, so
-        // this is the routed equivalent of OverlayService.hide()'s full-stop branch / the
-        // Settings screen's old stop() call.
-        if (intent?.action == ACTION_STOP) {
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
-        _bubbleHidden.value = false
         showBubble()
+        // A new (or restarted) service session always starts idle — a prior timer is not
+        // resumed, and any leftover alarm is cancelled. Only the bubble location persists.
         hidePicker()
-        // A genuinely fresh (or fully-stopped-and-restarted) session starts idle -- a prior timer
-        // is not resumed, and any leftover alarm is cancelled. But a plain "show again" reaching
-        // an instance that is still alive with a live timer (i.e. un-hiding) must NOT cancel it.
-        if (endTimeMillis <= System.currentTimeMillis()) {
-            resetToIdle()
-        }
+        resetToIdle()
         if (intent?.action == ACTION_TIMER_FIRED) {
             showBreathing()
         }
@@ -323,7 +304,6 @@ class OverlayService : Service() {
 
     override fun onDestroy() {
         _running.value = false
-        _bubbleHidden.value = false
         // A manual stop cancels any pending timer so it can't fire after the overlay is gone.
         cancelPendingAlarm()
         snapAnimator?.cancel()
@@ -424,37 +404,6 @@ class OverlayService : Service() {
         bubbleParams = null
         bubbleIcon = null
         bubbleCountdown = null
-    }
-
-    /**
-     * "Hide the bubble" from either entry point (the Settings button or drag-to-dismiss): if a
-     * timer is still running, hide the bubble but leave the timer and its alarm alone -- the
-     * notification (or Settings, to bring it back) becomes the only way to fully stop from here.
-     * Otherwise there is nothing to preserve, so stop the service outright, exactly like
-     * dismissing an idle bubble has always done.
-     */
-    private fun hideBubbleOrStop() {
-        if (endTimeMillis > System.currentTimeMillis()) {
-            hidePicker()
-            removeBubble()
-            _bubbleHidden.value = true
-            updateNotification()
-        } else {
-            stopSelf()
-        }
-    }
-
-    /**
-     * Shows the wind-down for a timer that just fired. Unlike the onStartCommand fallthrough
-     * (which always shows the bubble before checking ACTION_TIMER_FIRED), this covers the two
-     * paths that can fire a timer without going through that fallthrough -- the per-second
-     * ticker's own fallback and the startForeground() failure path -- which would otherwise leave
-     * a hidden bubble stuck hidden even after its timer has already ended.
-     */
-    private fun showBreathingForFiredTimer() {
-        showBubble()
-        _bubbleHidden.value = false
-        showBreathing()
     }
 
     /** Bubble window size: a fraction of the screen's shorter side (per the chosen app preset),
@@ -636,9 +585,7 @@ class OverlayService : Service() {
                         val nearZone = isNearDismissZone()
                         hideDismissTarget()
                         when {
-                            // Same decision as the Settings screen's Hide button: only a running
-                            // timer survives the drop, otherwise this is a full stop.
-                            dismiss -> hideBubbleOrStop()
+                            dismiss -> stopSelf()
                             // A near-miss springs back home rather than snapping to a low edge,
                             // so "home" never drifts to the bottom.
                             nearZone -> springBackToHome(startX, startY)
@@ -993,6 +940,31 @@ class OverlayService : Service() {
         return { dispatcher.unregisterOnBackInvokedCallback(callback) }
     }
 
+    /**
+     * Registers a runtime receiver for `ACTION_CLOSE_SYSTEM_DIALOGS`, running [onClose] when the
+     * reason means the user has left to the launcher or the recent-apps switcher -- see
+     * [CloseSystemDialogs] for why only those two reasons qualify. Runtime registration is
+     * required: this is an implicit broadcast, which a manifest-declared receiver has not been
+     * delivered since API 26. `RECEIVER_NOT_EXPORTED` is correct here, not a tightening we'd
+     * otherwise skip -- this receiver only ever needs broadcasts the system itself sends.
+     *
+     * @return a function that unregisters the receiver.
+     */
+    private fun registerHomeCloseReceiver(onClose: () -> Unit): () -> Unit {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (CloseSystemDialogs.closesOverlayForReason(intent.getStringExtra("reason"))) {
+                    onClose()
+                }
+            }
+        }
+        ContextCompat.registerReceiver(
+            this, receiver, IntentFilter(Intent.ACTION_CLOSE_SYSTEM_DIALOGS),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        return { unregisterReceiver(receiver) }
+    }
+
     private fun accentColor(): Int = SettingsStore.accentColor(this)
 
     private fun wirePickerDismiss(view: View) {
@@ -1141,13 +1113,6 @@ class OverlayService : Service() {
                 snoozeTimer(snoozeMinutes)
             }
         }
-        // Always-visible emergency exit -- unlike the three buttons above, not gated behind the
-        // lock window, so it works even during the "non-skippable" period.
-        view.findViewById<TextView>(R.id.breathing_home).setOnClickListener {
-            Haptics.tap(it)
-            goHome()
-            hideBreathing()
-        }
 
         // Not skippable: the full-screen view swallows taps and BACK is consumed. The
         // action buttons, revealed after the lock window, are the only way out. The key
@@ -1166,6 +1131,10 @@ class OverlayService : Service() {
         if (!safeAddView(view, params)) return
         view.requestFocus()
         breathingBackRelease = registerBackCallback(view) { /* no-skip lock: back does nothing */ }
+        // Unlike back, HOME and recent-apps are not something the overlay can consume -- the
+        // launcher is coming forward regardless. This just gets the wind-down out of its way
+        // instead of leaving it stuck drawn on top once the user has already left.
+        breathingHomeRelease = registerHomeCloseReceiver { hideBreathing() }
         breathingView = view
         // Silence whatever was playing (a video, music) so the wind-down isn't competing
         // with background media; focus is handed back when the wind-down closes.
@@ -1201,6 +1170,8 @@ class OverlayService : Service() {
         breathingAnimator = null
         breathingBackRelease?.invoke()
         breathingBackRelease = null
+        breathingHomeRelease?.invoke()
+        breathingHomeRelease = null
         breathingView?.let { safeRemoveView(it) }
         breathingView = null
         // A break that immediately follows keeps the mute, so there's no ~1s burst of the app's
@@ -1569,23 +1540,6 @@ class OverlayService : Service() {
                         .addProgressSegment(NotificationCompat.ProgressStyle.Segment(totalSeconds))
                         .setProgress(elapsedSeconds)
                 )
-                // While the bubble is deliberately hidden, this notification is the only
-                // remaining control surface: offer a way back, and a way to actually stop.
-                if (_bubbleHidden.value) {
-                    val showPi = PendingIntent.getForegroundService(
-                        this@OverlayService, REQ_NOTIF_SHOW,
-                        Intent(this@OverlayService, OverlayService::class.java),
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                    )
-                    val stopPi = PendingIntent.getForegroundService(
-                        this@OverlayService, REQ_NOTIF_STOP,
-                        Intent(this@OverlayService, OverlayService::class.java)
-                            .apply { action = ACTION_STOP },
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                    )
-                    addAction(0, getString(R.string.overlay_notification_show), showPi)
-                    addAction(0, getString(R.string.overlay_notification_stop), stopPi)
-                }
             }
             .setSmallIcon(R.drawable.ic_hourglass)
             .setContentIntent(pendingIntent)
@@ -1605,10 +1559,6 @@ class OverlayService : Service() {
         /** Whether the overlay service is currently running; observed by the setup screen. */
         private val _running = MutableStateFlow(false)
         val running: StateFlow<Boolean> = _running
-
-        /** Whether the bubble is hidden while a timer keeps running in the background. */
-        private val _bubbleHidden = MutableStateFlow(false)
-        val bubbleHidden: StateFlow<Boolean> = _bubbleHidden
 
         private const val CHANNEL_ID = "pause_status"
         private val LEGACY_CHANNELS = listOf("overlay_service", "overlay_service_min")
@@ -1635,8 +1585,6 @@ class OverlayService : Service() {
         private const val REQ_SHOW = 101
         private const val REQ_START = 102
         private const val REQ_OPEN = 103
-        private const val REQ_NOTIF_SHOW = 104
-        private const val REQ_NOTIF_STOP = 105
         private const val BREATH_MIN = 0.35f
 
         /** How often the active break checks the foreground app. */
@@ -1646,10 +1594,6 @@ class OverlayService : Service() {
 
         const val ACTION_TIMER_FIRED = "io.github.mzuhairkhan.pause.action.TIMER_FIRED"
         const val ACTION_REFRESH_BUBBLE = "io.github.mzuhairkhan.pause.action.REFRESH_BUBBLE"
-        const val ACTION_HIDE_BUBBLE = "io.github.mzuhairkhan.pause.action.HIDE_BUBBLE"
-        // A notification action can only launch an Intent, not call stopService() directly, so
-        // this is the routed path to the same stopSelf() the Settings screen reaches directly.
-        const val ACTION_STOP = "io.github.mzuhairkhan.pause.action.STOP"
 
         /**
          * Makes the live floating bubble reflect the latest saved size/offset, starting the
@@ -1668,16 +1612,9 @@ class OverlayService : Service() {
             context.startForegroundService(intent)
         }
 
-        /**
-         * "Hide the bubble" from the Settings screen. If a timer is running, the service decides
-         * (in [hideBubbleOrStop]) to keep it running with the bubble merely hidden; otherwise
-         * this ends up stopping the service outright, same as the old stop() did.
-         */
-        fun hide(context: Context) {
-            val intent = Intent(context, OverlayService::class.java).apply {
-                action = ACTION_HIDE_BUBBLE
-            }
-            context.startForegroundService(intent)
+        fun stop(context: Context) {
+            val intent = Intent(context, OverlayService::class.java)
+            context.stopService(intent)
         }
 
         fun timerFired(context: Context) {

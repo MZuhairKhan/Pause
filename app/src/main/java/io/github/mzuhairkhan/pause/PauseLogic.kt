@@ -167,3 +167,19 @@ object CompactDuration {
         }
     }
 }
+
+/**
+ * Decides whether an `ACTION_CLOSE_SYSTEM_DIALOGS` broadcast means the user has left to another
+ * screen -- pressed HOME or opened the recent-apps switcher -- as opposed to any of the other
+ * things that broadcast fires for (pulling down the notification shade, the long-press power
+ * menu, the assistant), where the wind-down should stay put.
+ *
+ * `"reason"` is the de facto extra key the platform has used for this since Android's early
+ * days; it isn't a public SDK constant. A missing extra (`null`) is treated as "don't close" --
+ * on the OS versions or OEM skins where it goes missing, staying up is the safer failure than
+ * dismissing on every unrelated system dialog.
+ */
+object CloseSystemDialogs {
+    fun closesOverlayForReason(reason: String?): Boolean =
+        reason == "homekey" || reason == "recentapps"
+}

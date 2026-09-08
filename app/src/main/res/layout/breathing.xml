@@ -104,25 +104,4 @@
             android:textColor="@color/overlay_on_scrim_secondary"
             android:textSize="14sp" />
     </LinearLayout>
-
-    <!-- Always visible, unlike breathing_actions above: an emergency exit reachable even during
-         the non-skippable lock window. -->
-    <TextView
-        android:id="@+id/breathing_home"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_marginTop="32dp"
-        android:layout_marginEnd="20dp"
-        android:background="@drawable/chip_bg"
-        android:clickable="true"
-        android:focusable="true"
-        android:gravity="center"
-        android:minWidth="48dp"
-        android:minHeight="48dp"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp"
-        android:text="@string/breathing_home"
-        android:textColor="@color/overlay_on_chip"
-        android:textSize="13sp" />
 </FrameLayout>
