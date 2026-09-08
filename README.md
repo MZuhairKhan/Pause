@@ -26,7 +26,7 @@ On first launch the app walks you through the permission grants it needs: displa
 
 ## Contributing
 
-`ONBOARDING.md` covers the architecture, the release process, and how to add a translation. Changes need a `CHANGELOG.md` entry — CI enforces it.
+`CONTRIBUTING.md` covers reporting bugs, translating, and what a pull request needs — including a `CHANGELOG.md` entry, which CI enforces. `ONBOARDING.md` goes deeper on the architecture and the release process.
 
 ## Translations
 

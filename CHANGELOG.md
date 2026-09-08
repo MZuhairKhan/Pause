@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A **Translations** section in the README saying the project translates with Weblate and which
   languages are drafts rather than finished work. Hosted Weblate's libre plan requires the mention.
+- **`CONTRIBUTING.md`** — bug reports, translating, and what a pull request needs. GitHub surfaces
+  it in the new-issue and pull-request flows, which `ONBOARDING.md` never was; the README now points
+  here first, and at `ONBOARDING.md` only for architecture.
 
 ### Changed
 - The app name and the three launcher-preset brands (Instagram, TikTok, Shorts) are marked
