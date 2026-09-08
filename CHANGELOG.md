@@ -5,6 +5,59 @@ All notable changes to Pause are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] — 2026-09-08
+
+Everything here landed after the 0.5.0 tag, most of it in response to the F-Droid review of
+that release.
+
+### Added
+- **Pressing HOME leaves the breathing wind-down**, including during the non-skippable lock
+  window, so the launcher isn't left sitting behind an overlay the user has already moved on
+  from. The F-Droid reviewer could find no way out of the wind-down at all. Detected via
+  `ACTION_CLOSE_SYSTEM_DIALOGS`, since neither HOME nor recent-apps is a key event an overlay
+  can intercept.
+
+### Changed
+- **This changelog is a third of its former size.** Entries had grown into paragraphs explaining
+  mechanisms and reasoning — 0.5.0's section alone ran to about 18,000 characters, more than half
+  the file. Every entry is now a line or two saying what changed and why it matters; the reasoning
+  lives in the commit messages and `ONBOARDING.md`, where it can be read by whoever needs it.
+- Release notes now come from the store changelog rather than this file, and the README is
+  trimmed to what a visitor needs.
+
+### Fixed
+- **The bubble could not be started at all if notification permission was denied**, even with
+  overlay permission granted — found by an F-Droid reviewer testing on-device. Notification
+  permission is not load-bearing: `startForeground()` succeeds without it, it just silently
+  skips posting the notification. The Start button and the setup wizard now gate on overlay
+  permission only.
+- **Dismissing a running timer did not reliably cancel its alarm**, so a timer you had stopped
+  could still fire later. Drag-to-dismiss and "Stop for now" with no break configured both
+  relied on `stopSelf()` alone, leaving the actual cancellation to `onDestroy()`, whose timing
+  the OS can defer. Both now cancel synchronously, before requesting the stop.
+- **A break only started if you left the wind-down via "Stop for now".** Leaving any other way —
+  HOME, or drag-to-dismiss during the lock — skipped arming it, so a blocked app opened straight
+  afterwards showed no cover. The break now starts as soon as the timer fires, however the
+  wind-down is later dismissed; "Keep scrolling" and "Snooze" cancel it again, since both mean
+  the session isn't over.
+- **The released APK could not be verified against F-Droid's rebuild.** The build itself was
+  reproducible — F-Droid rebuilt it from the tag and every file inside matched, byte for byte —
+  but signing changed the archive around them. `apksigner` was adding v1 JAR signatures
+  (`MANIFEST.MF` plus the `.SF`/`.RSA` pair, three ZIP entries a rebuild has no way to produce)
+  and re-aligning while inserting the signing block, which shifted the local-header padding of
+  about 160 entries. Since F-Droid copies our signing block onto the APK *it* builds, either
+  alone breaks the digest. Signing now passes `--v1-signing-enabled false` (v2/v3 cover API 24+,
+  and minSdk is 26) and `--alignment-preserved`; the signed APK's ZIP structure then matches
+  AGP's output exactly.
+- **compose-bom needed its own pin after all.** It was left to the AGP rule on the reasoning that
+  2026.08.00 requires AGP 9.1+, but Dependabot proposes the BOM independently and only meets that
+  requirement at build time, so the same bump came straight back. Pinned directly.
+- **Two more version pins that existed only as comments.** core-ktx was held at 1.18.0 in a
+  comment, so a bot proposed 1.19.0, which needs compileSdk 37 and fails `checkDebugAarMetadata`
+  outright. Roborazzi was capped at 1.66 for a Kotlin-metadata reason, but 1.65 breaks too — it
+  moves `captureRoboImage` and every call in `ScreenshotTest.kt` stops resolving. Both are now
+  rules Dependabot obeys rather than notes it cannot read.
+
 ## [0.5.0] — 2026-09-06
 
 ### Added
@@ -22,16 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   screenshots, the latter generated from the existing Roborazzi tests.
 - **Search field** in the "apps to block" picker.
 - **Dependabot** for Gradle and Actions, with AGP, Kotlin, the Gradle wrapper and core-ktx pinned.
-- **Pressing HOME during the breathing wind-down now dismisses it**, including during the
-  non-skippable lock window, so the launcher isn't left obstructed by an overlay the user has
-  already moved on from. Detected via `ACTION_CLOSE_SYSTEM_DIALOGS`, since neither HOME nor
-  recent-apps is a key event the overlay can intercept.
 
 ### Changed
-- **This changelog is a third of its former size.** Entries had grown into paragraphs explaining
-  mechanisms and reasoning — 0.5.0's section alone ran to about 18,000 characters, more than half
-  the file. Every entry is now a line or two saying what changed and why it matters; the reasoning
-  lives in the commit messages and `ONBOARDING.md`, where it can be read by whoever needs it.
 - **Targets Android 16 (SDK 36)**, on AGP 8.13.2, Gradle 8.14.5 and JDK 21.
 - **Application ID renamed** to `io.github.mzuhairkhan.pause`. It installs *alongside* an older
   Pause rather than updating it — uninstall the old one first.
@@ -41,45 +86,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   targets meet 48dp, and the wind-down announces each breathing phase.
 - The setup wizard is vertically centred; the timer picker drops its "Hide the bubble" button;
   both notifications are harder to clear by accident.
-- Release notes now come from the store changelog rather than this file, and the README is
-  trimmed to what a visitor needs.
 - **CI** — actions on their Node 24 releases, the Gradle wrapper checksum validated, and the
   emulator matrix widened to API 26, 35 and 36.
 
 ### Fixed
-- **Dismissing a running timer (drag-to-dismiss, or "Stop for now" with no break configured)
-  did not reliably cancel its alarm.** Both paths relied on `stopSelf()` alone, which only
-  requests destruction — the actual cancellation lived in `onDestroy()`, whose timing the OS can
-  defer, so a dismissed timer could still fire later. Both now cancel the alarm synchronously,
-  before requesting the stop, the same way the app-blocking break path already did.
-- **Opening a blocked app right after the wind-down didn't show the "Taking a break" cover**
-  unless the wind-down had been dismissed with "Stop for now" specifically — dismissing via the
-  new HOME/recent-apps detection (or drag-to-dismiss during the lock) skipped arming the break
-  entirely, since only "Stop for now" ever did. The break now arms as soon as the timer fires,
-  regardless of how the wind-down is later dismissed; "Keep scrolling" and "Snooze" now cancel it
-  again, since both mean the session isn't over.
-- **The bubble could not be started at all if notification permission was denied**, even with
-  overlay permission granted — found by an F-Droid reviewer testing on-device. Notification
-  permission is not load-bearing: `startForeground()` succeeds without it, it just silently
-  skips posting the notification. The Start button and the setup wizard now gate on overlay
-  permission only.
-- **compose-bom needed its own pin after all.** It was left to the AGP rule on the reasoning that
-  2026.08.00 requires AGP 9.1+, but Dependabot proposes the BOM independently and only meets that
-  requirement at build time, so the same bump came straight back. Pinned directly.
-- **The released APK could not be verified against F-Droid's rebuild.** The build itself was
-  reproducible — F-Droid rebuilt it from the tag and every file inside matched, byte for byte —
-  but signing changed the archive around them. `apksigner` was adding v1 JAR signatures
-  (`MANIFEST.MF` plus the `.SF`/`.RSA` pair, three ZIP entries a rebuild has no way to produce)
-  and re-aligning while inserting the signing block, which shifted the local-header padding of
-  about 160 entries. Since F-Droid copies our signing block onto the APK *it* builds, either
-  alone breaks the digest. Signing now passes `--v1-signing-enabled false` (v2/v3 cover API 24+,
-  and minSdk is 26) and `--alignment-preserved`; the signed APK's ZIP structure then matches
-  AGP's output exactly.
-- **Two more version pins that existed only as comments.** core-ktx was held at 1.18.0 in a
-  comment, so a bot proposed 1.19.0, which needs compileSdk 37 and fails `checkDebugAarMetadata`
-  outright. Roborazzi was capped at 1.66 for a Kotlin-metadata reason, but 1.65 breaks too — it
-  moves `captureRoboImage` and every call in `ScreenshotTest.kt` stops resolving. Both are now
-  rules Dependabot obeys rather than notes it cannot read.
 - **Back is claimed explicitly** by the breathing wind-down, the block cover and the timer picker
   via `OnBackInvokedCallback` on API 33+. The no-skip lock had been working by accident on a
   legacy key-event path that Android is retiring; the key listeners remain the path below 33.

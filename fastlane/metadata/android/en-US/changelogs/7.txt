@@ -1,0 +1,4 @@
+• The bubble now starts with only the "Display over other apps" permission. Denying notifications no longer stops it working.
+• Press Home to leave the breathing wind-down, including during the no-skip window.
+• Dismissing a running timer now reliably cancels its alarm, so it can't fire later.
+• A break now starts as soon as the timer ends, however you leave the wind-down — not only via "Stop for now".
