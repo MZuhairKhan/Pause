@@ -15,7 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `androidResources.localeFilters` pins the built APK to English and Finnish. Resource resolution
   keys off the device locale and ignores `locales_config.xml`, so this filter — not that file — is
   what keeps the unreviewed drafts away from users. A language joins the list once it is reviewed.
-
 - A **Translations** section in the README saying the project translates with Weblate and which
   languages are drafts rather than finished work. Hosted Weblate's libre plan requires the mention.
 - **`CONTRIBUTING.md`** — bug reports, translating, and what a pull request needs. GitHub surfaces
@@ -25,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - The app name and the three launcher-preset brands (Instagram, TikTok, Shorts) are marked
   `translatable="false"`; Finnish had been repeating all six verbatim.
+- **The CHANGELOG check accepts translation-only pull requests.** Weblate opens one pull request
+  per language touching nothing but `values-<code>/strings.xml`, and every one of them would have
+  failed a check demanding a changelog entry they have no way to write. The exemption matches on
+  those paths rather than on the bot's account name, so it cannot be claimed by a pull request that
+  also changes code — and `values/strings.xml`, the English source, is deliberately excluded.
 
 ## [0.5.1] — 2026-09-08
 
