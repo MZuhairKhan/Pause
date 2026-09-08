@@ -47,6 +47,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   emulator matrix widened to API 26, 35 and 36.
 
 ### Fixed
+- **Dismissing a running timer (drag-to-dismiss, or "Stop for now" with no break configured)
+  did not reliably cancel its alarm.** Both paths relied on `stopSelf()` alone, which only
+  requests destruction — the actual cancellation lived in `onDestroy()`, whose timing the OS can
+  defer, so a dismissed timer could still fire later. Both now cancel the alarm synchronously,
+  before requesting the stop, the same way the app-blocking break path already did.
+- **Opening a blocked app right after the wind-down didn't show the "Taking a break" cover**
+  unless the wind-down had been dismissed with "Stop for now" specifically — dismissing via the
+  new HOME/recent-apps detection (or drag-to-dismiss during the lock) skipped arming the break
+  entirely, since only "Stop for now" ever did. The break now arms as soon as the timer fires,
+  regardless of how the wind-down is later dismissed; "Keep scrolling" and "Snooze" now cancel it
+  again, since both mean the session isn't over.
 - **The bubble could not be started at all if notification permission was denied**, even with
   overlay permission granted — found by an F-Droid reviewer testing on-device. Notification
   permission is not load-bearing: `startForeground()` succeeds without it, it just silently

@@ -585,7 +585,13 @@ class OverlayService : Service() {
                         val nearZone = isNearDismissZone()
                         hideDismissTarget()
                         when {
-                            dismiss -> stopSelf()
+                            dismiss -> {
+                                // Cancel synchronously rather than leaving it to onDestroy():
+                                // stopSelf() only requests destruction, which the OS can defer,
+                                // and a dismissed alarm that's still registered can still fire.
+                                resetToIdle()
+                                stopSelf()
+                            }
                             // A near-miss springs back home rather than snapping to a low edge,
                             // so "home" never drifts to the bottom.
                             nearZone -> springBackToHome(startX, startY)
@@ -1096,6 +1102,9 @@ class OverlayService : Service() {
         val actions = view.findViewById<View>(R.id.breathing_actions)
         view.findViewById<TextView>(R.id.breathing_keep).setOnClickListener {
             Haptics.tap(it)
+            // "Keep scrolling" means exactly that: cancel whatever break startBreakIfConfigured()
+            // armed when the timer fired, so choosing to continue doesn't still cover your apps.
+            stopBreak()
             hideBreathing()
         }
         view.findViewById<TextView>(R.id.breathing_stop).apply {
@@ -1139,6 +1148,10 @@ class OverlayService : Service() {
         // Silence whatever was playing (a video, music) so the wind-down isn't competing
         // with background media; focus is handed back when the wind-down closes.
         muteMedia()
+        // The timer has genuinely fired -- arm any configured break now, not only if the user
+        // happens to tap "Stop for now". Otherwise leaving via HOME (or the drag/back paths)
+        // skipped the break entirely, so a blocked app opened right after showed no cover.
+        startBreakIfConfigured()
         if (SettingsStore.breathingEnabled(this)) {
             startBreathingAnimator(circle, phase)
             // Hold the screen non-skippable for the lock window, then fade the actions in. Under
@@ -1181,6 +1194,8 @@ class OverlayService : Service() {
 
     /** Dismisses the wind-down and re-arms the timer so it fires again in [minutes]. */
     private fun snoozeTimer(minutes: Int) {
+        // Snoozing means the session isn't over yet either -- same reasoning as "Keep scrolling".
+        stopBreak()
         hideBreathing()
         scheduleTimer(System.currentTimeMillis() + minutes * 60_000L)
     }
@@ -1243,27 +1258,25 @@ class OverlayService : Service() {
      * that covers those apps when reopened; otherwise it just tears the overlay down.
      */
     private fun stopForNow() {
-        val apps = SettingsStore.blockedApps(this)
-        val willBlock = apps.isNotEmpty() && hasUsageAccess()
+        val willBlock = SettingsStore.blockedApps(this).isNotEmpty() && hasUsageAccess()
         // When a break follows, keep media muted across the hand-off so there's no ~1s burst of
         // the app's audio between the wind-down closing and the cover muting again.
         hideBreathing(keepMute = willBlock)
         if (!willBlock) {
-            // No break to run: still leave the app, then stop the overlay (the original behaviour).
+            // No break to run: still leave the app, then stop the overlay (the original
+            // behaviour). Cancel synchronously for the same reason as drag-to-dismiss --
+            // stopSelf() alone leaves cancellation to onDestroy(), which the OS can defer.
+            resetToIdle()
             goHome()
             stopSelf()
             return
         }
-        // The fired timer is done; return the bubble to idle while the break runs.
+        // The fired timer is done; return the bubble to idle while the break runs. The break
+        // itself is normally already armed by now -- showBreathing() starts it as soon as the
+        // timer fires -- so this is a defensive no-op except when this is reached some other
+        // way that didn't go through a real fire first.
         resetToIdle()
-        blockedPackages = apps
-        blockUntilMillis = System.currentTimeMillis() + SettingsStore.blockMinutes(this) * 60_000L
-        coveredPackage = null
-        lastForegroundPackage = null
-        lastForegroundEventTime = 0L
-        ensurePollThread()
-        blockHandler.removeCallbacks(blockRunnable)
-        blockHandler.post(blockRunnable)
+        startBreakIfConfigured()
         // Leave the app you were in right away. Foreground detection relies on a fresh
         // MOVE_TO_FOREGROUND event, which a long-running app (mid-scroll) won't have emitted
         // recently — so without this the cover wouldn't appear until you navigated away and
@@ -1278,6 +1291,28 @@ class OverlayService : Service() {
             it.start()
             pollHandler = Handler(it.looper)
         }
+    }
+
+    /**
+     * Arms a timed app-blocking break if apps are chosen and usage access is granted, so
+     * leaving the wind-down by any means -- Stop for now, HOME, drag-to-dismiss during the lock,
+     * or just letting the lock elapse -- lands in the same covered state rather than only when
+     * "Stop for now" happens to be the one tapped. A no-op if a break is already running, so
+     * calling it again from [stopForNow] after [showBreathing] already armed one doesn't reset
+     * the countdown or re-apply the package list.
+     */
+    private fun startBreakIfConfigured() {
+        if (blockUntilMillis != 0L) return
+        val apps = SettingsStore.blockedApps(this)
+        if (apps.isEmpty() || !hasUsageAccess()) return
+        blockedPackages = apps
+        blockUntilMillis = System.currentTimeMillis() + SettingsStore.blockMinutes(this) * 60_000L
+        coveredPackage = null
+        lastForegroundPackage = null
+        lastForegroundEventTime = 0L
+        ensurePollThread()
+        blockHandler.removeCallbacks(blockRunnable)
+        blockHandler.post(blockRunnable)
     }
 
     private fun stopBreak() {
