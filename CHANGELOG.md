@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keys off the device locale and ignores `locales_config.xml`, so this filter — not that file — is
   what keeps the unreviewed drafts away from users. A language joins the list once it is reviewed.
 
+- A **Translations** section in the README saying the project translates with Weblate and which
+  languages are drafts rather than finished work. Hosted Weblate's libre plan requires the mention.
+
 ### Changed
 - The app name and the three launcher-preset brands (Instagram, TikTok, Shorts) are marked
   `translatable="false"`; Finnish had been repeating all six verbatim.
