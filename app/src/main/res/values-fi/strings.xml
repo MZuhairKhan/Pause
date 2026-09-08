@@ -4,13 +4,10 @@
   Keep the %1$s / %1$d placeholders and the ✓ glyph intact.
 -->
 <resources>
-    <string name="app_name">Pause</string>
     <string name="overlay_channel_name">Pause-kupla</string>
     <string name="overlay_channel_description">Pitää Pause-kuplan näkyvissä, kun käytät muita sovelluksia.</string>
     <string name="overlay_notification_title">Pause on valmis</string>
-    <string name="overlay_notification_title_running">Pause</string>
     <string name="overlay_notification_text">Aseta ajastin napauttamalla kuplaa.</string>
-    <string name="overlay_notification_off_title">Pause</string>
     <string name="overlay_notification_off_text">Paina Käynnistä näyttääksesi kuplan.</string>
     <string name="overlay_notification_start">Käynnistä</string>
     <string name="overlay_notification_active_soon">Hälytys alle minuutin kuluttua</string>
@@ -69,9 +66,6 @@
     <string name="show_countdown_title">Näytä laskuri kuplassa</string>
     <string name="show_countdown_subtitle">Pois päältä näyttää tyhjenevän tiimalasin.</string>
     <string name="match_icon_size">Sovita kuvakkeen kokoon:</string>
-    <string name="preset_instagram">Instagram</string>
-    <string name="preset_tiktok">TikTok</string>
-    <string name="preset_shorts">Shorts</string>
     <string name="preset_custom">Mukautettu</string>
     <string name="bubble_size">Koko</string>
     <string name="bubble_edge_gap">Etäisyys reunasta</string>

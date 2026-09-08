@@ -5,6 +5,27 @@ All notable changes to Pause are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **German, Spanish, Italian, Portuguese, Swedish and Turkish string files**, extracted from the
+  review documents that were sent out but never came back. These are machine-assisted first-pass
+  drafts, so they are seeds for translators to correct — not shipped translations. 101 of the 108
+  translatable entries are filled in each language; the rest had no draft to extract.
+- `androidResources.localeFilters` pins the built APK to English and Finnish. Resource resolution
+  keys off the device locale and ignores `locales_config.xml`, so this filter — not that file — is
+  what keeps the unreviewed drafts away from users. A language joins the list once it is reviewed.
+
+- A **Translations** section in the README saying the project translates with Weblate and which
+  languages are drafts rather than finished work. Hosted Weblate's libre plan requires the mention.
+- **`CONTRIBUTING.md`** — bug reports, translating, and what a pull request needs. GitHub surfaces
+  it in the new-issue and pull-request flows, which `ONBOARDING.md` never was; the README now points
+  here first, and at `ONBOARDING.md` only for architecture.
+
+### Changed
+- The app name and the three launcher-preset brands (Instagram, TikTok, Shorts) are marked
+  `translatable="false"`; Finnish had been repeating all six verbatim.
+
 ## [0.5.1] — 2026-09-08
 
 Everything here landed after the 0.5.0 tag, most of it in response to the F-Droid review of

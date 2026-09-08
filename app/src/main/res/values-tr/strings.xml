@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Machine-assisted first-pass draft, not yet reviewed by a Turkish speaker.
+     Excluded from the build by androidResources.localeFilters until a translator signs it off. -->
+    <string name="overlay_channel_name">Pause baloncuğu</string>
+    <string name="overlay_channel_description">Diğer uygulamaları kullanırken Pause baloncuğunu ekranda tutar.</string>
+    <string name="overlay_notification_title">Pause hazır</string>
+    <string name="overlay_notification_text">Zamanlayıcı ayarlamak için baloncuğa dokun.</string>
+    <string name="overlay_notification_off_text">Baloncuğu göstermek için Başlat\'a dokun.</string>
+    <string name="overlay_notification_start">Başlat</string>
+    <string name="overlay_notification_active_soon">Bir dakikadan kısa sürede alarm</string>
+    <string name="overlay_notification_active_minutes">%1$d dk sonra alarm</string>
+    <string name="overlay_notification_active_hours">%1$d sa içinde alarm</string>
+    <string name="overlay_notification_active_hm">%1$d sa %2$d dk içinde alarm</string>
+    <string name="overlay_bubble_description">Pause baloncuğu</string>
+    <string name="dismiss_description">Baloncuğu gizlemek için buraya sürükle</string>
+
+    <!-- Compact unit suffixes shown beside a number (bubble countdown, setup steppers). -->
+    <string name="unit_hours_short">%1$d sa</string>
+    <string name="unit_minutes_short">%1$d dk</string>
+    <string name="unit_seconds_short">%1$d sn</string>
+
+    <!-- Timer picker (Phase 3) -->
+    <string name="picker_title">Mola zamanlayıcısı kur</string>
+    <string name="picker_subtitle">Bir süreyi geri say ya da saat alarmı kur</string>
+    <string name="picker_mode_duration">Süre</string>
+    <string name="picker_mode_alarm">Alarm</string>
+    <string name="picker_custom_start">Başlat</string>
+    <string name="picker_set_alarm">Alarm kur</string>
+    <string name="picker_cancel">Zamanlayıcıyı iptal et</string>
+    <string name="picker_active_title">Mola zamanlayıcısı</string>
+    <string name="picker_remaining_label">Kalan süre</string>
+    <string name="picker_show_countdown">Geri sayımı göster</string>
+
+    <!-- 4-7-8 breathing wind-down (default stop mode) -->
+    <string name="breathing_in">Nefes al</string>
+    <string name="breathing_hold">Tut</string>
+    <string name="breathing_out">Nefes ver</string>
+    <string name="breathing_keep">Kaydırmaya devam et</string>
+    <string name="breathing_stop">Şimdilik dur</string>
+    <string name="breathing_snooze">%1$d dk ertele</string>
+    <string name="breathing_done">Süre doldu</string>
+
+    <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
+    <string name="block_title">Mola veriliyor</string>
+    <string name="block_subtitle">%1$s duraklatıldı</string>
+    <string name="block_subtitle_generic">Bu uygulama</string>
+    <string name="block_go_home">Ana ekrana git</string>
+    <string name="block_end_early">Molayı erken bitir</string>
+    <string name="block_confirm_title">Mola erken bitirilsin mi?</string>
+    <string name="block_confirm_end">Molayı bitir</string>
+
+    <!-- Setup screen (Compose) -->
+    <string name="start_overlay">Baloncuğu göster</string>
+    <string name="stop_overlay">Baloncuğu gizle</string>
+    <string name="permissions_title">İzinler</string>
+    <string name="all_set">Hazır ✓</string>
+    <string name="perm_overlay">Diğer uygulamaların üzerinde göster</string>
+    <string name="perm_notifications">Bildirim gönder</string>
+    <string name="perm_battery">Pil optimizasyonunu yok say</string>
+    <string name="perm_usage">Kullanım erişimi (isteğe bağlı)</string>
+    <string name="perm_grant">İzin ver</string>
+    <string name="perm_granted">Verildi</string>
+    <string name="hero_tagline">«Bu uygulamayı bırak» zamanlayıcısı kurmak için dokunduğun bir baloncuk.</string>
+
+    <string name="section_bubble">Baloncuk</string>
+    <string name="show_countdown_title">Geri sayımı baloncukta göster</string>
+    <string name="show_countdown_subtitle">Kapalıyken bunun yerine boşalan bir kum saati gösterir.</string>
+    <string name="match_icon_size">Şu uygulamanın simge boyutuna uy:</string>
+    <string name="preset_custom">Özel</string>
+    <string name="bubble_size">Boyut</string>
+    <string name="bubble_edge_gap">Kenar boşluğu</string>
+    <string name="bubble_size_readout">Gerçek boyut ≈ %1$ddp · %2$ddp kenardan</string>
+    <string name="slider_readout">%1$s · %%%2$s</string>
+
+    <string name="section_appearance">Görünüm</string>
+    <string name="theme_system">Sistem</string>
+    <string name="theme_light">Açık</string>
+    <string name="theme_dark">Koyu</string>
+    <string name="custom_color">Özel renk</string>
+    <string name="custom_color_pick">Seç…</string>
+    <string name="custom_color_preview">Önizleme</string>
+    <string name="done">Tamam</string>
+
+    <string name="section_breathing">Rahatlatıcı nefes</string>
+    <string name="breathing_toggle">Nefes egzersizi</string>
+    <string name="breathing_toggle_subtitle">Kapalıyken egzersizi atlar — zamanlayıcı yalnızca kapatma seçenekleriyle biter.</string>
+    <string name="no_skip_lock">En az egzersiz süresi</string>
+    <!-- Screen-reader labels for the stepper buttons; %1$s is the setting being changed. -->
+    <string name="snooze_length">Erteleme süresi</string>
+
+    <string name="section_app_blocking">Uygulama engelleme</string>
+    <string name="app_blocking_desc">\"Şimdilik dur\", mola sırasında açtığında bu uygulamaların üzerini örter.</string>
+    <string name="usage_needed">Engellenen bir uygulamayı açtığını fark etmek için yukarıdaki Kullanım erişimi iznine ihtiyaç duyar.</string>
+    <string name="break_length">Mola süresi</string>
+    <string name="apps_chosen_none">Uygulama seçilmedi</string>
+    <string name="choose">Seç…</string>
+
+    <string name="apps_to_block">Engellenecek uygulamalar</string>
+    <string name="apps_to_block_subtitle">Mola sırasında bunları açmak tam ekran bir hatırlatma gösterir.</string>
+    <string name="search_apps">Uygulama ara</string>
+    <string name="clear_search">Aramayı temizle</string>
+    <string name="no_apps_found">Uygulama bulunamadı</string>
+    <string name="no_apps_match">“%1$s” ile eşleşen uygulama yok</string>
+    <string name="clear_all">Tümünü temizle</string>
+
+    <!-- First-run setup wizard -->
+    <string name="onb_welcome_title">Pause\'a hoş geldin</string>
+    <string name="onb_welcome_body">«Bu uygulamayı bırak» zamanlayıcısı kurmak için bir baloncuk. Hadi ayarlayalım.</string>
+    <string name="onb_language_title">Dil</string>
+    <string name="onb_language_body">Dilini seç. Daha sonra telefonunun ayarlarından değiştirebilirsin.</string>
+    <string name="lang_system">Sistem varsayılanı</string>
+    <string name="onb_permissions_title">İzinler</string>
+    <string name="onb_permissions_body">Pause, baloncuğu ve hatırlatmalarını göstermek için birkaç izne ihtiyaç duyar.</string>
+    <string name="onb_size_title">En çok hangi uygulamayı kullanıyorsun?</string>
+    <string name="onb_size_body">Baloncuğun boyutunu o uygulamanın düğmelerine göre ayarlayacağız.</string>
+    <string name="onb_apps_title">Dikkat dağıtan uygulamaları engelle</string>
+    <string name="onb_apps_body">İsteğe bağlı — Kullanım erişimi ver, sonra bir molanın kapsayacağı uygulamaları seç.</string>
+    <string name="onb_done_title">Her şey hazır</string>
+    <string name="onb_done_body">Baloncuğu göstermek için Başla\'ya dokun.</string>
+    <string name="onb_back">Geri</string>
+    <string name="onb_next">İleri</string>
+    <string name="onb_get_started">Başla</string>
+</resources>

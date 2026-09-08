@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Machine-assisted first-pass draft, not yet reviewed by a Swedish speaker.
+     Excluded from the build by androidResources.localeFilters until a translator signs it off. -->
+    <string name="overlay_channel_name">Pause-bubblan</string>
+    <string name="overlay_channel_description">Håller Pause-bubblan synlig medan du använder andra appar.</string>
+    <string name="overlay_notification_title">Pause är redo</string>
+    <string name="overlay_notification_text">Tryck på bubblan för att ställa in en timer.</string>
+    <string name="overlay_notification_off_text">Tryck på Starta för att visa bubblan.</string>
+    <string name="overlay_notification_start">Starta</string>
+    <string name="overlay_notification_active_soon">Alarm om mindre än en minut</string>
+    <string name="overlay_notification_active_minutes">Alarm om %1$d min</string>
+    <string name="overlay_notification_active_hours">Alarm om %1$d h</string>
+    <string name="overlay_notification_active_hm">Alarm om %1$d h %2$d min</string>
+    <string name="overlay_bubble_description">Pause-bubblan</string>
+    <string name="dismiss_description">Dra hit för att dölja bubblan</string>
+
+    <!-- Compact unit suffixes shown beside a number (bubble countdown, setup steppers). -->
+    <string name="unit_hours_short">%1$d h</string>
+    <string name="unit_minutes_short">%1$d min</string>
+    <string name="unit_seconds_short">%1$d s</string>
+
+    <!-- Timer picker (Phase 3) -->
+    <string name="picker_title">Ställ in en paustimer</string>
+    <string name="picker_subtitle">Räkna ner en tid eller ställ in ett klockalarm</string>
+    <string name="picker_mode_duration">Längd</string>
+    <string name="picker_mode_alarm">Alarm</string>
+    <string name="picker_custom_start">Starta</string>
+    <string name="picker_set_alarm">Ställ in alarm</string>
+    <string name="picker_cancel">Avbryt timer</string>
+    <string name="picker_active_title">Paustimer</string>
+    <string name="picker_remaining_label">Återstående tid</string>
+    <string name="picker_show_countdown">Visa nedräkning</string>
+
+    <!-- 4-7-8 breathing wind-down (default stop mode) -->
+    <string name="breathing_in">Andas in</string>
+    <string name="breathing_hold">Håll</string>
+    <string name="breathing_out">Andas ut</string>
+    <string name="breathing_keep">Fortsätt skrolla</string>
+    <string name="breathing_stop">Sluta för nu</string>
+    <string name="breathing_snooze">Snooza %1$d min</string>
+    <string name="breathing_done">Tiden är ute</string>
+
+    <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
+    <string name="block_title">Tar en paus</string>
+    <string name="block_subtitle">%1$s är pausad</string>
+    <string name="block_subtitle_generic">Den här appen</string>
+    <string name="block_go_home">Gå till startskärmen</string>
+    <string name="block_end_early">Avsluta pausen tidigare</string>
+    <string name="block_confirm_title">Avsluta pausen tidigare?</string>
+    <string name="block_confirm_end">Avsluta paus</string>
+
+    <!-- Setup screen (Compose) -->
+    <string name="start_overlay">Visa bubblan</string>
+    <string name="stop_overlay">Dölj bubblan</string>
+    <string name="permissions_title">Behörigheter</string>
+    <string name="all_set">Klart ✓</string>
+    <string name="perm_overlay">Visa över andra appar</string>
+    <string name="perm_notifications">Skicka aviseringar</string>
+    <string name="perm_battery">Ignorera batterioptimering</string>
+    <string name="perm_usage">Användningsåtkomst (valfritt)</string>
+    <string name="perm_grant">Tillåt</string>
+    <string name="perm_granted">Beviljad</string>
+    <string name="hero_tagline">En bubbla du trycker på för att ställa in en ”sluta använda appen”-timer.</string>
+
+    <string name="section_bubble">Bubbla</string>
+    <string name="show_countdown_title">Visa nedräkning på bubblan</string>
+    <string name="show_countdown_subtitle">Av visar i stället ett timglas som rinner ut.</string>
+    <string name="match_icon_size">Matcha ikonstorleken för:</string>
+    <string name="preset_custom">Anpassad</string>
+    <string name="bubble_size">Storlek</string>
+    <string name="bubble_edge_gap">Kantavstånd</string>
+    <string name="bubble_size_readout">Faktisk storlek ≈ %1$ddp · %2$ddp från kanten</string>
+    <string name="slider_readout">%1$s · %2$s %%</string>
+
+    <string name="section_appearance">Utseende</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Ljust</string>
+    <string name="theme_dark">Mörkt</string>
+    <string name="custom_color">Anpassad färg</string>
+    <string name="custom_color_pick">Välj…</string>
+    <string name="custom_color_preview">Förhandsvisning</string>
+    <string name="done">Klar</string>
+
+    <string name="section_breathing">Lugnande andning</string>
+    <string name="breathing_toggle">Andningsövning</string>
+    <string name="breathing_toggle_subtitle">Av hoppar över övningen – timern avslutas med bara stängningsalternativen.</string>
+    <string name="no_skip_lock">Minsta övningstid</string>
+    <!-- Screen-reader labels for the stepper buttons; %1$s is the setting being changed. -->
+    <string name="snooze_length">Snooze-längd</string>
+
+    <string name="section_app_blocking">Appblockering</string>
+    <string name="app_blocking_desc">\"Sluta för nu\" täcker dessa appar om du öppnar dem under pausen.</string>
+    <string name="usage_needed">Kräver behörigheten Användningsåtkomst ovan för att märka när du öppnar en blockerad app.</string>
+    <string name="break_length">Pauslängd</string>
+    <string name="apps_chosen_none">Inga appar valda</string>
+    <string name="choose">Välj…</string>
+
+    <string name="apps_to_block">Appar att blockera</string>
+    <string name="apps_to_block_subtitle">Om du öppnar dessa under en paus visas en påminnelse i helskärm.</string>
+    <string name="search_apps">Sök appar</string>
+    <string name="clear_search">Rensa sökning</string>
+    <string name="no_apps_found">Inga appar hittades</string>
+    <string name="no_apps_match">Inga appar matchar “%1$s”</string>
+    <string name="clear_all">Rensa alla</string>
+
+    <!-- First-run setup wizard -->
+    <string name="onb_welcome_title">Välkommen till Pause</string>
+    <string name="onb_welcome_body">En bubbla för att ställa in en ”sluta använda appen”-timer. Nu sätter vi igång.</string>
+    <string name="onb_language_title">Språk</string>
+    <string name="onb_language_body">Välj ditt språk. Du kan ändra det senare i telefonens inställningar.</string>
+    <string name="lang_system">Systemstandard</string>
+    <string name="onb_permissions_title">Behörigheter</string>
+    <string name="onb_permissions_body">Pause behöver ett par behörigheter för att visa bubblan och dess påminnelser.</string>
+    <string name="onb_size_title">Vilken app använder du mest?</string>
+    <string name="onb_size_body">Vi anpassar bubblans storlek efter appens knappar.</string>
+    <string name="onb_apps_title">Blockera distraherande appar</string>
+    <string name="onb_apps_body">Valfritt — ge Användningsåtkomst och välj sedan vilka appar en paus ska täcka.</string>
+    <string name="onb_done_title">Allt är klart</string>
+    <string name="onb_done_body">Tryck på Kom igång för att visa bubblan.</string>
+    <string name="onb_back">Tillbaka</string>
+    <string name="onb_next">Nästa</string>
+    <string name="onb_get_started">Kom igång</string>
+</resources>

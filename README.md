@@ -26,7 +26,17 @@ On first launch the app walks you through the permission grants it needs: displa
 
 ## Contributing
 
-`ONBOARDING.md` covers the architecture, the release process, and how to add a translation. Changes need a `CHANGELOG.md` entry — CI enforces it.
+`CONTRIBUTING.md` covers reporting bugs, translating, and what a pull request needs — including a `CHANGELOG.md` entry, which CI enforces. `ONBOARDING.md` goes deeper on the architecture and the release process.
+
+## Translations
+
+Pause is translated with [Weblate](https://weblate.org/). The English strings in
+`app/src/main/res/values/strings.xml` are the source; every other language is translated from them.
+
+Finnish is reviewed and ships. German, Spanish, Italian, Portuguese, Swedish and Turkish are in the
+repository as machine-assisted drafts that no native speaker has checked, so they are held out of
+released builds until someone signs them off — correcting one of those six is the most useful thing
+a translator can do here. `ONBOARDING.md` explains how to add a language by pull request instead.
 
 ## Credits
 
