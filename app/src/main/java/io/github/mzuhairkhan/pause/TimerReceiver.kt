@@ -5,9 +5,8 @@ import android.content.Context
 import android.content.Intent
 
 /**
- * Fires when a pause timer's AlarmManager alarm goes off and hands off to the overlay
- * service to open the breathing wind-down. No reminder notification — the wind-down is
- * the nudge.
+ * Fires when a timer's alarm goes off and hands off to the overlay service for the
+ * breathing wind-down. No reminder notification — the wind-down is the nudge.
  */
 class TimerReceiver : BroadcastReceiver() {
 

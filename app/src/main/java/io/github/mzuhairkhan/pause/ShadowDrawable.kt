@@ -11,15 +11,14 @@ import android.graphics.drawable.Drawable
 import kotlin.math.ceil
 
 /**
- * Wraps an icon and paints a soft, blurred drop shadow of its silhouette beneath it, so a
- * pure-white glyph stays legible over light backgrounds the way Instagram's overlay icons
- * do. The shadow follows the icon's alpha — around the outline and through any hollows.
+ * Wraps an icon and paints a soft blurred shadow of its silhouette beneath it, so a
+ * pure-white glyph stays legible over light backgrounds. The shadow follows the icon's
+ * alpha, around the outline and through any hollows.
  *
- * The blur is baked into a bitmap whenever the bounds change, so [draw] is just two bitmap
- * blits and works regardless of hardware acceleration (a [BlurMaskFilter] applied live to a
- * path on a hardware canvas is unreliable). The wrapped drawable's invalidations are
- * forwarded, so animated content (the draining hourglass) still updates live; only the
- * shadow itself is snapshotted, which is fine because the outer silhouette barely moves.
+ * The blur is baked into a bitmap on bounds change, so [draw] is two blits and works
+ * without hardware acceleration (a live [BlurMaskFilter] on a hardware canvas is
+ * unreliable). Wrapped invalidations still forward, so the draining hourglass animates;
+ * only the shadow is snapshotted, and its outer silhouette barely moves.
  */
 class ShadowDrawable(
     private val content: Drawable,

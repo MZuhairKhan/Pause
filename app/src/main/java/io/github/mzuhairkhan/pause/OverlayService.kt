@@ -110,9 +110,8 @@ class OverlayService : Service() {
 
     /**
      * Rolling foreground-detection cursor for the active break. [currentForegroundApp] queries
-     * usage events forward from [lastForegroundEventTime] (rather than a fixed window) and keeps
-     * the last app seen, so a foreground change isn't missed between polls and a blocked app
-     * reopened past the lookback is still re-covered. Reset when a break starts.
+     * usage events forward from [lastForegroundEventTime] rather than a fixed window, so a
+     * change isn't missed between polls and an app reopened past the lookback is re-covered.
      */
     private var lastForegroundPackage: String? = null
     private var lastForegroundEventTime = 0L
@@ -178,10 +177,9 @@ class OverlayService : Service() {
     private var customMinutes = 20
 
     /**
-     * Bubble position as a fraction (0..1) of the draggable area. Storing it relative to
-     * the screen — rather than as absolute pixels — keeps it at the same on-screen spot
-     * in every orientation (e.g. right-edge-middle stays right-edge-middle) instead of
-     * drifting to a different edge depending on which way you rotate.
+     * Bubble position as a fraction (0..1) of the draggable area. Relative rather than absolute
+     * keeps it at the same on-screen spot in every orientation instead of drifting to another
+     * edge depending on which way you rotate.
      */
     private var posFractionX = DEFAULT_X_FRACTION
     private var posFractionY = DEFAULT_Y_FRACTION
@@ -226,9 +224,8 @@ class OverlayService : Service() {
     }
 
     /**
-     * If a previous session muted media and was killed before it could restore the volume
-     * (force-stop, low memory), the pre-mute level is still recorded — put it back now so
-     * the user isn't left at zero. Runs before any new mute, so it can't clobber a fresh one.
+     * If a previous session muted media and died before restoring it (force-stop, low memory),
+     * the pre-mute level is still recorded — put it back now. Runs before any new mute.
      */
     private fun restoreStrandedVolume() {
         val stranded = SettingsStore.mutedVolume(this)
@@ -255,11 +252,10 @@ class OverlayService : Service() {
                 startForeground(NOTIFICATION_ID, notification)
             }
         } catch (e: Exception) {
-            // The OS refused to promote us to a foreground service (e.g. a stricter Android 14+
-            // background-start state the setAlarmClock allowlist didn't cover). For a timer fire
-            // the wind-down is the whole point, so still try to show it — the overlay window
-            // doesn't require foreground status — rather than letting the timer expire silently.
-            // Otherwise degrade by stopping; onDestroy re-posts the persistent "Start" notice.
+            // The OS refused foreground promotion (e.g. an Android 14+ background-start state the
+            // setAlarmClock allowlist didn't cover). For a timer fire the wind-down is the whole point,
+            // and the overlay window doesn't need foreground status, so show it anyway rather than
+            // expiring silently. Otherwise stop; onDestroy re-posts the persistent notice.
             if (intent?.action == ACTION_TIMER_FIRED && Settings.canDrawOverlays(this)) {
                 showBreathing()
                 return START_NOT_STICKY
@@ -326,9 +322,8 @@ class OverlayService : Service() {
     // --- Overlay view helpers ---
 
     /**
-     * Adds an overlay view, returning false (instead of crashing the service) if the
-     * overlay permission was revoked between the caller's check and this call, or the
-     * window token is otherwise rejected. Callers must not retain the view on false.
+     * Adds an overlay view, returning false instead of crashing if the permission was revoked
+     * between the caller's check and this call, or the token is rejected. Don't retain on false.
      */
     private fun safeAddView(view: View, params: WindowManager.LayoutParams): Boolean {
         return try {
@@ -417,9 +412,8 @@ class OverlayService : Service() {
     }
 
     /**
-     * Margin between the bubble window and the screen edge when snapped — proportional to the
-     * screen. Independent of [bubbleSizePx]: raising it moves the whole bubble inward without
-     * resizing it (the glyph fills the window).
+     * Margin between the bubble window and the screen edge when snapped, proportional to the
+     * screen. Independent of [bubbleSizePx]: raising it moves the bubble inward, not resizes.
      */
     private fun bubbleEdgeMarginPx(): Int {
         val (w, h) = screenSize()
@@ -532,10 +526,9 @@ class OverlayService : Service() {
     private fun formatRemainingLong(totalSeconds: Int): String = TimeFormat.remainingLong(totalSeconds)
 
     /**
-     * Lets the user drag the bubble anywhere on screen. A press that moves less than
-     * the platform touch slop is treated as a tap (so [View.performClick] still fires);
-     * anything larger becomes a drag, the click is suppressed, and the resting position
-     * is saved so it persists across rotations.
+     * Drags the bubble anywhere on screen. A press moving less than the touch slop stays a tap
+     * (so [View.performClick] fires); more becomes a drag, suppresses the click, and saves the
+     * resting position.
      */
     private inner class DragTouchListener(
         private val params: WindowManager.LayoutParams
@@ -648,9 +641,8 @@ class OverlayService : Service() {
     }
 
     /**
-     * Distance in screen pixels between the bubble's center and the dismiss target's center,
-     * using each view's actual on-screen location so the activation circle is centered on the
-     * ✕ exactly as drawn (independent of system-bar insets and window gravity).
+     * Screen-pixel distance between the bubble's centre and the dismiss target's, from each
+     * view's actual location so the activation circle is centred on the ✕ exactly as drawn.
      */
     private fun bubbleToDismissDistance(): Float {
         val target = dismissTargetView ?: return Float.MAX_VALUE
@@ -762,9 +754,8 @@ class OverlayService : Service() {
     }
 
     /**
-     * A context whose night mode is pinned to the app's theme choice, so the picker, breathing
-     * and break-cover overlays resolve the light or dark `overlay_*` colors (and the picker's
-     * day/night theme) accordingly. The floating bubble does NOT use this — it stays universal.
+     * A context with night mode pinned to the app's theme choice, so the picker, breathing and
+     * break-cover overlays resolve the right `overlay_*` colors. The bubble does NOT use this.
      */
     private fun overlayContext(): Context {
         val config = Configuration(resources.configuration).apply {
@@ -918,25 +909,21 @@ class OverlayService : Service() {
     }
 
     /**
-     * Registers a predictive-back callback on an overlay window, for API 33+.
+     * Registers a predictive-back callback on an overlay window, API 33+.
      *
-     * From Android 13 the platform routes back through OnBackInvokedDispatcher, and at
-     * targetSdk 36 that is on by default. KEYCODE_BACK does still reach the view tree on
-     * Android 16 -- but only through a legacy fallback AOSP itself logs as an error, and
-     * 16.0 and 16.1 already disagree about whether the forwarded up-event arrives cancelled.
-     * Relying on it would leave the no-skip lock working by accident. Registering a callback
-     * makes the window's intent explicit instead: the system classifies the gesture as handled
-     * and hands it to us, rather than falling through to its own back behaviour.
+     * From Android 13 back routes through OnBackInvokedDispatcher, on by default at targetSdk
+     * 36. KEYCODE_BACK still reaches the view tree on Android 16, but only via a legacy fallback
+     * AOSP logs as an error, and 16.0 and 16.1 disagree about whether the forwarded up-event
+     * arrives cancelled — relying on it would leave the no-skip lock working by accident.
+     * Registering makes the window's intent explicit instead.
      *
-     * The OnKeyListener at each site stays as the API 26-32 path, and as the fallback if
-     * registration is ever refused (it is silently ignored when the app opts out of
-     * predictive back).
+     * The OnKeyListener at each site remains the API 26-32 path, and the fallback if
+     * registration is refused (silently ignored when the app opts out of predictive back).
      *
-     * @param view root View, already attached via [safeAddView]; the dispatcher lookup
-     *   returns null for a detached view, so this must be called after the window is added.
-     * @param onBack run on the main thread when back is invoked. An empty body swallows back.
-     * @return a function that unregisters the callback, or null if nothing was registered
-     *   (below API 33, or no dispatcher available).
+     * @param view root View, already attached via [safeAddView] — the dispatcher lookup returns
+     *   null for a detached view.
+     * @param onBack run on the main thread when back is invoked; an empty body swallows back.
+     * @return a function unregistering the callback, or null if nothing was registered.
      */
     private fun registerBackCallback(view: View, onBack: () -> Unit): (() -> Unit)? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
@@ -948,11 +935,10 @@ class OverlayService : Service() {
 
     /**
      * Registers a runtime receiver for `ACTION_CLOSE_SYSTEM_DIALOGS`, running [onClose] when the
-     * reason means the user has left to the launcher or the recent-apps switcher -- see
-     * [CloseSystemDialogs] for why only those two reasons qualify. Runtime registration is
-     * required: this is an implicit broadcast, which a manifest-declared receiver has not been
-     * delivered since API 26. `RECEIVER_NOT_EXPORTED` is correct here, not a tightening we'd
-     * otherwise skip -- this receiver only ever needs broadcasts the system itself sends.
+     * reason means the user left for the launcher or recent apps — see [CloseSystemDialogs] for
+     * why only those two qualify. Runtime registration is required: this implicit broadcast has
+     * not reached manifest receivers since API 26. `RECEIVER_NOT_EXPORTED` is correct rather than
+     * merely cautious, as only the system ever sends this.
      *
      * @return a function that unregisters the receiver.
      */
@@ -1201,10 +1187,9 @@ class OverlayService : Service() {
     }
 
     /**
-     * Requests exclusive transient audio focus so well-behaved apps pause their media for
-     * the duration of the wind-down, and also zeroes the media stream directly. The latter
-     * is what silences apps that ignore audio-focus loss (TikTok, Instagram Reels) and keep
-     * playing regardless — the saved volume is restored when the wind-down closes.
+     * Takes exclusive transient audio focus so well-behaved apps pause for the wind-down, and
+     * zeroes the media stream directly — the latter silences apps that ignore focus loss
+     * (TikTok, Instagram Reels). The saved volume is restored when the wind-down closes.
      */
     private fun muteMedia() {
         if (audioFocusRequest != null) return
@@ -1253,9 +1238,8 @@ class OverlayService : Service() {
     // --- "Stop for now" app-blocking break ---
 
     /**
-     * The "Stop for now" action: always leaves the current app for the home screen. If the
-     * user has chosen apps to block and granted usage access, it also starts a timed break
-     * that covers those apps when reopened; otherwise it just tears the overlay down.
+     * The "Stop for now" action: always leaves for the home screen. With apps chosen and usage
+     * access granted it also starts a timed break covering them; otherwise it just tears down.
      */
     private fun stopForNow() {
         val willBlock = SettingsStore.blockedApps(this).isNotEmpty() && hasUsageAccess()
@@ -1294,12 +1278,10 @@ class OverlayService : Service() {
     }
 
     /**
-     * Arms a timed app-blocking break if apps are chosen and usage access is granted, so
-     * leaving the wind-down by any means -- Stop for now, HOME, drag-to-dismiss during the lock,
-     * or just letting the lock elapse -- lands in the same covered state rather than only when
-     * "Stop for now" happens to be the one tapped. A no-op if a break is already running, so
-     * calling it again from [stopForNow] after [showBreathing] already armed one doesn't reset
-     * the countdown or re-apply the package list.
+     * Arms a timed app-blocking break when apps are chosen and usage access is granted, so every
+     * exit from the wind-down — "Stop for now", HOME, drag-to-dismiss, or letting the lock
+     * elapse — lands in the same covered state. A no-op if a break is already running, so a
+     * second call from [stopForNow] can't reset the countdown or re-apply the package list.
      */
     private fun startBreakIfConfigured() {
         if (blockUntilMillis != 0L) return
@@ -1491,9 +1473,9 @@ class OverlayService : Service() {
 
     /** Formats the remaining time as e.g. "Alarm in 25 min" / "Alarm in 2h 5m". */
     /**
-     * The remaining time as a chip-sized string ("2h", "25m", "30s") for a promoted
-     * notification's status-bar chip, which has room for very little. Reuses the same unit
-     * resources as the bubble countdown so the two never disagree.
+     * Remaining time as a chip-sized string ("2h", "25m", "30s") for the promoted notification's
+     * status-bar chip, which has room for little. Shares the bubble countdown's unit resources
+     * so the two can't disagree.
      */
     private fun compactDuration(totalSeconds: Int): String {
         val parts = CompactDuration.of(totalSeconds)
@@ -1547,11 +1529,10 @@ class OverlayService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
-            // Ask to be promoted -- pinned to the top of the shade with a status-bar chip -- only
-            // while a timer is running. That is the time-sensitive, user-initiated case promotion
-            // exists for; an idle "Pause is ready" notification is not a live update and would
-            // rightly be declined. It is a request either way: the system decides, and the compat
-            // layer makes it a no-op below Android 16.
+            // Ask for promotion — pinned to the top of the shade with a status-bar chip — only while a
+            // timer runs. That is the time-sensitive, user-initiated case it exists for; an idle "Pause
+            // is ready" would rightly be declined. A request either way: the system decides, and the
+            // compat layer no-ops below Android 16.
             .setRequestPromotedOngoing(active)
             .apply {
                 if (!active) return@apply
@@ -1631,9 +1612,8 @@ class OverlayService : Service() {
         const val ACTION_REFRESH_BUBBLE = "io.github.mzuhairkhan.pause.action.REFRESH_BUBBLE"
 
         /**
-         * Makes the live floating bubble reflect the latest saved size/offset, starting the
-         * overlay if it isn't already running so the real bubble appears at the new size — the
-         * setup screen uses this as the bubble-size preview. A running timer is left untouched.
+         * Makes the live bubble reflect the latest saved size/offset, starting the overlay if needed
+         * so the setup screen's preview shows the real thing. A running timer is left untouched.
          */
         fun refreshBubble(context: Context) {
             val intent = Intent(context, OverlayService::class.java).apply {
@@ -1678,10 +1658,9 @@ class OverlayService : Service() {
         }
 
         /**
-         * Posts the persistent "Start Pause" notification shown whenever the overlay isn't
-         * running, so the service can be launched from the shade — including after a reboot.
-         * Tapping Start launches the foreground service, whose own notification replaces this
-         * one. No-op while the overlay is running, or while notifications aren't permitted.
+         * Posts the persistent "Start Pause" notification shown whenever the overlay isn't running,
+         * so the service can be launched from the shade, including after a reboot. Tapping Start
+         * replaces it with the foreground notification. No-op while running or without permission.
          */
         @SuppressLint("MissingPermission") // guarded by canPostNotifications below
         fun showStartNotification(context: Context) {

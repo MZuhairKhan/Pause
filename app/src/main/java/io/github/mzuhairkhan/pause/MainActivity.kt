@@ -205,11 +205,9 @@ private fun SettingsScreen(
         notificationsGranted = granted
     }
 
-    // Re-read permission state every time the screen returns to the foreground. The
-    // overlay, battery, and usage permissions are granted on external Settings screens
-    // that report nothing back, so without this the rows would stay stale at "Grant"
-    // after the user comes back. ON_RESUME also fires on first display, so this supplies
-    // the initial reconciliation too (the remember initializers give the first-frame value).
+    // Re-read permission state whenever the screen returns to the foreground: overlay, battery
+    // and usage permissions are granted on external Settings screens that report nothing back,
+    // so the rows would otherwise stay stale at "Grant". ON_RESUME also covers first display.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -492,9 +490,8 @@ private fun SettingsScreen(
 }
 
 /**
- * The bubble size/alignment picker (presets + live readout + custom sliders), shared by the
- * settings screen and the setup wizard. Owns its own preset/size state and previews the change
- * on the real floating bubble when the overlay can draw.
+ * Bubble size/alignment picker (presets, live readout, custom sliders), shared by the
+ * settings screen and the setup wizard. Previews on the real bubble when it can draw.
  */
 @Composable
 private fun BubbleSizeChooser() {
@@ -564,13 +561,12 @@ private fun BubbleSizeChooser() {
 }
 
 /**
- * One wizard page: a centered title + body, then its [content].
+ * One wizard page: centered title and body, then its [content].
  *
- * The block is vertically centred rather than pinned to the top: with only a few rows of content
- * the earlier layout left roughly two thirds of the screen empty and read as unfinished.
- * `heightIn(min = viewport)` is what lets [Arrangement.Center] work inside a scrolling column —
- * short pages centre, while taller ones still grow and scroll from the top. The trailing spacer
- * seats the block slightly above true centre, which reads better than mathematical centring.
+ * Vertically centred rather than top-pinned — with few rows the old layout left two thirds
+ * of the screen empty and read as unfinished. `heightIn(min = viewport)` is what lets
+ * [Arrangement.Center] work inside a scrolling column: short pages centre, taller ones
+ * still scroll from the top. The trailing spacer seats the block just above true centre.
  */
 @Composable
 private fun WizardPage(
@@ -610,9 +606,8 @@ private fun WizardPage(
 }
 
 /**
- * First-run setup wizard: welcome -> language -> permissions -> bubble size -> done. The chosen
- * language is applied (via AppCompat per-app locales) on finish; finishing also marks onboarding
- * complete and starts the overlay if it can draw.
+ * First-run wizard: welcome -> language -> permissions -> bubble size -> done. Finishing
+ * applies the locale, marks onboarding complete and starts the overlay if it can draw.
  */
 @Composable
 private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
@@ -958,11 +953,10 @@ private fun SettingsSection(
 }
 
 /**
- * Permissions get their own section. The green "All set ✓" summary shows once the
- * required permissions are granted ([summaryGranted]); the section only auto-collapses
- * once everything including the optional usage access is granted ([collapseGranted]), so
- * the optional row stays visible. It re-expands if a permission is later revoked, and can
- * always be collapsed/expanded by hand.
+ * Permissions section. The green "All set ✓" summary appears once the required permissions
+ * are granted ([summaryGranted]); the section only auto-collapses once optional usage access
+ * is granted too ([collapseGranted]), so that row stays visible. Re-expands if one is
+ * revoked, and collapses by hand at any time.
  */
 @Composable
 private fun PermissionsSection(
@@ -1098,10 +1092,8 @@ private fun SwitchRow(
 }
 
 /**
- * The floating bubble's real dp size and edge offset for the current alignment, 1:1 with how
- * it lands on this device — size sets the glyph size, the edge gap moves it inward. The live
- * visual is the actual overlay bubble, which appears/resizes on screen as the size is changed;
- * this is just the numeric readout beneath the presets.
+ * The bubble's real dp size and edge offset for the current alignment, 1:1 with how it lands
+ * on this device. The live visual is the overlay bubble itself; this is just the readout.
  */
 @Composable
 private fun BubbleSizeReadout(sizeFraction: Float, edgeFraction: Float) {
@@ -1537,10 +1529,10 @@ private fun AppPickerDialog(
 }
 
 /**
- * App launcher icon, decoded off the main thread and kept in a bounded LRU so scrolling doesn't
- * reload it. The decode is gated by [iconLoadSemaphore] so a fast fling can't flood the IO pool,
- * and the cache is re-read for the current package each run so a recycled row never shows a stale
- * icon. A neutral tile stands in while loading or if the icon can't be resolved.
+ * App launcher icon, decoded off the main thread into a bounded LRU so scrolling doesn't
+ * reload it. [iconLoadSemaphore] stops a fast fling flooding the IO pool, and the cache is
+ * re-read per package each run so a recycled row never shows a stale icon. A neutral tile
+ * stands in while loading or when the icon can't be resolved.
  */
 // Known lint false positive when produceState's value is assigned from a withContext { } result
 // (issuetracker.google.com/265036856) — same suppression as rememberLaunchableApps.

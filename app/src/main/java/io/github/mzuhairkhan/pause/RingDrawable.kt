@@ -9,13 +9,11 @@ import android.graphics.drawable.Drawable
 import kotlin.math.min
 
 /**
- * A thin circular outline tracing the bubble's footprint, shown behind the countdown
- * number so the digits read as sitting inside the bubble rather than floating loose.
+ * A thin circular outline tracing the bubble's footprint, drawn behind the countdown so
+ * the digits read as sitting inside the bubble rather than floating loose.
  *
- * Drawn pure white to match the rest of the bubble icon set; legibility over light
- * backgrounds comes from the soft drop shadow [ShadowDrawable] paints beneath it, exactly
- * as for the stopwatch and hourglass glyphs. The stroke is a fraction of the bubble's side
- * so the ring stays equally thin at every bubble size.
+ * Pure white like the other bubble glyphs, with [ShadowDrawable] supplying legibility.
+ * The stroke is a fraction of the side, so the ring stays equally thin at every size.
  */
 class RingDrawable(ringColor: Int = 0xFFFFFFFF.toInt()) : Drawable() {
 

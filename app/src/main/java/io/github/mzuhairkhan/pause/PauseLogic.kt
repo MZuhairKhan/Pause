@@ -5,10 +5,8 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
- * Pure helpers extracted from the overlay so the fiddly bits — time formatting, the
- * hourglass fill remap, bubble placement, and settings clamping — can be unit-tested
- * without an Android runtime. No class here touches a [android.content.Context] or any
- * framework type, so the tests run on a plain JVM.
+ * Time formatting, hourglass fill remap, bubble placement and settings clamping, kept free
+ * of [android.content.Context] and every framework type so they unit-test on a plain JVM.
  */
 
 /** Formats a remaining duration as `m:ss`, or `h:mm:ss` once it reaches an hour. */
@@ -27,10 +25,9 @@ object TimeFormat {
 }
 
 /**
- * The draining-hourglass fill remap. [progress] is the fraction of time remaining
- * (1 = just started, 0 = finished). The visible fill is squeezed into
- * [[END_FILL], [START_FILL]] so the glyph never reads fully full or empty, and the
- * sand surface tracks the square root of the volume for the conical taper.
+ * Hourglass fill remap. [progress] is the fraction of time remaining, squeezed into
+ * [[END_FILL], [START_FILL]] so the glyph never reads full or empty; the surface tracks
+ * the square root of the volume for the conical taper.
  */
 object HourglassMath {
     const val START_FILL = 0.80f
@@ -45,9 +42,8 @@ object HourglassMath {
 }
 
 /**
- * Converts between the bubble's stored fractional position (0..1 of the draggable area)
- * and on-screen pixels. Storing a fraction rather than absolute pixels keeps the bubble
- * at the same relative spot across orientations.
+ * Converts the bubble's stored fractional position (0..1 of the draggable area) to screen
+ * pixels. A fraction rather than pixels keeps it at the same relative spot across rotations.
  */
 object BubblePosition {
     fun toPixels(fraction: Float, max: Int): Int =
@@ -58,9 +54,8 @@ object BubblePosition {
 }
 
 /**
- * Valid ranges for the user-tunable settings, used both to clamp values read back from
- * storage (so a corrupt or restored pref can't feed a negative/huge value into an
- * animation or alarm) and to bound the setup-screen steppers.
+ * Bounds for the user-tunable settings: clamps values read back from storage, so a corrupt
+ * pref can't feed an animation or alarm, and bounds the setup steppers.
  */
 object SettingsRanges {
     const val BREATH_MIN_SECONDS = 1
@@ -83,9 +78,8 @@ object SettingsRanges {
 }
 
 /**
- * First-run default settings, kept in the pure layer (no Android Context) so they live beside
- * the [SettingsRanges] that bound them and can be unit-tested directly. [SettingsStore] reads
- * these as its SharedPreferences fallbacks.
+ * First-run defaults, kept beside the [SettingsRanges] that bound them so both unit-test
+ * directly. [SettingsStore] reads these as its SharedPreferences fallbacks.
  */
 object SettingsDefaults {
     const val SHOW_COUNTDOWN = false
@@ -99,16 +93,15 @@ object SettingsDefaults {
 }
 
 /**
- * Bubble geometry as fractions of the screen's shorter side. [sizeFraction] is the bubble
- * window (and thus the glyph) size; [edgeFraction] is the margin between the bubble and the
- * screen edge when snapped — raising it moves the bubble inward without changing its size.
+ * Bubble geometry as fractions of the screen's shorter side. [sizeFraction] sizes window
+ * and glyph; [edgeFraction] is the snapped margin, moving it inward without resizing.
  */
 data class BubbleMetrics(val sizeFraction: Float, val edgeFraction: Float)
 
 /**
- * Per-app presets for the floating bubble, so it lines up with the chosen app's action rail.
- * Calibrated to the like/comment icons in 1080×2340 screenshots — tune via the in-app preview.
- * Preset indices: 0 = Instagram (default), 1 = TikTok, 2 = Shorts, 3 = Custom (slider values).
+ * Presets aligning the bubble with an app's action rail, calibrated to the like/comment
+ * icons in 1080x2340 screenshots. 0 = Instagram (default), 1 = TikTok, 2 = Shorts,
+ * 3 = Custom. Tune via the in-app preview.
  */
 object BubblePresets {
     const val INSTAGRAM = 0
@@ -144,14 +137,12 @@ object BubblePresets {
 
 /**
  * Buckets a remaining duration into the largest whole unit that fits, rounding *up* so a
- * countdown never claims less time than is actually left.
+ * countdown never claims less time than is left.
  *
- * Lives here, in the pure layer, because two surfaces render it and they must never disagree:
- * the bubble's countdown label and the status-bar chip on the promoted notification. They were
- * separate copies of the same arithmetic until this was extracted.
- *
- * The scale is returned rather than a formatted string so the caller picks the localized unit
- * resource; Finnish abbreviates hours as "t", not "h".
+ * Pure because two surfaces render it and must never disagree: the bubble countdown and
+ * the promoted notification's status-bar chip, once separate copies of this arithmetic.
+ * Returns the scale, not a string, so the caller picks the localized unit — Finnish
+ * abbreviates hours as "t", not "h".
  */
 object CompactDuration {
     enum class Scale { HOURS, MINUTES, SECONDS }
@@ -169,15 +160,12 @@ object CompactDuration {
 }
 
 /**
- * Decides whether an `ACTION_CLOSE_SYSTEM_DIALOGS` broadcast means the user has left to another
- * screen -- pressed HOME or opened the recent-apps switcher -- as opposed to any of the other
- * things that broadcast fires for (pulling down the notification shade, the long-press power
- * menu, the assistant), where the wind-down should stay put.
+ * Decides whether an `ACTION_CLOSE_SYSTEM_DIALOGS` broadcast means the user left for
+ * another screen (HOME, recent apps) rather than the other things it fires for — the
+ * notification shade, the power menu, the assistant — where the wind-down should stay.
  *
- * `"reason"` is the de facto extra key the platform has used for this since Android's early
- * days; it isn't a public SDK constant. A missing extra (`null`) is treated as "don't close" --
- * on the OS versions or OEM skins where it goes missing, staying up is the safer failure than
- * dismissing on every unrelated system dialog.
+ * `"reason"` is the de facto extra key for this, not a public SDK constant. A missing
+ * extra is treated as "don't close": staying up is the safer failure.
  */
 object CloseSystemDialogs {
     fun closesOverlayForReason(reason: String?): Boolean =

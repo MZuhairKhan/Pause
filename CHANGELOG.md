@@ -8,27 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **German, Spanish, Italian, Portuguese, Swedish and Turkish string files**, extracted from the
-  review documents that were sent out but never came back. These are machine-assisted first-pass
-  drafts, so they are seeds for translators to correct — not shipped translations. 101 of the 108
-  translatable entries are filled in each language; the rest had no draft to extract.
-- `androidResources.localeFilters` pins the built APK to English and Finnish. Resource resolution
-  keys off the device locale and ignores `locales_config.xml`, so this filter — not that file — is
-  what keeps the unreviewed drafts away from users. A language joins the list once it is reviewed.
-- A **Translations** section in the README saying the project translates with Weblate and which
-  languages are drafts rather than finished work. Hosted Weblate's libre plan requires the mention.
-- **`CONTRIBUTING.md`** — bug reports, translating, and what a pull request needs. GitHub surfaces
-  it in the new-issue and pull-request flows, which `ONBOARDING.md` never was; the README now points
-  here first, and at `ONBOARDING.md` only for architecture.
+- **German, Spanish, Italian, Portuguese, Swedish and Turkish string files**, extracted from review
+  documents that were sent out but never came back. Machine-assisted drafts — seeds for translators,
+  not shipped translations. 101 of 108 translatable entries per language; the rest had no draft.
+- `androidResources.localeFilters` pins the APK to English and Finnish. Resource resolution follows
+  the device locale and ignores `locales_config.xml`, so this filter is what keeps unreviewed drafts
+  from users. A language joins the list once reviewed.
+- A **Translations** section in the README, and **`CONTRIBUTING.md`** covering bug reports,
+  translating and what a pull request needs. GitHub surfaces the latter in the new-issue and
+  pull-request flows, which `ONBOARDING.md` never was.
 
 ### Changed
-- The app name and the three launcher-preset brands (Instagram, TikTok, Shorts) are marked
-  `translatable="false"`; Finnish had been repeating all six verbatim.
-- **The CHANGELOG check accepts translation-only pull requests.** Weblate opens one pull request
-  per language touching nothing but `values-<code>/strings.xml`, and every one of them would have
-  failed a check demanding a changelog entry they have no way to write. The exemption matches on
-  those paths rather than on the bot's account name, so it cannot be claimed by a pull request that
-  also changes code — and `values/strings.xml`, the English source, is deliberately excluded.
+- The app name and the launcher-preset brands (Instagram, TikTok, Shorts) are `translatable="false"`;
+  Finnish had been repeating all six verbatim.
+- **The CHANGELOG check accepts translation-only pull requests.** Weblate opens one per language
+  touching only `values-<code>/strings.xml`, none of which can write the entry the check demanded.
+  It matches on those paths, not the bot's account, so a pull request touching code still needs an
+  entry — and `values/strings.xml`, the English source, is excluded.
+- **Comments and documentation tightened.** 43 multi-line comment blocks rewritten shorter without
+  dropping the reasoning they carry, and the same pass applied to this file, the README,
+  `CONTRIBUTING.md` and `ONBOARDING.md`.
+
+### Fixed
+- `ONBOARDING.md` pointed `JAVA_HOME` at an Android Studio install with no `java.exe`, which fails
+  with a misleading "invalid directory", and still gave the version as 0.4.1 / 5 rather than
+  0.5.1 / 7. Its translation section described Weblate as a future recommendation.
 
 ## [0.5.1] — 2026-09-08
 
