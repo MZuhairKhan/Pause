@@ -14,8 +14,10 @@ Near-term goal: **ship on F-Droid**. Possibly Google Play later (optional).
 `java` is **not** on PATH; use the JDK bundled with Android Studio. All commands from the repo root:
 
 ```bash
-# Windows (PowerShell): set JAVA_HOME for the session first
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+# Windows (PowerShell): set JAVA_HOME for the session first.
+# With two Android Studio folders, the real one is whichever has jbr\bin\java.exe;
+# the other is an incomplete install and gives a misleading "invalid directory".
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio1\jbr"
 
 ./gradlew.bat testDebugUnitTest     # run JVM unit tests
 ./gradlew.bat assembleDebug         # build the installable debug APK
@@ -25,7 +27,7 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 
 - Debug APK lands at `app/build/outputs/apk/debug/app-debug.apk`.
 - To share a test build, copy it to the repo root as `Pause-<version>-debug.apk` (git-ignored).
-- Version lives in `app/build.gradle.kts` (`versionName` / `versionCode`). Currently **0.4.1 / 5**.
+- Version lives in `app/build.gradle.kts` (`versionName` / `versionCode`). Currently **0.5.1 / 7**.
   Bump `versionCode` for every build you distribute. Tag releases `vX.Y.Z`.
 
 ## Architecture (key files)
@@ -56,40 +58,31 @@ app makes no network calls and has no analytics. Data is local SharedPreferences
 
 ## Translations
 
-UI text is all in `res/values/strings.xml` (+ `<plurals>`); each language is a
-`res/values-<code>/strings.xml`. `res/xml/locales_config.xml` lists the shipped languages and powers
-the Android 13+ per-app language picker (Settings → Apps → Pause → Language).
+UI text lives in `res/values/strings.xml` (+ `<plurals>`); each language is a
+`res/values-<code>/strings.xml`. `res/xml/locales_config.xml` powers the Android 13+ per-app
+language picker (Settings → Apps → Pause → Language).
 
-Currently shipped: **English** (default) + **Finnish** (`fi`, reviewed by Joonas Nivala).
+Translation happens on **Weblate** (hosted.weblate.org, libre plan, component `App strings`).
+Translators work there and Weblate opens a pull request per language from its own fork, so it
+never holds write access; a push webhook keeps it in step with `main`.
 
-Also in the tree but **not shipped**: `de`, `es`, `it`, `pt`, `sv`, `tr`. These are the
-machine-assisted drafts from the review documents, extracted so translators have something to
-correct rather than a blank slate; no native speaker has signed any of them off. `androidResources.localeFilters` in `app/build.gradle.kts` pins the APK to `en` and `fi`, which
-is what actually keeps them out of a build — resource resolution follows the device locale and
-ignores `locales_config.xml`. To ship one: get it reviewed, add its code to `localeFilters` and
-a `<locale>` to `locales_config.xml`.
+Shipped: **English** + **Finnish** (reviewed by Joonas Nivala). In the tree but **not shipped**:
+`de`, `es`, `it`, `pt`, `sv`, `tr` — machine-assisted drafts flagged "needs rewriting" in Weblate,
+checked by no native speaker. `androidResources.localeFilters` pins the APK to `en` and `fi` and is
+what actually keeps them out: resource resolution follows the device locale and ignores
+`locales_config.xml`. To ship one, review it and add its code to **both** files.
 
-Seven entries have no draft in any of the six (the two plurals, both `stepper_*` labels and
-`picker_minutes_label` — the review documents predate them). They carry
-`tools:ignore="MissingTranslation"` in `values/strings.xml`; drop that once the languages fill
-them in.
+Five strings have no draft in any of the six — both `stepper_*` labels, `picker_minutes_label`
+and the two plurals, all of which postdate the review documents. They carry
+`tools:ignore="MissingTranslation"`; drop it once they are filled in.
 
-**Round 2 reviewed.** The 22 strings changed after Joonas's first pass (the `kelluva painike`
-→ `kupla` terminology switch, the `peiteilmoituspalvelu` → `Näytä/Piilota kupla` rewording,
-`breathing_done` → `Harjoitus ohi`, the new `unit_*` / `slider_readout` resources and the
-quote-mark change) went back to him and came back with a single correction, now applied:
-`onb_size_body` is "Sovitamme kuplan koon sovelluksen painikkeisiin." — `kuplan koon` keeps
-the sense of *size*, and `sovelluksen` is explicit where `sen` was a vague pronoun.
+**Finnish round 2.** The 22 strings changed after Joonas's first pass (`kelluva painike` → `kupla`,
+`peiteilmoituspalvelu` → `Näytä/Piilota kupla`, `breathing_done` → `Harjoitus ohi`, the new `unit_*`
+and `slider_readout` resources, the quote-mark change) came back with one correction, applied:
+`onb_size_body` is "Sovitamme kuplan koon sovelluksen painikkeisiin."
 
-Add a language by hand: copy `values/strings.xml` → `values-<code>/strings.xml`, translate the values
-(keep the `name=` keys and the `%1$s` / `%1$d` / `✓` bits intact), and add
-`<locale android:name="<code>"/>` to `locales_config.xml`. `./gradlew.bat lintDebug` flags any missing
-keys or mismatched placeholders.
-
-Community translations (recommended): host on **Weblate** (free for FOSS at hosted.weblate.org). Point
-a component at `app/src/main/res/values*/strings.xml` (Android resource format); translators contribute
-online and Weblate pushes commits/PRs per language, with per-language progress. Add each new `<locale>`
-to `locales_config.xml` when its file lands.
+By hand instead: copy `values/strings.xml` to `values-<code>/strings.xml`, keep the `name=` keys and
+the `%1$s` / `%1$d` / `✓` intact, add a `<locale>`. `lintDebug` flags missing keys and bad placeholders.
 
 ## Release checklist
 

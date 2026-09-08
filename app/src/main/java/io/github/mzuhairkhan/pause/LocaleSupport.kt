@@ -8,9 +8,8 @@ import androidx.appcompat.app.AppCompatDelegate
 /** Per-app language helpers built on AppCompat's per-app locales. */
 object LocaleSupport {
     /**
-     * Applies the chosen per-app locale to a non-activity [base] context on API < 33, where
-     * AppCompat doesn't auto-localize services. On API 33+ the OS applies the per-app locale
-     * app-wide already, so this is a no-op there.
+     * Applies the per-app locale to a non-activity [base] context on API < 33, where AppCompat
+     * doesn't localize services. A no-op on API 33+, which handles it app-wide.
      */
     fun wrap(base: Context): Context {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) return base

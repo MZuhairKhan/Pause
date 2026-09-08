@@ -11,18 +11,14 @@ import kotlin.math.min
 
 /**
  * An hourglass that drains as a timer runs down. [progress] is the fraction of time
- * *remaining* (1 = just started, 0 = finished). Driving it from the per-second ticker
- * makes the bubble cycle smoothly through every fill level without a frame for each.
+ * *remaining* (1 = just started, 0 = finished), driven by the per-second ticker.
  *
- * Two touches make it read as a real hourglass rather than a progress bar:
- *  - The visible fill is remapped to [[END_FILL], [START_FILL]] — it starts a touch
- *    below full and stops just shy of empty, so it never looks like a static glyph.
- *  - The bulbs are conical (wide at the cap, narrow at the neck), so for a steady flow
- *    the sand *surface* tracks the square root of the remaining volume: it falls slowly
- *    while the wide part drains, then rushes as it nears the neck.
+ * Two touches make it read as an hourglass rather than a progress bar: the fill is
+ * remapped to [[END_FILL], [START_FILL]] so it never looks like a static glyph, and the
+ * conical bulbs mean the sand surface tracks the square root of the remaining volume —
+ * slow while the wide part drains, rushing near the neck.
  *
- * Drawn pure white to match the rest of the bubble icon set; legibility over light
- * backgrounds comes from the soft drop shadow [ShadowDrawable] paints beneath it.
+ * Pure white like the rest of the bubble icons; [ShadowDrawable] supplies legibility.
  */
 class HourglassDrawable(glyphColor: Int = 0xFFFFFFFF.toInt()) : Drawable() {
 

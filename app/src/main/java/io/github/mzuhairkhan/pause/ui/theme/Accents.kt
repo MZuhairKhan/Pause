@@ -1,9 +1,8 @@
 package io.github.mzuhairkhan.pause.ui.theme
 
 /**
- * Accent color choices, shared by the Compose theme (setup screen) and the overlay
- * picker tint. Stored as ARGB ints so they work both as Android color ints and, via
- * Color(int), as Compose colors. The bubble icons deliberately ignore the accent.
+ * Accent colors for the Compose theme and overlay picker tint. ARGB ints so they serve as
+ * both Android color ints and, via Color(int), Compose colors. Bubble icons ignore them.
  */
 object Accents {
     val colors = intArrayOf(

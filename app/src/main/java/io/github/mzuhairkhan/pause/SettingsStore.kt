@@ -12,11 +12,9 @@ object SettingsStore {
     private const val KEY_POS_Y = "bubble_pos_y"
     private const val DEFAULT_POS_X = 1f
     // First-run vertical spot, as a window-TOP fraction of the draggable area. Tuned so the
-    // bubble's center lands exactly one rail-slot above Instagram's heart, so the gap above the
-    // heart matches the gaps between the native icons. Measured from a 1080×2340 Reels screenshot:
-    // heart center ~0.335 of height, rail spacing ~0.086 → target center ~0.249; with the
-    // Instagram-preset bubble (~132px) that is a top fraction of ~0.234. Only affects fresh
-    // installs (a saved position wins).
+    // bubble's center sits one rail-slot above Instagram's heart, matching the gaps between
+    // the native icons. From a 1080x2340 Reels screenshot: heart center ~0.335 of height,
+    // rail spacing ~0.086, so center ~0.249 and top ~0.234. Fresh installs only.
     private const val DEFAULT_POS_Y = 0.234f
     private const val KEY_BUBBLE_PRESET = "bubble_preset"
     private const val KEY_BUBBLE_CUSTOM_SIZE = "bubble_custom_size"
@@ -168,9 +166,8 @@ object SettingsStore {
     }
 
     /**
-     * The media-stream volume saved when a pause muted it, or -1 when nothing is muted.
-     * Persisted so that if the process is killed mid-pause (force-stop, low memory) the
-     * next launch can restore the volume instead of leaving the user stranded at zero.
+     * Media volume saved when a pause muted it, or -1 when nothing is muted. Persisted so a
+     * process killed mid-pause restores it instead of stranding the user at zero.
      */
     fun mutedVolume(context: Context): Int = context.prefs().getInt(KEY_MUTED_VOLUME, -1)
 
