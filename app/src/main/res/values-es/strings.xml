@@ -14,12 +14,10 @@
     <string name="overlay_notification_active_hm">Alarma en %1$d h %2$d min</string>
     <string name="overlay_bubble_description">Burbuja de Pause</string>
     <string name="dismiss_description">Arrastra aquí para ocultar la burbuja</string>
-
     <!-- Compact unit suffixes shown beside a number (bubble countdown, setup steppers). -->
     <string name="unit_hours_short">%1$d h</string>
     <string name="unit_minutes_short">%1$d min</string>
     <string name="unit_seconds_short">%1$d s</string>
-
     <!-- Timer picker (Phase 3) -->
     <string name="picker_title">Pon un temporizador de pausa</string>
     <string name="picker_subtitle">Cuenta atrás una duración o pon una alarma</string>
@@ -31,7 +29,6 @@
     <string name="picker_active_title">Temporizador de pausa</string>
     <string name="picker_remaining_label">Tiempo restante</string>
     <string name="picker_show_countdown">Mostrar cuenta atrás</string>
-
     <!-- 4-7-8 breathing wind-down (default stop mode) -->
     <string name="breathing_in">Inhala</string>
     <string name="breathing_hold">Aguanta</string>
@@ -40,7 +37,6 @@
     <string name="breathing_stop">Parar por ahora</string>
     <string name="breathing_snooze">Posponer %1$d min</string>
     <string name="breathing_done">Se acabó el tiempo</string>
-
     <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
     <string name="block_title">Tomando un descanso</string>
     <string name="block_subtitle">%1$s está en pausa</string>
@@ -49,7 +45,6 @@
     <string name="block_end_early">Terminar el descanso antes</string>
     <string name="block_confirm_title">¿Terminar el descanso antes?</string>
     <string name="block_confirm_end">Terminar descanso</string>
-
     <!-- Setup screen (Compose) -->
     <string name="start_overlay">Mostrar la burbuja</string>
     <string name="stop_overlay">Ocultar la burbuja</string>
@@ -62,7 +57,6 @@
     <string name="perm_grant">Conceder</string>
     <string name="perm_granted">Concedido</string>
     <string name="hero_tagline">Una burbuja que tocas para poner un temporizador de «deja de usar esta app».</string>
-
     <string name="section_bubble">Burbuja</string>
     <string name="show_countdown_title">Mostrar cuenta atrás en la burbuja</string>
     <string name="show_countdown_subtitle">Si está desactivado, muestra un reloj de arena que se vacía.</string>
@@ -72,7 +66,6 @@
     <string name="bubble_edge_gap">Distancia al borde</string>
     <string name="bubble_size_readout">Tamaño real ≈ %1$ddp · %2$ddp desde el borde</string>
     <string name="slider_readout">%1$s · %2$s %%</string>
-
     <string name="section_appearance">Apariencia</string>
     <string name="theme_system">Sistema</string>
     <string name="theme_light">Claro</string>
@@ -81,21 +74,18 @@
     <string name="custom_color_pick">Elegir…</string>
     <string name="custom_color_preview">Vista previa</string>
     <string name="done">Hecho</string>
-
     <string name="section_breathing">Respiración relajante</string>
     <string name="breathing_toggle">Ejercicio de respiración</string>
     <string name="breathing_toggle_subtitle">Si está desactivado, omite el ejercicio: el temporizador termina solo con las opciones para cerrar.</string>
     <string name="no_skip_lock">Duración mínima del ejercicio</string>
     <!-- Screen-reader labels for the stepper buttons; %1$s is the setting being changed. -->
     <string name="snooze_length">Duración del aplazamiento</string>
-
     <string name="section_app_blocking">Bloqueo de apps</string>
     <string name="app_blocking_desc">\"Parar por ahora\" cubre estas apps si las abres durante el descanso.</string>
     <string name="usage_needed">Necesita el permiso de acceso de uso de arriba para detectar cuándo abres una app bloqueada.</string>
     <string name="break_length">Duración del descanso</string>
     <string name="apps_chosen_none">Ninguna app elegida</string>
     <string name="choose">Elegir…</string>
-
     <string name="apps_to_block">Apps para bloquear</string>
     <string name="apps_to_block_subtitle">Si abres estas durante un descanso, aparece un recordatorio a pantalla completa.</string>
     <string name="search_apps">Buscar apps</string>
@@ -103,7 +93,6 @@
     <string name="no_apps_found">No se encontraron apps</string>
     <string name="no_apps_match">Ninguna app coincide con “%1$s”</string>
     <string name="clear_all">Borrar todo</string>
-
     <!-- First-run setup wizard -->
     <string name="onb_welcome_title">Te damos la bienvenida a Pause</string>
     <string name="onb_welcome_body">Una burbuja para poner un temporizador de «deja de usar esta app». Vamos a configurarla.</string>
