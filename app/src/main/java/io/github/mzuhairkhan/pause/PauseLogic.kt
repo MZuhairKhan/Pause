@@ -171,3 +171,41 @@ object CloseSystemDialogs {
     fun closesOverlayForReason(reason: String?): Boolean =
         reason == "homekey" || reason == "recentapps"
 }
+
+/** A persisted read of [PauseState] at one instant — the timer and break deadlines on disk. */
+data class PauseSnapshot(
+    val timerStartMillis: Long,
+    val timerEndMillis: Long,
+    val breakUntilMillis: Long
+)
+
+/**
+ * Decides what a just-(re)started [OverlayService] should do with whatever [PauseState] has on
+ * disk. Exists because a null `Intent` in `onStartCommand` is ambiguous on its own -- it means
+ * "Android restarted us after a kill", and the three outcomes below are the only sane responses:
+ * resume a timer that's still ahead of it, catch one up if its deadline passed while the process
+ * was dead, or do nothing if there wasn't one. Kept pure so the decision is unit-tested without
+ * a Service.
+ */
+object SessionRestore {
+    sealed interface Decision {
+        /** No timer was persisted, or it was already cleared. */
+        data object Idle : Decision
+
+        /** The persisted deadline is still ahead; resume ticking toward it. */
+        data class ResumeTimer(val startMillis: Long, val endMillis: Long) : Decision
+
+        /** The persisted deadline already passed while the process was dead; catch up now. */
+        data object TimerExpiredWhileDead : Decision
+    }
+
+    fun decide(persistedStart: Long, persistedEnd: Long, now: Long): Decision = when {
+        persistedEnd <= 0L -> Decision.Idle
+        persistedEnd > now -> Decision.ResumeTimer(persistedStart, persistedEnd)
+        else -> Decision.TimerExpiredWhileDead
+    }
+
+    /** Whether a persisted break deadline is still ahead, so its cover should resume. */
+    fun breakStillActive(persistedBreakUntil: Long, now: Long): Boolean =
+        persistedBreakUntil > now
+}

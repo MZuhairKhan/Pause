@@ -30,6 +30,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CONTRIBUTING.md` and `ONBOARDING.md`.
 
 ### Fixed
+- **A timer or "Stop for now" break killed by the OS no longer loses its deadline.** Android
+  restarts the overlay service with a null `Intent` after reclaiming its process, and that restart
+  was treated the same as a fresh session — cancelling whatever alarm was still armed. The alarm
+  survives a kill on its own; only the restart's reset was destroying it. Timer and break state
+  now persist to disk and are restored on that specific restart, not on an explicit start. Covered
+  by a Robolectric test that reproduces the original failure before the fix.
 - `ONBOARDING.md` pointed `JAVA_HOME` at an Android Studio install with no `java.exe`, which fails
   with a misleading "invalid directory", and still gave the version as 0.4.1 / 5 rather than
   0.5.1 / 7. Its translation section described Weblate as a future recommendation.
