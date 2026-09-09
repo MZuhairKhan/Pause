@@ -43,6 +43,47 @@ object HourglassMath {
 }
 
 /**
+ * One frame of the breathing circle: grow through the inhale, hold at full size, shrink back
+ * through the exhale. Two surfaces animate this -- the wind-down overlay's `ValueAnimator` and
+ * the setup wizard's Compose preview -- and the preview would be a lie if the two drifted, so
+ * the arithmetic lives here rather than in either of them.
+ */
+object BreathingCycle {
+    /** Resting size, as a fraction of full. Never 0: the circle shrinks, it doesn't vanish. */
+    const val MIN_SCALE = 0.35f
+
+    enum class Phase { INHALE, HOLD, EXHALE }
+
+    data class Frame(val phase: Phase, val scale: Float)
+
+    fun cycleMillis(inhaleMillis: Float, holdMillis: Float, exhaleMillis: Float): Float =
+        inhaleMillis + holdMillis + exhaleMillis
+
+    /**
+     * The frame at [elapsedMillis] into the cycle. A zero-length phase is skipped rather than
+     * dividing by zero -- `SettingsRanges` keeps these at a second or more, but a NaN scale
+     * blanks the view silently instead of failing, which is the worst way to find out.
+     */
+    fun frameAt(
+        elapsedMillis: Float,
+        inhaleMillis: Float,
+        holdMillis: Float,
+        exhaleMillis: Float
+    ): Frame {
+        val span = 1f - MIN_SCALE
+        return when {
+            elapsedMillis < inhaleMillis ->
+                Frame(Phase.INHALE, MIN_SCALE + span * (elapsedMillis / inhaleMillis))
+            elapsedMillis < inhaleMillis + holdMillis ->
+                Frame(Phase.HOLD, 1f)
+            exhaleMillis > 0f ->
+                Frame(Phase.EXHALE, 1f - span * ((elapsedMillis - inhaleMillis - holdMillis) / exhaleMillis))
+            else -> Frame(Phase.EXHALE, MIN_SCALE)
+        }.let { it.copy(scale = it.scale.coerceIn(MIN_SCALE, 1f)) }
+    }
+}
+
+/**
  * Converts the bubble's stored fractional position (0..1 of the draggable area) to screen
  * pixels. A fraction rather than pixels keeps it at the same relative spot across rotations.
  */

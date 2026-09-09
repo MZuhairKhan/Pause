@@ -51,6 +51,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.TimePicker
 import android.Manifest
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -1546,27 +1547,34 @@ class OverlayService : Service() {
         val inhaleMs = SettingsStore.inhaleSeconds(this) * 1000f
         val holdMs = SettingsStore.holdSeconds(this) * 1000f
         val exhaleMs = SettingsStore.exhaleSeconds(this) * 1000f
-        val cycle = inhaleMs + holdMs + exhaleMs
+        val cycle = BreathingCycle.cycleMillis(inhaleMs, holdMs, exhaleMs)
         breathingAnimator = ValueAnimator.ofFloat(0f, cycle).apply {
             duration = cycle.toLong()
             interpolator = LinearInterpolator()
             repeatCount = ValueAnimator.INFINITE
             addUpdateListener { animation ->
-                val t = animation.animatedValue as Float
-                val (scale, label) = when {
-                    t < inhaleMs ->
-                        (BREATH_MIN + (1f - BREATH_MIN) * (t / inhaleMs)) to getString(R.string.breathing_in)
-                    t < inhaleMs + holdMs ->
-                        1f to getString(R.string.breathing_hold)
-                    else ->
-                        (1f - (1f - BREATH_MIN) * ((t - inhaleMs - holdMs) / exhaleMs)) to getString(R.string.breathing_out)
-                }
-                circle.scaleX = scale
-                circle.scaleY = scale
+                val frame = BreathingCycle.frameAt(
+                    animation.animatedValue as Float, inhaleMs, holdMs, exhaleMs
+                )
+                val label = getString(breathingPhaseLabel(frame.phase))
+                circle.scaleX = frame.scale
+                circle.scaleY = frame.scale
                 if (phase.text != label) phase.text = label
             }
             start()
         }
+    }
+
+    /**
+     * Phase to instruction. Deliberately not in [BreathingCycle]: that stays free of resources
+     * so it unit-tests on a plain JVM, and picking wording is the UI's job. The wizard's preview
+     * maps the same enum to the same three strings.
+     */
+    @StringRes
+    private fun breathingPhaseLabel(phase: BreathingCycle.Phase): Int = when (phase) {
+        BreathingCycle.Phase.INHALE -> R.string.breathing_in
+        BreathingCycle.Phase.HOLD -> R.string.breathing_hold
+        BreathingCycle.Phase.EXHALE -> R.string.breathing_out
     }
 
     // --- Notification / foreground service ---
@@ -1719,7 +1727,6 @@ class OverlayService : Service() {
         private const val REQ_START = 102
         private const val REQ_OPEN = 103
         private const val REQ_CANCEL = 104
-        private const val BREATH_MIN = 0.35f
 
         /** How often the active break checks the foreground app. */
         private const val BLOCK_POLL_MS = 1000L

@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   activity, so the foreground-service start it triggers is never one Android's background-start
   restrictions could refuse — the same mechanism the upcoming home-screen widget will reuse for
   its own tap. Never toggles anything on its own; the picker is always the next step.
+- **Setup now shows what happens when a timer ends.** The wind-down is on by default and its
+  dismiss options stay locked for the first 30 seconds, and nothing in setup said so — an F-Droid
+  reviewer testing 0.5.0 could find no way out of it at all. A new step previews the breathing
+  circle at its real pace, names the lock, and lets you shorten it or turn the exercise off before
+  ever meeting it. The circle's arithmetic is now shared with the wind-down itself, so the preview
+  can't drift from what it previews.
 - **German, Spanish, Italian, Portuguese, Swedish and Turkish string files**, extracted from review
   documents that were sent out but never came back. Machine-assisted drafts — seeds for translators,
   not shipped translations. 101 of 108 translatable entries per language; the rest had no draft.

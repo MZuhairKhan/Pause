@@ -126,6 +126,8 @@
     <string name="onb_size_body">Sovitamme kuplan koon sovelluksen painikkeisiin.</string>
     <string name="onb_apps_title">Estä häiritsevät sovellukset</string>
     <string name="onb_apps_body">Valinnainen — myönnä käyttötietojen käyttöoikeus ja valitse, mitä sovelluksia tauko peittää.</string>
+    <string name="onb_breathing_title">Kun ajastin päättyy</string>
+    <string name="onb_breathing_body">Ensin tulee lyhyt hengitysharjoitus. Voit poistaa sen käytöstä.</string>
     <string name="onb_done_title">Kaikki valmista</string>
     <string name="onb_done_body">Näytä kupla napauttamalla Aloita.</string>
     <string name="onb_back">Takaisin</string>

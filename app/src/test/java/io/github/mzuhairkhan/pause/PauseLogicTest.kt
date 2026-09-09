@@ -68,6 +68,60 @@ class HourglassMathTest {
     }
 }
 
+class BreathingCycleTest {
+    // The shipped 4-7-8, in milliseconds.
+    private val inhale = 4000f
+    private val hold = 7000f
+    private val exhale = 8000f
+
+    private fun frameAt(t: Float) = BreathingCycle.frameAt(t, inhale, hold, exhale)
+
+    @Test fun theCycleIsTheThreePhasesEndToEnd() {
+        assertEquals(19_000f, BreathingCycle.cycleMillis(inhale, hold, exhale), 1e-3f)
+    }
+
+    @Test fun inhaleGrowsFromTheRestingSizeToFull() {
+        assertEquals(BreathingCycle.MIN_SCALE, frameAt(0f).scale, 1e-6f)
+        assertEquals(BreathingCycle.Phase.INHALE, frameAt(0f).phase)
+        // Just before the hold begins it has essentially arrived at full size.
+        assertEquals(1f, frameAt(3999f).scale, 1e-3f)
+    }
+
+    @Test fun holdStaysAtFullSize() {
+        assertEquals(BreathingCycle.Phase.HOLD, frameAt(4000f).phase)
+        assertEquals(1f, frameAt(4000f).scale, 1e-6f)
+        assertEquals(1f, frameAt(10_000f).scale, 1e-6f)
+    }
+
+    @Test fun exhaleShrinksBackToTheRestingSize() {
+        assertEquals(BreathingCycle.Phase.EXHALE, frameAt(11_000f).phase)
+        assertEquals(1f, frameAt(11_000f).scale, 1e-6f)
+        assertEquals(BreathingCycle.MIN_SCALE, frameAt(19_000f).scale, 1e-3f)
+    }
+
+    @Test fun theCircleNeverInvertsOrOvershoots() {
+        // A scale outside this range would flip or clip the circle rather than breathe it.
+        for (ms in 0..19_000 step 50) {
+            val scale = frameAt(ms.toFloat()).scale
+            assertTrue("scale $scale out of range at ${ms}ms", scale in BreathingCycle.MIN_SCALE..1f)
+        }
+    }
+
+    @Test fun scaleIsContinuousAcrossPhaseBoundaries() {
+        // A jump at a boundary reads as a stutter, which is the opposite of calming.
+        assertEquals(frameAt(3999f).scale, frameAt(4001f).scale, 0.01f)
+        assertEquals(frameAt(10_999f).scale, frameAt(11_001f).scale, 0.01f)
+    }
+
+    @Test fun aDegenerateZeroPhaseNeverDividesByZero() {
+        // SettingsRanges keeps these at 1s or more, but the animator must not produce NaN if a
+        // corrupt pref ever slipped through -- NaN scale silently blanks the view.
+        val frame = BreathingCycle.frameAt(0f, 0f, 0f, 0f)
+        assertTrue("scale was ${frame.scale}", !frame.scale.isNaN())
+        assertTrue(frame.scale in BreathingCycle.MIN_SCALE..1f)
+    }
+}
+
 class BubblePositionTest {
     @Test fun roundTripPreservesFractionWithinTolerance() {
         val max = 1080

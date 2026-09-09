@@ -21,7 +21,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -34,8 +40,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -624,7 +634,7 @@ private fun WizardPage(
 private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val pageCount = 6
+    val pageCount = 7
     val pager = rememberPagerState(pageCount = { pageCount })
 
     var overlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
@@ -656,6 +666,11 @@ private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
 
     // null = system default; otherwise "en"/"fi". rememberSaveable so a mid-wizard config change
     // keeps the pick; normalised to the offered options (strip any region, fall back to system).
+    // Written straight through on change, like the bubble-size page: the settings screen is the
+    // same control, so deferring these would be the odd one out.
+    var wizardBreathingOn by rememberSaveable { mutableStateOf(SettingsStore.breathingEnabled(context)) }
+    var wizardLockSec by rememberSaveable { mutableStateOf(SettingsStore.lockSeconds(context)) }
+
     var selectedLang by rememberSaveable {
         val primary = AppCompatDelegate.getApplicationLocales().toLanguageTags()
             .substringBefore(',').substringBefore('-')
@@ -785,6 +800,43 @@ private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
                     }
                 }
 
+                5 -> WizardPage(
+                    stringResource(R.string.onb_breathing_title),
+                    stringResource(R.string.onb_breathing_body)
+                ) {
+                    BreathingPreview(
+                        enabled = wizardBreathingOn,
+                        accentColor = SettingsStore.accentColor(context)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    SwitchRow(
+                        stringResource(R.string.breathing_toggle),
+                        wizardBreathingOn,
+                        subtitle = stringResource(R.string.breathing_toggle_subtitle)
+                    ) {
+                        wizardBreathingOn = it
+                        SettingsStore.setBreathingEnabled(context, it)
+                    }
+                    // The lock is the part nobody expects -- 30 seconds of dead buttons. Shown
+                    // here so the first encounter is something they agreed to, and so anyone the
+                    // idea bothers can zero it now instead of uninstalling. Hidden when the
+                    // exercise is off, exactly as the settings screen hides it.
+                    if (wizardBreathingOn) {
+                        // WizardPage doesn't space its children; without this the stepper's
+                        // label collides with the switch subtitle's second line in Finnish.
+                        Spacer(Modifier.height(12.dp))
+                        StepperRow(
+                            stringResource(R.string.no_skip_lock),
+                            wizardLockSec,
+                            min = SettingsRanges.LOCK_MIN_SECONDS,
+                            max = SettingsRanges.LOCK_MAX_SECONDS
+                        ) {
+                            wizardLockSec = it
+                            SettingsStore.setLockSeconds(context, it)
+                        }
+                    }
+                }
+
                 else -> WizardPage(
                     stringResource(R.string.onb_done_title),
                     stringResource(R.string.onb_done_body)
@@ -886,6 +938,82 @@ private fun Hero(accentColor: Int) {
 }
 
 /** A static hourglass logo (mostly-full, not animated) on a soft accent glow. */
+/**
+ * The wind-down, in miniature: the same accent circle scaling on the same cycle, with the same
+ * phase wording above it. Runs at **real speed** off the user's stored durations -- a sped-up
+ * demo would misrepresent how long 4-7-8 actually takes, which is precisely the expectation
+ * this page exists to set. Nobody will sit through all 19 seconds, and that is fine; it starts
+ * on the inhale so the recognisable part comes first.
+ *
+ * [BreathingCycle] does the arithmetic, shared with the overlay's own animator so the preview
+ * cannot drift from the thing it is previewing.
+ */
+@Composable
+private fun BreathingPreview(enabled: Boolean, accentColor: Int) {
+    val context = LocalContext.current
+    val height = 168.dp
+    if (!enabled) {
+        // What the wind-down actually shows with the exercise off: no circle, just the headline
+        // over the dismiss options.
+        Box(modifier = Modifier.fillMaxWidth().height(height), contentAlignment = Alignment.Center) {
+            Text(
+                stringResource(R.string.breathing_done),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        return
+    }
+
+    val inhaleMs = SettingsStore.inhaleSeconds(context) * 1000f
+    val holdMs = SettingsStore.holdSeconds(context) * 1000f
+    val exhaleMs = SettingsStore.exhaleSeconds(context) * 1000f
+    val cycleMs = BreathingCycle.cycleMillis(inhaleMs, holdMs, exhaleMs)
+
+    val transition = rememberInfiniteTransition(label = "breathing")
+    val elapsed by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = cycleMs,
+        animationSpec = infiniteRepeatable(
+            animation = tween(cycleMs.toInt(), easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "cycle"
+    )
+    val frame = BreathingCycle.frameAt(elapsed, inhaleMs, holdMs, exhaleMs)
+    val phase = stringResource(
+        when (frame.phase) {
+            BreathingCycle.Phase.INHALE -> R.string.breathing_in
+            BreathingCycle.Phase.HOLD -> R.string.breathing_hold
+            BreathingCycle.Phase.EXHALE -> R.string.breathing_out
+        }
+    )
+
+    Column(
+        modifier = Modifier.fillMaxWidth().height(height),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            phase,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            // The circle is decorative; this line carries the instruction, and announcing each
+            // phase is what the wind-down itself does.
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }
+        )
+        Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .size(112.dp)
+                .scale(frame.scale)
+                .clip(CircleShape)
+                .background(Color(accentColor).copy(alpha = 0.85f))
+                .clearAndSetSemantics { }
+        )
+    }
+}
+
 @Composable
 private fun BubblePreview(accentColor: Int) {
     val accent = Color(accentColor)

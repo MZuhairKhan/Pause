@@ -116,6 +116,26 @@ class FinnishScreenshotTest {
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/wizard_5_size_fi.png")
     }
 
+    /**
+     * Wizard page 6 (the wind-down) in Finnish: its body runs to two lines in English and the
+     * Finnish is longer still, above a switch whose own subtitle already wraps.
+     *
+     * The breathing circle animates, so the captured scale depends on when the frame is taken.
+     * That is fine for a fit check and is why this is not compared against a golden.
+     */
+    @Test
+    fun breathingStepFinnish() {
+        RuntimeEnvironment.setQualifiers("+fi")
+        SettingsStore.setOnboardingComplete(app, false)
+        ActivityScenario.launch(MainActivity::class.java)
+        val next = app.getString(R.string.onb_next)
+        repeat(5) {
+            compose.onNodeWithText(next).performClick()
+            compose.waitForIdle()
+        }
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/wizard_6_breathing_fi.png")
+    }
+
     @Test
     fun wizardWelcomeFinnish() {
         RuntimeEnvironment.setQualifiers("+fi")
