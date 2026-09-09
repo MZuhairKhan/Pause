@@ -40,6 +40,18 @@ object HourglassMath {
     }
 
     fun surface(progress: Float): Float = sqrt(fill(progress))
+
+    /** Steps in the widget's hourglass redraw cadence -- see [bucket]. */
+    const val WIDGET_BUCKETS = 24
+
+    /**
+     * Which of [buckets] drain steps [progress] falls in. The widget redraws only when this
+     * changes, rather than on a fixed per-minute schedule: [surface] moves the same visible
+     * distance regardless of a timer's length, so a fixed bucket count self-adapts -- frequent
+     * redraws for a short timer, sparse ones for a long one, both scaled to what's visible.
+     */
+    fun bucket(progress: Float, buckets: Int = WIDGET_BUCKETS): Int =
+        (surface(progress) * buckets).toInt().coerceIn(0, buckets - 1)
 }
 
 /**
@@ -220,4 +232,49 @@ object SessionRestore {
 object TileLaunch {
     @ChecksSdkIntAtLeast(api = 34, parameter = 0)
     fun usePendingIntentOverload(sdkInt: Int): Boolean = sdkInt >= 34
+}
+
+/** Which layout the home-screen widget renders, chosen from its current placed size. */
+enum class WidgetSize { SMALL, MEDIUM, LARGE }
+
+/**
+ * Picks [WidgetSize] from the widget's placed size in dp, reported by
+ * `AppWidgetManager`'s `OPTION_APPWIDGET_MIN_WIDTH`/`MIN_HEIGHT`. Thresholds follow Android's
+ * cell-size formula (`minWidth = 70n - 30dp`): 240dp is 4 cells, 100dp is 2.
+ */
+object WidgetBreakpoints {
+    private const val LARGE_MIN_WIDTH_DP = 240
+    private const val LARGE_MIN_HEIGHT_DP = 100
+    private const val MEDIUM_MIN_WIDTH_DP = 100
+
+    fun forDp(widthDp: Int, heightDp: Int): WidgetSize = when {
+        widthDp >= LARGE_MIN_WIDTH_DP && heightDp >= LARGE_MIN_HEIGHT_DP -> WidgetSize.LARGE
+        widthDp >= MEDIUM_MIN_WIDTH_DP -> WidgetSize.MEDIUM
+        else -> WidgetSize.SMALL
+    }
+}
+
+/**
+ * Converts a wall-clock deadline into the base `Chronometer` needs. `Chronometer` counts
+ * against `SystemClock.elapsedRealtime()`, not wall clock, so arming it with a raw wall-clock
+ * deadline would make the countdown drift by however long the device has been display-off
+ * asleep. Both "now" reads must come from the same instant at the call site.
+ */
+object ChronometerBase {
+    fun forDeadline(endWallMillis: Long, nowWallMillis: Long, nowElapsedMillis: Long): Long =
+        nowElapsedMillis + (endWallMillis - nowWallMillis)
+}
+
+/** What the widget (and, in future, other summary surfaces) should currently show. */
+enum class PauseUiState { IDLE, RUNNING, BREAK }
+
+/** Derives [PauseUiState] and remaining time from a [PauseSnapshot], reused by the widget. */
+object WidgetModel {
+    fun state(now: Long, timerEnd: Long, breakUntil: Long): PauseUiState = when {
+        timerEnd > now -> PauseUiState.RUNNING
+        breakUntil > now -> PauseUiState.BREAK
+        else -> PauseUiState.IDLE
+    }
+
+    fun remaining(now: Long, end: Long): Long = (end - now).coerceAtLeast(0L)
 }

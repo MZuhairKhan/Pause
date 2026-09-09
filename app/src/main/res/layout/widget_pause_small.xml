@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 1x1: card + glyph only. Always the draining-hourglass glyph, never the countdown digits:
+     "1:24:59" at 12sp in a 40dp cell isn't legible, so showCountdown is deliberately ignored
+     at this breakpoint (see PauseWidgetRenderer). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_card_bg"
+    android:padding="6dp">
+
+    <ImageView
+        android:id="@+id/widget_glyph"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="center"
+        android:contentDescription="@string/widget_glyph_description" />
+
+</FrameLayout>

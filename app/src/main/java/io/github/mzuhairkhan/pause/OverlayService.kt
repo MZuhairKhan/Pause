@@ -172,6 +172,9 @@ class OverlayService : Service() {
     /** Last minutes-remaining value pushed to the notification, to avoid per-second reposts. */
     private var lastNotifiedMinute = -1
 
+    /** Last [HourglassMath.bucket] pushed to the widget, to avoid redundant redraws. */
+    private var lastWidgetBucket = -1
+
     /** Last duration chosen on the custom scroll wheel. */
     private var customMinutes = 20
 
@@ -193,6 +196,17 @@ class OverlayService : Service() {
             if (minutesLeft != lastNotifiedMinute) {
                 lastNotifiedMinute = minutesLeft
                 updateNotification()
+            }
+            // The widget's hourglass glyph only needs a push when it's actually drawing the
+            // draining animation (countdown off); with it on, the widget's own Chronometer
+            // self-ticks with zero IPC from us. bucket() caps this at 24 pushes regardless of
+            // the timer's length -- see HourglassMath's KDoc.
+            if (!SettingsStore.showCountdown(this@OverlayService)) {
+                val bucket = HourglassMath.bucket(progressRemaining())
+                if (bucket != lastWidgetBucket) {
+                    lastWidgetBucket = bucket
+                    PauseWidgetProvider.refresh(this@OverlayService)
+                }
             }
             when {
                 rawRemaining > 0 -> tickHandler.postDelayed(this, 1000L)
@@ -1031,6 +1045,7 @@ class OverlayService : Service() {
 
         setBubbleActive()
         updateNotification()
+        PauseWidgetProvider.refresh(this)
     }
 
     /** Cancels any active timer and returns the bubble to its idle glyph. */
@@ -1040,8 +1055,10 @@ class OverlayService : Service() {
         startTimeMillis = 0L
         PauseState.clearTimer(this)
         lastNotifiedMinute = -1
+        lastWidgetBucket = -1
         setBubbleIdle()
         updateNotification()
+        PauseWidgetProvider.refresh(this)
     }
 
     /**
@@ -1081,6 +1098,7 @@ class OverlayService : Service() {
             blockHandler.post(blockRunnable)
         }
         updateNotification()
+        PauseWidgetProvider.refresh(this)
     }
 
     private fun cancelPendingAlarm() {
@@ -1320,6 +1338,7 @@ class OverlayService : Service() {
         ensurePollThread()
         blockHandler.removeCallbacks(blockRunnable)
         blockHandler.post(blockRunnable)
+        PauseWidgetProvider.refresh(this)
     }
 
     private fun stopBreak() {
@@ -1328,6 +1347,7 @@ class OverlayService : Service() {
         blockedPackages = emptySet()
         PauseState.clearBreak(this)
         hideBlockOverlay()
+        PauseWidgetProvider.refresh(this)
     }
 
     /** The package of the app currently in the foreground, via usage events (null if unknown). */

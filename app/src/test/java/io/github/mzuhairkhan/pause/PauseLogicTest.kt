@@ -299,3 +299,109 @@ class TileLaunchTest {
         assertTrue(TileLaunch.usePendingIntentOverload(sdkInt = 36))
     }
 }
+
+class WidgetBreakpointsTest {
+    @Test
+    fun `below 100dp wide is small`() {
+        assertEquals(WidgetSize.SMALL, WidgetBreakpoints.forDp(40, 40))
+        assertEquals(WidgetSize.SMALL, WidgetBreakpoints.forDp(99, 200))
+    }
+
+    @Test
+    fun `100dp up to the large threshold is medium`() {
+        assertEquals(WidgetSize.MEDIUM, WidgetBreakpoints.forDp(100, 40))
+        assertEquals(WidgetSize.MEDIUM, WidgetBreakpoints.forDp(239, 40))
+        // Wide enough but not tall enough still reads as medium, not large.
+        assertEquals(WidgetSize.MEDIUM, WidgetBreakpoints.forDp(300, 99))
+    }
+
+    @Test
+    fun `at or above the large threshold in both dimensions is large`() {
+        assertEquals(WidgetSize.LARGE, WidgetBreakpoints.forDp(240, 100))
+        assertEquals(WidgetSize.LARGE, WidgetBreakpoints.forDp(400, 180))
+    }
+
+    @Test
+    fun `a degenerate zero size does not crash and reads as small`() {
+        assertEquals(WidgetSize.SMALL, WidgetBreakpoints.forDp(0, 0))
+    }
+}
+
+class ChronometerBaseTest {
+    @Test
+    fun `the base tracks the deadline through the elapsed-realtime offset`() {
+        // Chronometer counts against SystemClock.elapsedRealtime(), not wall clock; base minus
+        // "now" in elapsed time must equal the deadline minus "now" in wall-clock time, or the
+        // countdown drifts from the actual deadline the moment it's armed.
+        val nowWall = 1_700_000_000_000L
+        val nowElapsed = 5_000_000L
+        val endWall = nowWall + 90_000L
+        val base = ChronometerBase.forDeadline(endWall, nowWall, nowElapsed)
+        assertEquals(endWall - nowWall, base - nowElapsed)
+    }
+
+    @Test
+    fun `a deadline already in the past yields a base before now`() {
+        // ChronometerBase itself doesn't guard this -- callers must treat end less-than-or-
+        // equal-to now as idle before ever computing a base (see WidgetModel).
+        val nowWall = 1_700_000_000_000L
+        val nowElapsed = 5_000_000L
+        val base = ChronometerBase.forDeadline(nowWall - 10_000L, nowWall, nowElapsed)
+        assertTrue(base < nowElapsed)
+    }
+}
+
+class HourglassMathBucketTest {
+    @Test
+    fun `bucket stays within range across the whole progress span`() {
+        for (i in 0..100) {
+            val bucket = HourglassMath.bucket(i / 100f)
+            assertTrue(bucket in 0 until HourglassMath.WIDGET_BUCKETS)
+        }
+    }
+
+    @Test
+    fun `a full timer and an empty one land in different buckets`() {
+        assertTrue(HourglassMath.bucket(1f) != HourglassMath.bucket(0f))
+    }
+
+    @Test
+    fun `bucket is monotonic in progress`() {
+        var previous = HourglassMath.bucket(0f)
+        for (i in 1..100) {
+            val bucket = HourglassMath.bucket(i / 100f)
+            assertTrue("bucket should not decrease as progress increases", bucket >= previous)
+            previous = bucket
+        }
+    }
+}
+
+class WidgetModelTest {
+    private val now = 1_000_000L
+
+    @Test
+    fun `a running timer wins over an active break`() {
+        assertEquals(PauseUiState.RUNNING, WidgetModel.state(now, now + 1000L, now + 1000L))
+    }
+
+    @Test
+    fun `no timer but an active break reads as break`() {
+        assertEquals(PauseUiState.BREAK, WidgetModel.state(now, 0L, now + 1000L))
+    }
+
+    @Test
+    fun `neither active reads as idle`() {
+        assertEquals(PauseUiState.IDLE, WidgetModel.state(now, 0L, 0L))
+    }
+
+    @Test
+    fun `a deadline exactly now is not running`() {
+        assertEquals(PauseUiState.IDLE, WidgetModel.state(now, now, 0L))
+    }
+
+    @Test
+    fun `remaining time never reads negative`() {
+        assertEquals(0L, WidgetModel.remaining(now, now - 5000L))
+        assertEquals(5000L, WidgetModel.remaining(now, now + 5000L))
+    }
+}

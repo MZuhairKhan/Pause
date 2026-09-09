@@ -79,6 +79,25 @@
             </intent-filter>
         </service>
 
+        <!-- Pure renderer, no custom actions; exported is required at minSdk 26 for the
+             ACTION_APPWIDGET_UPDATE broadcast to reliably reach a provider on older platforms. -->
+        <receiver
+            android:name=".PauseWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/pause_widget_info" />
+        </receiver>
+
+        <!-- Quick-start chips and Cancel. A PendingIntent fires with the creating app's
+             identity, so the widget host can reach this while no other app can. -->
+        <receiver
+            android:name=".PauseActionReceiver"
+            android:exported="false" />
+
         <receiver
             android:name=".TimerReceiver"
             android:exported="false" />

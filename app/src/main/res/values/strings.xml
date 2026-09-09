@@ -138,4 +138,8 @@
     <string name="onb_back">Back</string>
     <string name="onb_next">Next</string>
     <string name="onb_get_started">Get started</string>
+
+    <!-- Home-screen widget -->
+    <string name="widget_description" tools:ignore="MissingTranslation">Start a pause timer from your home screen.</string>
+    <string name="widget_glyph_description" tools:ignore="MissingTranslation">Pause timer</string>
 </resources>

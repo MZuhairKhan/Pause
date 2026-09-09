@@ -130,4 +130,8 @@
     <string name="onb_back">Takaisin</string>
     <string name="onb_next">Seuraava</string>
     <string name="onb_get_started">Aloita</string>
+
+    <!-- Home-screen widget -->
+    <string name="widget_description">Käynnistä taukoajastin aloitusnäytöltä.</string>
+    <string name="widget_glyph_description">Taukoajastin</string>
 </resources>
