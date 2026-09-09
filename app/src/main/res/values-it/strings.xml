@@ -14,12 +14,10 @@
     <string name="overlay_notification_active_hm">Sveglia tra %1$d h %2$d min</string>
     <string name="overlay_bubble_description">Bolla di Pause</string>
     <string name="dismiss_description">Trascina qui per nascondere la bolla</string>
-
     <!-- Compact unit suffixes shown beside a number (bubble countdown, setup steppers). -->
     <string name="unit_hours_short">%1$d h</string>
     <string name="unit_minutes_short">%1$d min</string>
     <string name="unit_seconds_short">%1$d s</string>
-
     <!-- Timer picker (Phase 3) -->
     <string name="picker_title">Imposta un timer di pausa</string>
     <string name="picker_subtitle">Conta alla rovescia una durata o imposta una sveglia</string>
@@ -31,7 +29,6 @@
     <string name="picker_active_title">Timer di pausa</string>
     <string name="picker_remaining_label">Tempo rimanente</string>
     <string name="picker_show_countdown">Mostra conto alla rovescia</string>
-
     <!-- 4-7-8 breathing wind-down (default stop mode) -->
     <string name="breathing_in">Inspira</string>
     <string name="breathing_hold">Trattieni</string>
@@ -40,7 +37,6 @@
     <string name="breathing_stop">Fermati per ora</string>
     <string name="breathing_snooze">Rinvia di %1$d min</string>
     <string name="breathing_done">Tempo scaduto</string>
-
     <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
     <string name="block_title">In pausa</string>
     <string name="block_subtitle">%1$s è in pausa</string>
@@ -49,7 +45,6 @@
     <string name="block_end_early">Termina la pausa in anticipo</string>
     <string name="block_confirm_title">Terminare la pausa in anticipo?</string>
     <string name="block_confirm_end">Termina pausa</string>
-
     <!-- Setup screen (Compose) -->
     <string name="start_overlay">Mostra la bolla</string>
     <string name="stop_overlay">Nascondi la bolla</string>
@@ -62,7 +57,6 @@
     <string name="perm_grant">Concedi</string>
     <string name="perm_granted">Concesso</string>
     <string name="hero_tagline">Una bolla che tocchi per impostare un timer «smetti di usare questa app».</string>
-
     <string name="section_bubble">Bolla</string>
     <string name="show_countdown_title">Mostra il conto alla rovescia sulla bolla</string>
     <string name="show_countdown_subtitle">Se disattivato, mostra una clessidra che si svuota.</string>
@@ -72,7 +66,6 @@
     <string name="bubble_edge_gap">Distanza dal bordo</string>
     <string name="bubble_size_readout">Dimensione reale ≈ %1$ddp · %2$ddp dal bordo</string>
     <string name="slider_readout">%1$s · %2$s%%</string>
-
     <string name="section_appearance">Aspetto</string>
     <string name="theme_system">Sistema</string>
     <string name="theme_light">Chiaro</string>
@@ -81,21 +74,18 @@
     <string name="custom_color_pick">Scegli…</string>
     <string name="custom_color_preview">Anteprima</string>
     <string name="done">Fatto</string>
-
     <string name="section_breathing">Respirazione rilassante</string>
     <string name="breathing_toggle">Esercizio di respirazione</string>
     <string name="breathing_toggle_subtitle">Se disattivato, salta l\'esercizio: il timer termina con le sole opzioni per chiudere.</string>
     <string name="no_skip_lock">Durata minima dell\'esercizio</string>
     <!-- Screen-reader labels for the stepper buttons; %1$s is the setting being changed. -->
     <string name="snooze_length">Durata del posticipo</string>
-
     <string name="section_app_blocking">Blocco app</string>
     <string name="app_blocking_desc">\"Fermati per ora\" copre queste app se le apri durante la pausa.</string>
     <string name="usage_needed">Richiede l\'autorizzazione «Accesso ai dati di utilizzo» qui sopra per rilevare quando apri un\'app bloccata.</string>
     <string name="break_length">Durata della pausa</string>
     <string name="apps_chosen_none">Nessuna app scelta</string>
     <string name="choose">Scegli…</string>
-
     <string name="apps_to_block">App da bloccare</string>
     <string name="apps_to_block_subtitle">Aprendole durante una pausa comparirà un promemoria a schermo intero.</string>
     <string name="search_apps">Cerca app</string>
@@ -103,7 +93,6 @@
     <string name="no_apps_found">Nessuna app trovata</string>
     <string name="no_apps_match">Nessuna app corrisponde a “%1$s”</string>
     <string name="clear_all">Cancella tutto</string>
-
     <!-- First-run setup wizard -->
     <string name="onb_welcome_title">Benvenuto in Pause</string>
     <string name="onb_welcome_body">Una bolla per impostare un timer «smetti di usare questa app». Configuriamola.</string>
