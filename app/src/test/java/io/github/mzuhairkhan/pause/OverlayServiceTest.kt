@@ -8,6 +8,7 @@ import android.media.AudioManager
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -33,6 +34,13 @@ import org.robolectric.shadows.ShadowSettings
  * `PauseAlarm` and `PauseState` are driven directly rather than through the service's private
  * `scheduleTimer`/`startBreakIfConfigured` -- they are what a now-dead *previous* process would
  * have already written before the OS restarts this one, which is exactly the scenario under test.
+ *
+ * [tearDown] always calls `onDestroy()` on whatever was created: `OverlayService.running` is a
+ * companion `MutableStateFlow`, and Robolectric can reuse its sandbox (and so the same loaded
+ * companion object) across test *classes* with a matching `@Config` -- a test here that left it
+ * `true` was observed breaking `SettingsGatingTest`'s "starts idle" assumption in CI, despite the
+ * two files sharing nothing else. `onDestroy()` also stops the real `HandlerThread` the break
+ * test's `ensurePollThread()` starts, which would otherwise leak across the whole test JVM.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34])
@@ -42,7 +50,18 @@ class OverlayServiceTest {
     private val alarmManager get() = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val audioManager get() = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
-    private fun newService() = Robolectric.buildService(OverlayService::class.java).create().get()
+    private var createdService: OverlayService? = null
+
+    private fun newService(): OverlayService =
+        Robolectric.buildService(OverlayService::class.java).create().get().also { createdService = it }
+
+    @After
+    fun tearDown() {
+        // onDestroy() is idempotent (every teardown step is null-safe or already-cancelled), so
+        // this is safe even for the test that already calls it itself as part of the assertion.
+        createdService?.onDestroy()
+        createdService = null
+    }
 
     @Test
     fun `a null-intent restart resumes an armed timer instead of cancelling it`() {
