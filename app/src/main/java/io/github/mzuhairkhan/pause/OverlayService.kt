@@ -258,6 +258,10 @@ class OverlayService : Service() {
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
+            // stopSelf() only *requests* a stop, so a start arriving before it is processed
+            // leaves this instance running normally again. Clearing the flag here keeps the
+            // exemption below scoped to the refusal itself.
+            refusedPromotion = false
         } catch (e: Exception) {
             // The OS refused foreground promotion (e.g. an Android 14+ background-start state the
             // setAlarmClock allowlist didn't cover). For a timer fire the wind-down is the whole point,

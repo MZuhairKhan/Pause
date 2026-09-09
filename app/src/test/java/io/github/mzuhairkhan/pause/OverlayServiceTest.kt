@@ -194,6 +194,34 @@ class OverlayServiceTest {
     }
 
     @Test
+    fun `a refusal does not disarm a later manual stop on the same instance`() {
+        // stopSelf() only requests a stop: a start arriving before it is processed keeps the
+        // same instance alive. So a refusal followed by a successful start leaves one service
+        // that must behave normally again -- if the refusal's exemption stuck, a real user stop
+        // would walk away leaving the alarm armed, which is the phantom timer inverted.
+        ShadowSettings.setCanDrawOverlays(true)
+        val end = System.currentTimeMillis() + 30 * 60_000L
+        PauseState.setTimer(app, System.currentTimeMillis(), end)
+        PauseAlarm.schedule(app, end)
+
+        val service = newService()
+        shadowOf(service).setThrowInStartForeground(
+            android.app.ForegroundServiceStartNotAllowedException("refused by the OS")
+        )
+        service.onStartCommand(null, 0, 1)
+
+        shadowOf(service).setThrowInStartForeground(null)
+        service.onStartCommand(null, 0, 2)
+        service.onDestroy()
+
+        assertTrue(
+            "once promotion succeeds, a stop must cancel the alarm as it always did",
+            shadowOf(alarmManager).scheduledAlarms.isEmpty()
+        )
+        assertEquals(0L, PauseState.snapshot(app).timerEndMillis)
+    }
+
+    @Test
     fun `a manual stop also clears the persisted timer, not just the alarm`() {
         // onDestroy cancels the alarm, so nothing will ever fire it again. Leaving the deadline
         // on disk would make every PauseState reader (the widget, a later restore) believe a
