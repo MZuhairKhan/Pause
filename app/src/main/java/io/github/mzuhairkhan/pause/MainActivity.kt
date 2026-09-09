@@ -159,11 +159,13 @@ class MainActivity : AppCompatActivity() {
                             onThemeModeChange = {
                                 themeMode = it
                                 SettingsStore.setThemeMode(context, it)
+                                PauseWidgetProvider.refresh(context)
                             },
                             accentColor = accentColor,
                             onAccentChange = {
                                 accentColor = it
                                 SettingsStore.setAccentColor(context, it)
+                                PauseWidgetProvider.refresh(context)
                             }
                         )
                     }
@@ -316,6 +318,7 @@ private fun SettingsScreen(
             ) {
                 showCountdown = it
                 SettingsStore.setShowCountdown(context, it)
+                PauseWidgetProvider.refresh(context)
             }
 
             BubbleSizeChooser()

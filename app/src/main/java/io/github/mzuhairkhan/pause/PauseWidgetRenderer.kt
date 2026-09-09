@@ -48,7 +48,7 @@ object PauseWidgetRenderer {
         val ctx = LocaleSupport.wrap(context)
 
         rv.setOnClickPendingIntent(R.id.widget_root, openPickerIntent(context))
-        renderGlyph(context, rv, state, snapshot, now, accent)
+        renderGlyph(context, rv, size, state, snapshot, now, accent)
         if (size != WidgetSize.SMALL) {
             renderText(context, ctx, rv, state, snapshot, now, accent)
         }
@@ -61,13 +61,18 @@ object PauseWidgetRenderer {
     private fun renderGlyph(
         context: Context,
         rv: RemoteViews,
+        size: WidgetSize,
         state: PauseUiState,
         snapshot: PauseSnapshot,
         now: Long,
         accent: Int
     ) {
-        val showCountdown = SettingsStore.showCountdown(context)
-        if (state == PauseUiState.RUNNING && !showCountdown) {
+        // Small carries no text at all, so the glyph is the only thing that can say a timer is
+        // running: it draws the draining hourglass whatever showCountdown says, or it would be
+        // pixel-identical to idle. Bigger sizes hand that job to the Chronometer when it's on.
+        val drainingGlyph = state == PauseUiState.RUNNING &&
+            (size == WidgetSize.SMALL || !SettingsStore.showCountdown(context))
+        if (drainingGlyph) {
             val progress = progressRemaining(snapshot, now)
             rv.setImageViewBitmap(R.id.widget_glyph, hourglassBitmap(context, progress, accent))
         } else {

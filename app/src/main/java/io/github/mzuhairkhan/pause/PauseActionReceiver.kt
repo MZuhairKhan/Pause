@@ -5,15 +5,16 @@ import android.content.Context
 import android.content.Intent
 
 /**
- * Handles the widget's quick-start chips and Cancel action. Deliberately never touches
+ * Handles the widget's quick-start chips and Cancel action. Deliberately never *starts*
  * `OverlayService`: writing [PauseState] and scheduling/cancelling the [PauseAlarm] directly is
- * enough for the timer to work correctly and headlessly (the bubble picks it up next time it's
- * started, and `TimerReceiver` fires the wind-down regardless of whether the service is up when
- * the alarm goes off). `exported=false` -- only a `PendingIntent` this app created can reach it.
+ * enough for the timer to work headlessly (the bubble picks it up next time it's started, and
+ * `TimerReceiver` fires the wind-down whether or not the service is up when the alarm goes off),
+ * and it can't be refused the way a background service start can. `exported=false` -- only a
+ * `PendingIntent` this app created can reach it.
  *
- * Known gap: if the bubble is already showing when a quick-start or cancel fires, it does not
- * repaint until the service is next restarted. Fixing that means an in-process sync receiver
- * inside `OverlayService`; left out here as more than this needs to correctly show the timer.
+ * A service that *is* already running is told to re-read that state via
+ * [OverlayService.syncState], so a Cancel tapped here doesn't leave a live instance ticking
+ * toward a deadline it has already dropped.
  */
 class PauseActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -25,11 +26,13 @@ class PauseActionReceiver : BroadcastReceiver() {
                 PauseState.setTimer(context, System.currentTimeMillis(), end)
                 PauseAlarm.schedule(context, end)
                 PauseWidgetProvider.refresh(context)
+                OverlayService.syncState(context)
             }
             ACTION_CANCEL -> {
                 PauseAlarm.cancel(context)
                 PauseState.clearTimer(context)
                 PauseWidgetProvider.refresh(context)
+                OverlayService.syncState(context)
             }
         }
     }
