@@ -8,10 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **A home-screen widget.** Small (glyph only), medium and large (adds quick-start chips 5m/10m/
+  15m, or Cancel while a timer runs) breakpoints, chosen from the widget's actual placed size.
+  Mirrors the app's own "Show countdown" setting: a self-ticking `Chronometer` when it's on
+  (zero IPC once armed), the draining hourglass glyph when it's off, redrawn on an adaptive
+  cadence rather than a fixed per-minute one, so a short timer isn't under-sampled or a long one
+  over-sampled. At the smallest size the glyph always drains, whatever that setting says, since
+  there is no text beside it to say a timer is running. Tapping the widget's body opens the
+  picker through the same trampoline the tile uses; the chips and Cancel go through a separate,
+  non-exported receiver that never has to *start* the service, so a quick pause works with the
+  bubble off and can't be refused the way a background service start can — and a bubble that
+  *is* showing is told to re-read the change, so a Cancel tapped on the widget stops the
+  wind-down rather than leaving it to fire anyway.
 - **A Quick Settings tile.** Tapping it opens the timer picker through a transparent trampoline
   activity, so the foreground-service start it triggers is never one Android's background-start
-  restrictions could refuse — the same mechanism the upcoming home-screen widget will reuse for
-  its own tap. Never toggles anything on its own; the picker is always the next step.
+  restrictions could refuse — the same mechanism the widget's own body tap reuses. Never toggles
+  anything on its own; the picker is always the next step.
 - **German, Spanish, Italian, Portuguese, Swedish and Turkish string files**, extracted from review
   documents that were sent out but never came back. Machine-assisted drafts — seeds for translators,
   not shipped translations. 101 of 108 translatable entries per language; the rest had no draft.

@@ -84,6 +84,9 @@ class OverlayService : Service() {
     private var breathingView: View? = null
     private var breathingBackRelease: (() -> Unit)? = null
     private var breathingHomeRelease: (() -> Unit)? = null
+
+    /** Unregisters the [ACTION_SYNC_STATE] receiver; held for the service's whole life. */
+    private var stateSyncRelease: (() -> Unit)? = null
     private var breathingAnimator: ValueAnimator? = null
 
     /** Held while the wind-down is up, to pause other apps' media; null when not muting. */
@@ -172,6 +175,9 @@ class OverlayService : Service() {
     /** Last minutes-remaining value pushed to the notification, to avoid per-second reposts. */
     private var lastNotifiedMinute = -1
 
+    /** Last [HourglassMath.bucket] pushed to the widget, to avoid redundant redraws. */
+    private var lastWidgetBucket = -1
+
     /** Last duration chosen on the custom scroll wheel. */
     private var customMinutes = 20
 
@@ -193,6 +199,17 @@ class OverlayService : Service() {
             if (minutesLeft != lastNotifiedMinute) {
                 lastNotifiedMinute = minutesLeft
                 updateNotification()
+            }
+            // The widget's hourglass glyph only needs a push when it's actually drawing the
+            // draining animation (countdown off); with it on, the widget's own Chronometer
+            // self-ticks with zero IPC from us. bucket() caps this at 24 pushes regardless of
+            // the timer's length -- see HourglassMath's KDoc.
+            if (!SettingsStore.showCountdown(this@OverlayService)) {
+                val bucket = HourglassMath.bucket(progressRemaining())
+                if (bucket != lastWidgetBucket) {
+                    lastWidgetBucket = bucket
+                    PauseWidgetProvider.refresh(this@OverlayService)
+                }
             }
             when {
                 rawRemaining > 0 -> tickHandler.postDelayed(this, 1000L)
@@ -219,7 +236,56 @@ class OverlayService : Service() {
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         ensureChannel(this)
         restoreStrandedVolume()
+        stateSyncRelease = registerStateSyncReceiver()
         _running.value = true
+    }
+
+    /**
+     * Listens for [ACTION_SYNC_STATE], sent whenever something outside this service changes
+     * [PauseState] -- today the widget's quick-start and Cancel, via [PauseActionReceiver].
+     * Runtime-registered and `RECEIVER_NOT_EXPORTED`, like [registerHomeCloseReceiver]: only
+     * this app ever sends it.
+     *
+     * @return a function that unregisters the receiver.
+     */
+    private fun registerStateSyncReceiver(): () -> Unit {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                applyPersistedState()
+            }
+        }
+        ContextCompat.registerReceiver(
+            this, receiver, IntentFilter(ACTION_SYNC_STATE), ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        return { unregisterReceiver(receiver) }
+    }
+
+    /**
+     * Re-reads [PauseState] into the live session. The widget writes state and arms or cancels
+     * the alarm directly, without going through this service, so a running instance would
+     * otherwise keep its own in-memory deadline: a Cancel tapped on the widget cleared the alarm
+     * and disk state while this instance carried on ticking and still fired the wind-down.
+     *
+     * Deliberately does not show the wind-down for a deadline that has already passed -- that is
+     * the alarm's job, via `ACTION_TIMER_FIRED`; this is only a reconciliation.
+     */
+    private fun applyPersistedState() {
+        val snapshot = PauseState.snapshot(this)
+        val decision = SessionRestore.decide(
+            snapshot.timerStartMillis, snapshot.timerEndMillis, System.currentTimeMillis()
+        )
+        if (decision is SessionRestore.Decision.ResumeTimer) {
+            startTimeMillis = decision.startMillis
+            endTimeMillis = decision.endMillis
+            lastNotifiedMinute = -1
+            lastWidgetBucket = -1
+            setBubbleActive()
+            updateNotification()
+        } else {
+            // Cleared, or already past: drop the live timer. resetToIdle() re-cancels an
+            // already-cancelled alarm and rewrites already-cleared state, both no-ops.
+            resetToIdle()
+        }
     }
 
     /**
@@ -331,6 +397,8 @@ class OverlayService : Service() {
         pollThread?.quitSafely()
         pollThread = null
         pollHandler = null
+        stateSyncRelease?.invoke()
+        stateSyncRelease = null
         // Detach (don't remove) the foreground notification, then turn it into the persistent
         // "Start Pause" notification so the overlay can be relaunched from the shade.
         stopForeground(STOP_FOREGROUND_DETACH)
@@ -815,6 +883,7 @@ class OverlayService : Service() {
             countdownSwitch.setOnCheckedChangeListener { _, checked ->
                 SettingsStore.setShowCountdown(this, checked)
                 setBubbleActive()
+                PauseWidgetProvider.refresh(this)
             }
 
             view.findViewById<TextView>(R.id.btn_cancel).setOnClickListener {
@@ -1036,6 +1105,7 @@ class OverlayService : Service() {
 
         setBubbleActive()
         updateNotification()
+        PauseWidgetProvider.refresh(this)
     }
 
     /** Cancels any active timer and returns the bubble to its idle glyph. */
@@ -1045,8 +1115,10 @@ class OverlayService : Service() {
         startTimeMillis = 0L
         PauseState.clearTimer(this)
         lastNotifiedMinute = -1
+        lastWidgetBucket = -1
         setBubbleIdle()
         updateNotification()
+        PauseWidgetProvider.refresh(this)
     }
 
     /**
@@ -1086,6 +1158,7 @@ class OverlayService : Service() {
             blockHandler.post(blockRunnable)
         }
         updateNotification()
+        PauseWidgetProvider.refresh(this)
     }
 
     private fun cancelPendingAlarm() {
@@ -1325,6 +1398,7 @@ class OverlayService : Service() {
         ensurePollThread()
         blockHandler.removeCallbacks(blockRunnable)
         blockHandler.post(blockRunnable)
+        PauseWidgetProvider.refresh(this)
     }
 
     private fun stopBreak() {
@@ -1333,6 +1407,7 @@ class OverlayService : Service() {
         blockedPackages = emptySet()
         PauseState.clearBreak(this)
         hideBlockOverlay()
+        PauseWidgetProvider.refresh(this)
     }
 
     /** The package of the app currently in the foreground, via usage events (null if unknown). */
@@ -1641,6 +1716,7 @@ class OverlayService : Service() {
         const val ACTION_TIMER_FIRED = "io.github.mzuhairkhan.pause.action.TIMER_FIRED"
         const val ACTION_REFRESH_BUBBLE = "io.github.mzuhairkhan.pause.action.REFRESH_BUBBLE"
         const val ACTION_SHOW_PICKER = "io.github.mzuhairkhan.pause.action.SHOW_PICKER"
+        const val ACTION_SYNC_STATE = "io.github.mzuhairkhan.pause.action.SYNC_STATE"
 
         /**
          * Makes the live bubble reflect the latest saved size/offset, starting the overlay if needed
@@ -1651,6 +1727,15 @@ class OverlayService : Service() {
                 action = ACTION_REFRESH_BUBBLE
             }
             startSafely(context, intent)
+        }
+
+        /**
+         * Tells a running service to re-read [PauseState], after something outside it has
+         * changed the timer -- the widget's quick-start and Cancel. Lands nowhere when the
+         * service isn't running, which is fine: it reads the same state on its next start.
+         */
+        fun syncState(context: Context) {
+            context.sendBroadcast(Intent(ACTION_SYNC_STATE).setPackage(context.packageName))
         }
 
         /**

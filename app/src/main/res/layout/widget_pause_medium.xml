@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2x1: glyph, a label line, and either a self-ticking Chronometer (countdown on) or a plain
+     status line pushed from Kotlin (countdown off / idle / break). Also the initialLayout. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_card_bg"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="10dp">
+
+    <ImageView
+        android:id="@+id/widget_glyph"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:contentDescription="@string/widget_glyph_description" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/widget_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:textColor="@color/overlay_on_scrim_secondary"
+            android:textSize="11sp"
+            tools:ignore="SmallSp" />
+
+        <!-- Countdown on: self-ticks in the launcher process, zero IPC once armed. -->
+        <Chronometer
+            android:id="@+id/widget_chrono"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <!-- Countdown off, idle, or a break: a plain line pushed from Kotlin. -->
+        <TextView
+            android:id="@+id/widget_static"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:textColor="@color/overlay_on_scrim"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+</LinearLayout>
