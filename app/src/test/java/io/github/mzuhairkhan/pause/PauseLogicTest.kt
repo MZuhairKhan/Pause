@@ -324,3 +324,21 @@ class BreakPollingTest {
         assertFalse(BreakPolling.shouldQueryForeground(screenOn = false))
     }
 }
+
+class TileLaunchTest {
+    @Test
+    fun `the deprecated Intent overload is used below API 34`() {
+        // TileService#startActivityAndCollapse(Intent) is deprecated but still the only option
+        // pre-34; the PendingIntent overload throws UnsupportedOperationException there.
+        assertFalse(TileLaunch.usePendingIntentOverload(sdkInt = 30))
+        assertFalse(TileLaunch.usePendingIntentOverload(sdkInt = 33))
+    }
+
+    @Test
+    fun `the PendingIntent overload is used from API 34`() {
+        // The reverse is also required at 34+: START_ACTIVITY_NEEDS_PENDING_INTENT makes the
+        // deprecated Intent overload throw instead.
+        assertTrue(TileLaunch.usePendingIntentOverload(sdkInt = 34))
+        assertTrue(TileLaunch.usePendingIntentOverload(sdkInt = 36))
+    }
+}
