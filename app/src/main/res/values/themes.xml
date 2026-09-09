@@ -12,4 +12,15 @@
         <item name="android:textColorPrimary">@color/overlay_on_scrim</item>
         <item name="android:textColorSecondary">@color/overlay_on_scrim_secondary</item>
     </style>
+
+    <!-- PauseLaunchActivity's theme: fully transparent and undecorated, since the activity
+         never actually draws anything. It starts a service or another activity, then
+         finishes on the same frame. -->
+    <style name="Theme.Pause.Launch" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>

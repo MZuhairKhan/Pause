@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **A Quick Settings tile.** Tapping it opens the timer picker through a transparent trampoline
+  activity, so the foreground-service start it triggers is never one Android's background-start
+  restrictions could refuse — the same mechanism the upcoming home-screen widget will reuse for
+  its own tap. Never toggles anything on its own; the picker is always the next step.
 - **German, Spanish, Italian, Portuguese, Swedish and Turkish string files**, extracted from review
   documents that were sent out but never came back. Machine-assisted drafts — seeds for translators,
   not shipped translations. 101 of 108 translatable entries per language; the rest had no draft.

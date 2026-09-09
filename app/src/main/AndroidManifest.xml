@@ -46,6 +46,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Trampoline for the Quick Settings tile and the widget's body tap: no UI, opens the
+             picker (or MainActivity if overlay permission is missing) and finishes at once. -->
+        <activity
+            android:name=".PauseLaunchActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Pause.Launch"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+
         <service
             android:name=".OverlayService"
             android:exported="false"
@@ -53,6 +64,19 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Hosts a translucent draggable overlay so users can set a 'stop using this app' timer from any app. The overlay is the core product feature and must remain alive while other apps are foregrounded." />
+        </service>
+
+        <!-- BIND_QUICK_SETTINGS_TILE is required of the binder (SystemUI), not requested by
+             this app; no matching uses-permission is needed. -->
+        <service
+            android:name=".PauseTileService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:icon="@drawable/ic_hourglass"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
         </service>
 
         <receiver

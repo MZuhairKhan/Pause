@@ -39,7 +39,9 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio1\jbr"
 | `SettingsStore.kt` | SharedPreferences-backed *settings* — what the user chose. First-run defaults come from `SettingsDefaults`. |
 | `PauseState.kt` | SharedPreferences-backed *state* — the live timer/break deadlines, a separate file from `SettingsStore` because it changes on every start/stop rather than by user choice. Written with `commit()` so it survives an imminent kill; read back by `restoreSession()` after the OS restarts the service. |
 | `PauseAlarm.kt` | Owns the single `AlarmManager` alarm a timer fires on, so nothing else reconstructs that `PendingIntent` and risks a copy that can't cancel the original. |
-| `PauseLogic.kt` | **Pure, Android-free** logic — `TimeFormat`, `HourglassMath`, `BubblePosition`, `BubblePresets`, `SettingsRanges`, `SettingsDefaults`, `SessionRestore`. Unit-tested. |
+| `PauseLogic.kt` | **Pure, Android-free** logic — `TimeFormat`, `HourglassMath`, `BubblePosition`, `BubblePresets`, `SettingsRanges`, `SettingsDefaults`, `SessionRestore`, `TileLaunch`. Unit-tested. |
+| `PauseLaunchActivity.kt` | Transparent trampoline the Quick Settings tile (and, later, the widget) use to open the picker from an already-foreground context, so the `startForegroundService` call it triggers is never a background one. |
+| `PauseTileService.kt` | Quick Settings tile; tapping it always opens the picker via `PauseLaunchActivity`, never toggles anything itself. |
 | `ui/theme/Accents.kt` | Accent palette (Blue is the default, listed first). |
 | `HourglassDrawable` / `RingDrawable` / `ShadowDrawable` | Custom bubble glyphs (white + soft shadow). |
 | `TimerReceiver` / `BootReceiver` | Alarm fire; re-post the "Start" notification after reboot. |

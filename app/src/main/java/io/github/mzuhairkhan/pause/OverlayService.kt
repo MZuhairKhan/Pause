@@ -271,6 +271,15 @@ class OverlayService : Service() {
             return START_STICKY
         }
 
+        // Opens the picker directly -- what the Quick Settings tile and the widget's launch
+        // trampoline both send. Neither should disturb a running timer, same reasoning as the
+        // bubble-metrics refresh above; showBubble()/showPicker() are no-ops if already up.
+        if (intent?.action == ACTION_SHOW_PICKER) {
+            showBubble()
+            showPicker()
+            return START_STICKY
+        }
+
         showBubble()
         // A null intent is how the OS restarts us after killing the process (START_STICKY) --
         // every explicit start (the Start button, the notification action, ACTION_TIMER_FIRED)
@@ -1626,6 +1635,7 @@ class OverlayService : Service() {
 
         const val ACTION_TIMER_FIRED = "io.github.mzuhairkhan.pause.action.TIMER_FIRED"
         const val ACTION_REFRESH_BUBBLE = "io.github.mzuhairkhan.pause.action.REFRESH_BUBBLE"
+        const val ACTION_SHOW_PICKER = "io.github.mzuhairkhan.pause.action.SHOW_PICKER"
 
         /**
          * Makes the live bubble reflect the latest saved size/offset, starting the overlay if needed
@@ -1636,6 +1646,28 @@ class OverlayService : Service() {
                 action = ACTION_REFRESH_BUBBLE
             }
             context.startForegroundService(intent)
+        }
+
+        /**
+         * Opens the timer picker directly, starting the overlay if needed. Used by the Quick
+         * Settings tile and the widget's launch trampoline -- both call this from an already-
+         * foreground activity, so the foreground-service start is never a background one.
+         *
+         * Wrapped in try/catch: at targetSdk 34+ `startForegroundService` can throw
+         * `ForegroundServiceStartNotAllowedException` if the OS disagrees that the caller is
+         * foreground, and this is reachable from a tile tap or a widget click -- letting that
+         * propagate would crash the caller rather than just failing to open the picker.
+         */
+        fun openPicker(context: Context) {
+            val intent = Intent(context, OverlayService::class.java).apply {
+                action = ACTION_SHOW_PICKER
+            }
+            try {
+                context.startForegroundService(intent)
+            } catch (e: IllegalStateException) {
+                // Nothing to fall back to here; the caller (trampoline activity, tile) just
+                // finishes/collapses without the picker appearing.
+            }
         }
 
         fun start(context: Context) {

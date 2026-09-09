@@ -1,5 +1,6 @@
 package io.github.mzuhairkhan.pause
 
+import androidx.annotation.ChecksSdkIntAtLeast
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -208,4 +209,15 @@ object SessionRestore {
     /** Whether a persisted break deadline is still ahead, so its cover should resume. */
     fun breakStillActive(persistedBreakUntil: Long, now: Long): Boolean =
         persistedBreakUntil > now
+}
+
+/**
+ * Picks which `TileService#startActivityAndCollapse` overload to call. The deprecated
+ * `Intent` overload throws `UnsupportedOperationException` at API 34+ under the
+ * `START_ACTIVITY_NEEDS_PENDING_INTENT` compat behavior; the `PendingIntent` overload
+ * (API 34+) is the only one that exists below that level.
+ */
+object TileLaunch {
+    @ChecksSdkIntAtLeast(api = 34, parameter = 0)
+    fun usePendingIntentOverload(sdkInt: Int): Boolean = sdkInt >= 34
 }
