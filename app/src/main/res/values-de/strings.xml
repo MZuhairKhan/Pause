@@ -14,12 +14,10 @@
     <string name="overlay_notification_active_hm">Alarm in %1$d Std. %2$d Min.</string>
     <string name="overlay_bubble_description">Pause-Bubble</string>
     <string name="dismiss_description">Zum Ausblenden hierher ziehen</string>
-
     <!-- Compact unit suffixes shown beside a number (bubble countdown, setup steppers). -->
     <string name="unit_hours_short">%1$d h</string>
     <string name="unit_minutes_short">%1$d min</string>
     <string name="unit_seconds_short">%1$d s</string>
-
     <!-- Timer picker (Phase 3) -->
     <string name="picker_title">Pausen-Timer stellen</string>
     <string name="picker_subtitle">Eine Dauer herunterzählen oder einen Wecker stellen</string>
@@ -31,7 +29,6 @@
     <string name="picker_active_title">Pausen-Timer</string>
     <string name="picker_remaining_label">Verbleibende Zeit</string>
     <string name="picker_show_countdown">Countdown anzeigen</string>
-
     <!-- 4-7-8 breathing wind-down (default stop mode) -->
     <string name="breathing_in">Einatmen</string>
     <string name="breathing_hold">Anhalten</string>
@@ -40,7 +37,6 @@
     <string name="breathing_stop">Vorerst stoppen</string>
     <string name="breathing_snooze">%1$d min schlummern</string>
     <string name="breathing_done">Zeit ist um</string>
-
     <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
     <string name="block_title">Pause läuft</string>
     <string name="block_subtitle">%1$s ist pausiert</string>
@@ -49,7 +45,6 @@
     <string name="block_end_early">Pause früher beenden</string>
     <string name="block_confirm_title">Pause früher beenden?</string>
     <string name="block_confirm_end">Pause beenden</string>
-
     <!-- Setup screen (Compose) -->
     <string name="start_overlay">Bubble anzeigen</string>
     <string name="stop_overlay">Bubble ausblenden</string>
@@ -62,7 +57,6 @@
     <string name="perm_grant">Erlauben</string>
     <string name="perm_granted">Erteilt</string>
     <string name="hero_tagline">Eine Bubble, die du antippst, um einen „Schluss mit dieser App“-Timer zu stellen.</string>
-
     <string name="section_bubble">Blase</string>
     <string name="show_countdown_title">Countdown auf der Blase anzeigen</string>
     <string name="show_countdown_subtitle">Aus zeigt stattdessen eine ablaufende Sanduhr.</string>
@@ -72,7 +66,6 @@
     <string name="bubble_edge_gap">Randabstand</string>
     <string name="bubble_size_readout">Tatsächliche Größe ≈ %1$ddp · %2$ddp vom Rand</string>
     <string name="slider_readout">%1$s · %2$s %%</string>
-
     <string name="section_appearance">Erscheinungsbild</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Hell</string>
@@ -81,21 +74,18 @@
     <string name="custom_color_pick">Wählen…</string>
     <string name="custom_color_preview">Vorschau</string>
     <string name="done">Fertig</string>
-
     <string name="section_breathing">Entspannungsatmung</string>
     <string name="breathing_toggle">Atemübung</string>
     <string name="breathing_toggle_subtitle">Aus überspringt die Übung – der Timer endet nur mit den Optionen zum Schließen.</string>
     <string name="no_skip_lock">Mindestdauer der Übung</string>
     <!-- Screen-reader labels for the stepper buttons; %1$s is the setting being changed. -->
     <string name="snooze_length">Schlummerdauer</string>
-
     <string name="section_app_blocking">App-Sperre</string>
     <string name="app_blocking_desc">\"Vorerst stoppen\" überdeckt diese Apps, wenn du sie während der Pause öffnest.</string>
     <string name="usage_needed">Benötigt die Berechtigung „Nutzungszugriff“ oben, um zu erkennen, wenn du eine blockierte App öffnest.</string>
     <string name="break_length">Pausendauer</string>
     <string name="apps_chosen_none">Keine Apps ausgewählt</string>
     <string name="choose">Auswählen…</string>
-
     <string name="apps_to_block">Zu sperrende Apps</string>
     <string name="apps_to_block_subtitle">Wenn du diese während einer Pause öffnest, erscheint eine bildschirmfüllende Erinnerung.</string>
     <string name="search_apps">Apps suchen</string>
@@ -103,7 +93,6 @@
     <string name="no_apps_found">Keine Apps gefunden</string>
     <string name="no_apps_match">Keine Apps passen zu “%1$s”</string>
     <string name="clear_all">Alle entfernen</string>
-
     <!-- First-run setup wizard -->
     <string name="onb_welcome_title">Willkommen bei Pause</string>
     <string name="onb_welcome_body">Eine Bubble, mit der du einen „Schluss mit dieser App“-Timer stellst. Richten wir sie ein.</string>
