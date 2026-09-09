@@ -43,6 +43,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the one path that matters most. The service's own handler can't catch this; it is thrown at
   the caller. Refusals now degrade to "nothing appears this time", and the next successful start
   catches the timer up from disk.
+- **A timer running when the device reboots now survives the reboot.** A restart clears every
+  `AlarmManager` alarm but not the deadline on disk, so the two disagreed and nothing reconciled
+  them: the widget and any later session restore showed a timer running that nothing was left to
+  fire. Boot now re-arms an alarm whose deadline is still ahead and drops one that passed while
+  the device was off. A "Stop for now" break is always dropped — nothing enforces one across a
+  reboot, so resuming it would be a display without an effect.
+- **A foreground-service promotion the OS refuses no longer destroys the timer it was recovering.**
+  The service gives up when it can't promote, and the teardown that follows assumed a user stop —
+  cancelling the alarm and wiping the persisted deadline. On the OS-initiated restart that is
+  exactly backwards: the restart exists to recover the timer, so both are now kept and the alarm
+  still fires the wind-down on its own.
 - `ONBOARDING.md` pointed `JAVA_HOME` at an Android Studio install with no `java.exe`, which fails
   with a misleading "invalid directory", and still gave the version as 0.4.1 / 5 rather than
   0.5.1 / 7. Its translation section described Weblate as a future recommendation.

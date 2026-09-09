@@ -101,6 +101,14 @@ class OverlayService : Service() {
     /** Wall-clock end of the active app-blocking break, or 0 when no break is running. */
     private var blockUntilMillis = 0L
 
+    /**
+     * Set when [onStartCommand] gives up because the OS refused foreground promotion. The
+     * [onDestroy] that follows must then leave the alarm and [PauseState] alone: that teardown
+     * assumes a *user* stop, but a refusal is the OS's doing, and on a sticky restart it would
+     * destroy exactly the timer the restart existed to resume.
+     */
+    private var refusedPromotion = false
+
     /** Packages covered for the duration of the current break. */
     private var blockedPackages: Set<String> = emptySet()
 
@@ -259,6 +267,7 @@ class OverlayService : Service() {
                 showBreathing()
                 return START_NOT_STICKY
             }
+            refusedPromotion = true
             stopSelf()
             return START_NOT_STICKY
         }
@@ -309,9 +318,12 @@ class OverlayService : Service() {
         // and clears it from disk with it, or every PauseState reader (the widget, a later
         // restore) would still see a deadline that no alarm backs. A process *kill* never
         // reaches here, so this doesn't undermine restoreSession(): that path is exactly the
-        // one where onDestroy didn't run.
-        cancelPendingAlarm()
-        PauseState.clearTimer(this)
+        // one where onDestroy didn't run. A refused promotion is not a stop the user asked for,
+        // so it keeps both -- the alarm can still fire the wind-down on its own.
+        if (!refusedPromotion) {
+            cancelPendingAlarm()
+            PauseState.clearTimer(this)
+        }
         snapAnimator?.cancel()
         stopTicker()
         stopBreak()

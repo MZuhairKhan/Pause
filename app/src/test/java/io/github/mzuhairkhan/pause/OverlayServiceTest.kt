@@ -164,6 +164,36 @@ class OverlayServiceTest {
     }
 
     @Test
+    fun `a refused foreground promotion must not destroy the timer it was restarted to resume`() {
+        // The bail-out path in onStartCommand calls stopSelf(), and the onDestroy that follows
+        // treats every stop as a manual one -- cancelling the alarm and wiping PauseState. On a
+        // sticky restart that is precisely backwards: the restart exists to recover the timer,
+        // and a refusal is the OS's problem, not the user changing their mind.
+        ShadowSettings.setCanDrawOverlays(true)
+        val end = System.currentTimeMillis() + 30 * 60_000L
+        PauseState.setTimer(app, System.currentTimeMillis(), end)
+        PauseAlarm.schedule(app, end)
+
+        val service = newService()
+        shadowOf(service).setThrowInStartForeground(
+            android.app.ForegroundServiceStartNotAllowedException("refused by the OS")
+        )
+        val result = service.onStartCommand(null, 0, 1)
+
+        assertEquals(android.app.Service.START_NOT_STICKY, result)
+        assertTrue("a service that can't promote must give up", shadowOf(service).isStoppedBySelf)
+
+        service.onDestroy() // what the system does next, and where the damage happened
+
+        assertEquals(
+            "the alarm is the only thing that can still fire this timer -- it must survive",
+            1,
+            shadowOf(alarmManager).scheduledAlarms.size
+        )
+        assertEquals(end, PauseState.snapshot(app).timerEndMillis)
+    }
+
+    @Test
     fun `a manual stop also clears the persisted timer, not just the alarm`() {
         // onDestroy cancels the alarm, so nothing will ever fire it again. Leaving the deadline
         // on disk would make every PauseState reader (the widget, a later restore) believe a
