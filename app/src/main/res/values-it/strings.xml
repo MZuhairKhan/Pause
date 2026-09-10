@@ -51,8 +51,9 @@
     <string name="block_confirm_end">Termina pausa</string>
 
     <!-- Setup screen (Compose) -->
-    <string name="start_overlay">Mostra la bolla</string>
-    <string name="stop_overlay">Nascondi la bolla</string>
+    <string name="start_overlay">Avvia Pause</string>
+    <string name="stop_overlay">Ferma Pause</string>
+    <string name="stop_overlay_hint">L\'arresto annulla anche il timer in corso.</string>
     <string name="permissions_title">Autorizzazioni</string>
     <string name="all_set">Tutto pronto ✓</string>
     <string name="perm_overlay">Mostra sopra altre app</string>

@@ -1,0 +1,4 @@
+• Stopping Pause now cancels a running timer immediately, so a stopped timer can no longer fire later with no bubble or notification to explain it.
+• Two timers can no longer run at once; an alarm left over from an older timer is ignored rather than obeyed.
+• A running timer can be cancelled straight from its notification.
+• "Hide the bubble" is now "Stop Pause" — it always ended the timer, and now says so.

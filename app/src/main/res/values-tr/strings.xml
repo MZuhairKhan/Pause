@@ -51,8 +51,9 @@
     <string name="block_confirm_end">Molayı bitir</string>
 
     <!-- Setup screen (Compose) -->
-    <string name="start_overlay">Baloncuğu göster</string>
-    <string name="stop_overlay">Baloncuğu gizle</string>
+    <string name="start_overlay">Pause\'u başlat</string>
+    <string name="stop_overlay">Pause\'u durdur</string>
+    <string name="stop_overlay_hint">Durdurmak çalışan zamanlayıcıyı da iptal eder.</string>
     <string name="permissions_title">İzinler</string>
     <string name="all_set">Hazır ✓</string>
     <string name="perm_overlay">Diğer uygulamaların üzerinde göster</string>

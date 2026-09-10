@@ -54,8 +54,9 @@
     <string name="block_confirm_end">End break</string>
 
     <!-- Setup screen (Compose) -->
-    <string name="start_overlay">Show the bubble</string>
-    <string name="stop_overlay">Hide the bubble</string>
+    <string name="start_overlay">Start Pause</string>
+    <string name="stop_overlay">Stop Pause</string>
+    <string name="stop_overlay_hint">Stopping also cancels a running timer.</string>
     <string name="permissions_title">Permissions</string>
     <string name="all_set">All set ✓</string>
     <string name="perm_overlay">Display over other apps</string>

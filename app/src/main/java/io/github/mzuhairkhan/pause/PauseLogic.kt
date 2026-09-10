@@ -209,3 +209,35 @@ object SessionRestore {
     fun breakStillActive(persistedBreakUntil: Long, now: Long): Boolean =
         persistedBreakUntil > now
 }
+
+/**
+ * Decides what [TimerReceiver] should do with an alarm broadcast, given what [PauseState] says
+ * is actually running. The alarm is not the authority here — the persisted timer is.
+ *
+ * An F-Droid reviewer stopped a timer and had its wind-down arrive anyway, over whatever they
+ * were doing, with nothing on screen to explain or cancel it. Why that alarm outlived
+ * `AlarmManager.cancel()` on their ROM was never established, so this doesn't rely on the cancel
+ * having worked: an alarm with no persisted timer behind it is spurious by definition.
+ */
+object TimerFire {
+    /** How early a broadcast may arrive and still count as the timer's own. */
+    const val TOLERANCE_MILLIS = 2_000L
+
+    enum class Decision {
+        /** The persisted timer is due; run the wind-down. */
+        FIRE,
+
+        /** Nothing is persisted: a leftover from a timer that was already stopped. Drop it. */
+        ORPHAN,
+
+        /** A timer is persisted, but not this one's deadline — re-arm for the real one. */
+        TOO_EARLY
+    }
+
+    fun decide(persistedEnd: Long, now: Long, toleranceMillis: Long = TOLERANCE_MILLIS): Decision =
+        when {
+            persistedEnd <= 0L -> Decision.ORPHAN
+            now >= persistedEnd - toleranceMillis -> Decision.FIRE
+            else -> Decision.TOO_EARLY
+        }
+}
