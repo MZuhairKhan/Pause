@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A **Translations** section in the README, and **`CONTRIBUTING.md`** covering bug reports,
   translating and what a pull request needs. GitHub surfaces the latter in the new-issue and
   pull-request flows, which `ONBOARDING.md` never was.
+- **A test that string resources contain no links and keep their placeholders.** Translations
+  arrive from Hosted Weblate as pull requests, so anyone with an account on that instance can
+  propose a resource edit: one replaced the ongoing-notification title with a spam URL. The
+  CHANGELOG check caught it, but only because the edit touched the English source, which sits
+  outside that job's translation-only exemption — a check on paths, not on content.
+  `StringResourceIntegrityTest` reads every `values*/strings.xml` and fails on a URL, bare domain
+  or email address in any string, and on a translation whose `%1$s`/`%1$d` placeholders differ
+  from its English source.
 
 ### Changed
 - **"Hide the bubble" is now "Stop Pause".** The button always ended the running timer; the label
