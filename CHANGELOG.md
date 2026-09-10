@@ -30,6 +30,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `CONTRIBUTING.md` and `ONBOARDING.md`.
 
 ### Fixed
+- **A stopped timer can no longer fire.** An F-Droid reviewer on GrapheneOS stopped a timer, watched
+  the bubble go idle and the notification disappear, and still had the full-screen wind-down arrive
+  later — over whatever they happened to be doing, with nothing on screen to explain or cancel it.
+  Their example was a map, mid-drive. Two things were wrong. Stopping deferred the cancel to
+  `onDestroy()`, which the OS runs whenever it likes and never runs at all if it kills the process
+  first; the Settings button now cancels the alarm and clears the persisted timer *before* asking
+  the service to stop, as drag-to-dismiss and "Stop for now" already did. And `TimerReceiver`
+  obeyed any alarm broadcast it was handed. It now asks the persisted state whether a timer is
+  actually due: a broadcast with nothing behind it is spurious and gets dropped and cancelled
+  instead of raising an overlay. Why the original cancel didn't take on that ROM was never
+  established, which is the point — the guard doesn't depend on knowing.
+- **Timers can no longer stack.** Because the "a timer is already running" check read state that a
+  restart had erased, a session that came back idle would offer to start a second timer while the
+  first was still armed, and the notification could describe one while the other was counting down.
+  Both wind-downs then fired, minutes apart. With the persisted deadline as the single authority,
+  an older alarm arriving against a newer timer is re-armed for the real deadline rather than
+  honoured.
+- **A running timer can be cancelled from the shade.** Its notification gains a Cancel timer action.
+  The bubble was the only way to cancel, and it can sit behind whatever is full-screen at the time.
 - **A timer or "Stop for now" break killed by the OS no longer loses its deadline.** Android
   restarts the overlay service with a null `Intent` after reclaiming its process, and that restart
   was treated the same as a fresh session — cancelling whatever alarm was still armed. The alarm

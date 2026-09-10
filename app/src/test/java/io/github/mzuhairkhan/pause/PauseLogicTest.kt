@@ -281,3 +281,36 @@ class SessionRestoreTest {
         assertFalse(SessionRestore.breakStillActive(0L, now))
     }
 }
+
+class TimerFireTest {
+    private val now = 1_000_000L
+
+    @Test
+    fun `an alarm with no persisted timer behind it is an orphan`() {
+        // The user stopped the timer; this broadcast is left over from before that. Firing a
+        // full-screen wind-down here is the "breathing circle over maps while driving" report.
+        assertEquals(TimerFire.Decision.ORPHAN, TimerFire.decide(0L, now))
+    }
+
+    @Test
+    fun `a deadline exactly now fires`() {
+        assertEquals(TimerFire.Decision.FIRE, TimerFire.decide(now, now))
+    }
+
+    @Test
+    fun `a deadline already passed fires`() {
+        assertEquals(TimerFire.Decision.FIRE, TimerFire.decide(now - 60_000L, now))
+    }
+
+    @Test
+    fun `a deadline a hair early still fires`() {
+        // setAlarmClock can deliver marginally early; a strict comparison would drop the fire
+        // and leave the timer to the ticker fallback or to nothing at all.
+        assertEquals(TimerFire.Decision.FIRE, TimerFire.decide(now + 1_999L, now))
+    }
+
+    @Test
+    fun `a deadline well ahead of the broadcast is too early`() {
+        assertEquals(TimerFire.Decision.TOO_EARLY, TimerFire.decide(now + 60_000L, now))
+    }
+}

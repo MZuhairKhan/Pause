@@ -284,6 +284,17 @@ class OverlayService : Service() {
             return START_STICKY
         }
 
+        // The shade's Cancel action ends the timer but not Pause itself: the bubble stays, idle.
+        // Spelled out rather than left to the explicit-start path below, which happens to do the
+        // same thing today -- cancelling a timer and opening a fresh session are different
+        // intentions, and a change to one shouldn't quietly redefine the other.
+        if (intent?.action == ACTION_CANCEL_TIMER) {
+            showBubble()
+            hidePicker()
+            resetToIdle()
+            return START_STICKY
+        }
+
         showBubble()
         // A null intent is how the OS restarts us after killing the process (START_STICKY) --
         // every explicit start (the Start button, the notification action, ACTION_TIMER_FIRED)
@@ -1540,6 +1551,16 @@ class OverlayService : Service() {
         }
     }
 
+    private fun cancelTimerIntent(): PendingIntent {
+        val intent = Intent(this, OverlayService::class.java).apply { action = ACTION_CANCEL_TIMER }
+        return PendingIntent.getForegroundService(
+            this,
+            REQ_CANCEL,
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
     private fun buildNotification(): Notification {
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
@@ -1594,6 +1615,9 @@ class OverlayService : Service() {
                         .addProgressSegment(NotificationCompat.ProgressStyle.Segment(totalSeconds))
                         .setProgress(elapsedSeconds)
                 )
+                // A second way to stop the timer. The bubble is the only other one, and it can
+                // sit behind whatever is full-screen at the time.
+                addAction(0, getString(R.string.picker_cancel), cancelTimerIntent())
             }
             .setSmallIcon(R.drawable.ic_hourglass)
             .setContentIntent(pendingIntent)
@@ -1638,6 +1662,7 @@ class OverlayService : Service() {
         // REQ_ALARM (100) and REQ_SHOW (101) moved to PauseAlarm, which owns that PendingIntent.
         private const val REQ_START = 102
         private const val REQ_OPEN = 103
+        private const val REQ_CANCEL = 104
         private const val BREATH_MIN = 0.35f
 
         /** How often the active break checks the foreground app. */
@@ -1647,6 +1672,7 @@ class OverlayService : Service() {
 
         const val ACTION_TIMER_FIRED = "io.github.mzuhairkhan.pause.action.TIMER_FIRED"
         const val ACTION_REFRESH_BUBBLE = "io.github.mzuhairkhan.pause.action.REFRESH_BUBBLE"
+        const val ACTION_CANCEL_TIMER = "io.github.mzuhairkhan.pause.action.CANCEL_TIMER"
 
         /**
          * Makes the live bubble reflect the latest saved size/offset, starting the overlay if needed
@@ -1684,9 +1710,20 @@ class OverlayService : Service() {
             startSafely(context, intent)
         }
 
+        /**
+         * Stops the overlay, ending any timer or break *before* asking the service to go.
+         * `stopService()` only requests a stop -- the OS picks when `onDestroy` runs, and a
+         * process killed in between never runs it at all, which is how a stopped timer stayed
+         * armed with no bubble and no notification left to explain or cancel it. Drag-to-dismiss
+         * and "Stop for now" already cancel up front for the same reason. Clearing [PauseState]
+         * here also stops a sticky restart from resuming what the user just ended; `onDestroy`
+         * still repeats the work, as a backstop rather than the only chance to do it.
+         */
         fun stop(context: Context) {
-            val intent = Intent(context, OverlayService::class.java)
-            context.stopService(intent)
+            PauseAlarm.cancel(context)
+            PauseState.clearTimer(context)
+            PauseState.clearBreak(context)
+            context.stopService(Intent(context, OverlayService::class.java))
         }
 
         fun timerFired(context: Context) {

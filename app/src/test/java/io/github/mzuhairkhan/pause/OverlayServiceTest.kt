@@ -2,6 +2,7 @@ package io.github.mzuhairkhan.pause
 
 import android.app.AlarmManager
 import android.app.Application
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
@@ -11,6 +12,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -241,6 +243,75 @@ class OverlayServiceTest {
             "a stopped service must not leave a timer on disk that no alarm backs",
             0L,
             PauseState.snapshot(app).timerEndMillis
+        )
+    }
+
+    @Test
+    fun `stop cancels the timer at the tap, not whenever onDestroy gets around to it`() {
+        // stopService() only *requests* a stop; the OS decides when onDestroy runs, and a
+        // process killed in between never runs it at all. Drag-to-dismiss and "Stop for now"
+        // already cancel up front for exactly this reason -- the Settings button did not, which
+        // is how a stopped timer went on to fire with no bubble and no notification to explain
+        // it. Deliberately asserted without an OverlayService instance: nothing here may depend
+        // on a teardown callback running.
+        val end = System.currentTimeMillis() + 30 * 60_000L
+        PauseState.setTimer(app, System.currentTimeMillis(), end)
+        PauseAlarm.schedule(app, end)
+        PauseState.setBreak(app, System.currentTimeMillis() + 10 * 60_000L, setOf("com.example.blocked"))
+
+        OverlayService.stop(app)
+
+        assertTrue(
+            "the alarm must be gone the moment the user asks, not eventually",
+            shadowOf(alarmManager).scheduledAlarms.isEmpty()
+        )
+        assertEquals(0L, PauseState.snapshot(app).timerEndMillis)
+        assertEquals(
+            "a stop that loses the race to a process kill must not come back covering apps",
+            0L,
+            PauseState.snapshot(app).breakUntilMillis
+        )
+    }
+
+    @Test
+    fun `a running timer offers a cancel action in the shade`() {
+        // The bubble is the only other way to cancel, and it can sit behind a full-screen app.
+        ShadowSettings.setCanDrawOverlays(true)
+        val end = System.currentTimeMillis() + 30 * 60_000L
+        PauseState.setTimer(app, System.currentTimeMillis(), end)
+        PauseAlarm.schedule(app, end)
+
+        val service = newService()
+        service.onStartCommand(null, 0, 1)
+
+        val cancel = shadowOf(app.getSystemService(NotificationManager::class.java))
+            .allNotifications
+            .flatMap { it.actions?.asList().orEmpty() }
+            .firstOrNull { it.title == app.getString(R.string.picker_cancel) }
+        assertNotNull("a running timer must be cancellable from the shade", cancel)
+    }
+
+    @Test
+    fun `the cancel action stops the timer without tearing the bubble down`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        val end = System.currentTimeMillis() + 30 * 60_000L
+        PauseState.setTimer(app, System.currentTimeMillis(), end)
+        PauseAlarm.schedule(app, end)
+
+        val service = newService()
+        service.onStartCommand(null, 0, 1)
+        val result = service.onStartCommand(
+            Intent(app, OverlayService::class.java).setAction(OverlayService.ACTION_CANCEL_TIMER),
+            0,
+            2
+        )
+
+        assertEquals(android.app.Service.START_STICKY, result)
+        assertTrue(shadowOf(alarmManager).scheduledAlarms.isEmpty())
+        assertEquals(0L, PauseState.snapshot(app).timerEndMillis)
+        assertFalse(
+            "cancelling a timer is not stopping Pause -- the bubble stays",
+            shadowOf(service).isStoppedBySelf
         )
     }
 }
