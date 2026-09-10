@@ -4,7 +4,6 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
-import android.app.AlarmManager
 import android.app.AppOpsManager
 import android.app.Notification
 import android.app.NotificationChannel
@@ -101,6 +100,14 @@ class OverlayService : Service() {
 
     /** Wall-clock end of the active app-blocking break, or 0 when no break is running. */
     private var blockUntilMillis = 0L
+
+    /**
+     * Set when [onStartCommand] gives up because the OS refused foreground promotion. The
+     * [onDestroy] that follows must then leave the alarm and [PauseState] alone: that teardown
+     * assumes a *user* stop, but a refusal is the OS's doing, and on a sticky restart it would
+     * destroy exactly the timer the restart existed to resume.
+     */
+    private var refusedPromotion = false
 
     /** Packages covered for the duration of the current break. */
     private var blockedPackages: Set<String> = emptySet()
@@ -251,6 +258,10 @@ class OverlayService : Service() {
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
+            // stopSelf() only *requests* a stop, so a start arriving before it is processed
+            // leaves this instance running normally again. Clearing the flag here keeps the
+            // exemption below scoped to the refusal itself.
+            refusedPromotion = false
         } catch (e: Exception) {
             // The OS refused foreground promotion (e.g. an Android 14+ background-start state the
             // setAlarmClock allowlist didn't cover). For a timer fire the wind-down is the whole point,
@@ -260,6 +271,7 @@ class OverlayService : Service() {
                 showBreathing()
                 return START_NOT_STICKY
             }
+            refusedPromotion = true
             stopSelf()
             return START_NOT_STICKY
         }
@@ -273,12 +285,18 @@ class OverlayService : Service() {
         }
 
         showBubble()
-        // A new (or restarted) service session always starts idle — a prior timer is not
-        // resumed, and any leftover alarm is cancelled. Only the bubble location persists.
-        hidePicker()
-        resetToIdle()
-        if (intent?.action == ACTION_TIMER_FIRED) {
-            showBreathing()
+        // A null intent is how the OS restarts us after killing the process (START_STICKY) --
+        // every explicit start (the Start button, the notification action, ACTION_TIMER_FIRED)
+        // always sends a real Intent, even an action-less one. Only that OS-initiated case
+        // should resume a persisted session; every explicit start still begins idle.
+        if (intent == null) {
+            restoreSession()
+        } else {
+            hidePicker()
+            resetToIdle()
+            if (intent.action == ACTION_TIMER_FIRED) {
+                showBreathing()
+            }
         }
         return START_STICKY
     }
@@ -300,8 +318,16 @@ class OverlayService : Service() {
 
     override fun onDestroy() {
         _running.value = false
-        // A manual stop cancels any pending timer so it can't fire after the overlay is gone.
-        cancelPendingAlarm()
+        // A manual stop cancels any pending timer so it can't fire after the overlay is gone --
+        // and clears it from disk with it, or every PauseState reader (the widget, a later
+        // restore) would still see a deadline that no alarm backs. A process *kill* never
+        // reaches here, so this doesn't undermine restoreSession(): that path is exactly the
+        // one where onDestroy didn't run. A refused promotion is not a stop the user asked for,
+        // so it keeps both -- the alarm can still fire the wind-down on its own.
+        if (!refusedPromotion) {
+            cancelPendingAlarm()
+            PauseState.clearTimer(this)
+        }
         snapAnimator?.cancel()
         stopTicker()
         stopBreak()
@@ -1011,18 +1037,9 @@ class OverlayService : Service() {
     private fun scheduleTimer(endMillis: Long) {
         startTimeMillis = System.currentTimeMillis()
         endTimeMillis = endMillis
-
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        // setAlarmClock() is treated as exact without needing the SCHEDULE_EXACT_ALARM
-        // permission, and it briefly allowlists us so the broadcast delivers on time.
-        try {
-            alarmManager.setAlarmClock(
-                AlarmManager.AlarmClockInfo(endMillis, showActivityIntent()),
-                alarmOperation()
-            )
-        } catch (e: SecurityException) {
-            // Some OEMs restrict alarm scheduling; the per-second ticker fallback fires instead.
-        }
+        // Persisted so a process kill doesn't lose it -- see restoreSession() / SessionRestore.
+        PauseState.setTimer(this, startTimeMillis, endTimeMillis)
+        PauseAlarm.schedule(this, endMillis)
 
         setBubbleActive()
         updateNotification()
@@ -1033,14 +1050,53 @@ class OverlayService : Service() {
         cancelPendingAlarm()
         endTimeMillis = 0L
         startTimeMillis = 0L
+        PauseState.clearTimer(this)
         lastNotifiedMinute = -1
         setBubbleIdle()
         updateNotification()
     }
 
+    /**
+     * Re-applies whatever [PauseState] has on disk after the OS restarts us with a null intent
+     * (see the branch in [onStartCommand]). The alarm itself is untouched here: if a timer's
+     * deadline is still ahead, it's still armed in AlarmManager from before the kill, so this
+     * only needs to resume *reflecting* it -- rescheduling would risk a redundant duplicate.
+     * A deadline that already passed while the process was dead is caught up immediately,
+     * the same "don't let it just expire unnoticed" reasoning as the ticker's own fallback.
+     */
+    private fun restoreSession() {
+        val snapshot = PauseState.snapshot(this)
+        val now = System.currentTimeMillis()
+        hidePicker()
+        when (val decision = SessionRestore.decide(snapshot.timerStartMillis, snapshot.timerEndMillis, now)) {
+            is SessionRestore.Decision.ResumeTimer -> {
+                startTimeMillis = decision.startMillis
+                endTimeMillis = decision.endMillis
+                setBubbleActive()
+            }
+            SessionRestore.Decision.TimerExpiredWhileDead -> {
+                resetToIdle()
+                showBreathing()
+            }
+            SessionRestore.Decision.Idle -> {
+                resetToIdle()
+            }
+        }
+        if (SessionRestore.breakStillActive(snapshot.breakUntilMillis, now)) {
+            blockUntilMillis = snapshot.breakUntilMillis
+            blockedPackages = PauseState.breakPackages(this)
+            coveredPackage = null
+            lastForegroundPackage = null
+            lastForegroundEventTime = 0L
+            ensurePollThread()
+            blockHandler.removeCallbacks(blockRunnable)
+            blockHandler.post(blockRunnable)
+        }
+        updateNotification()
+    }
+
     private fun cancelPendingAlarm() {
-        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        alarmManager.cancel(alarmOperation())
+        PauseAlarm.cancel(this)
     }
 
     private fun startTicker() {
@@ -1050,27 +1106,6 @@ class OverlayService : Service() {
 
     private fun stopTicker() {
         tickHandler.removeCallbacks(tickRunnable)
-    }
-
-    private fun alarmOperation(): PendingIntent {
-        val intent = Intent(this, TimerReceiver::class.java).apply {
-            action = TimerReceiver.ACTION_FIRE
-        }
-        return PendingIntent.getBroadcast(
-            this,
-            REQ_ALARM,
-            intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-    }
-
-    private fun showActivityIntent(): PendingIntent {
-        return PendingIntent.getActivity(
-            this,
-            REQ_SHOW,
-            Intent(this, MainActivity::class.java),
-            PendingIntent.FLAG_IMMUTABLE
-        )
     }
 
     // --- Breathing wind-down (default stop mode) ---
@@ -1289,6 +1324,8 @@ class OverlayService : Service() {
         if (apps.isEmpty() || !hasUsageAccess()) return
         blockedPackages = apps
         blockUntilMillis = System.currentTimeMillis() + SettingsStore.blockMinutes(this) * 60_000L
+        // Persisted so a process kill mid-break resumes the cover instead of losing it silently.
+        PauseState.setBreak(this, blockUntilMillis, blockedPackages)
         coveredPackage = null
         lastForegroundPackage = null
         lastForegroundEventTime = 0L
@@ -1301,6 +1338,7 @@ class OverlayService : Service() {
         blockHandler.removeCallbacks(blockRunnable)
         blockUntilMillis = 0L
         blockedPackages = emptySet()
+        PauseState.clearBreak(this)
         hideBlockOverlay()
     }
 
@@ -1597,8 +1635,7 @@ class OverlayService : Service() {
         private const val DEFAULT_Y_FRACTION = 0.234f
         private const val CUSTOM_MIN = 1
         private const val CUSTOM_MAX = 120
-        private const val REQ_ALARM = 100
-        private const val REQ_SHOW = 101
+        // REQ_ALARM (100) and REQ_SHOW (101) moved to PauseAlarm, which owns that PendingIntent.
         private const val REQ_START = 102
         private const val REQ_OPEN = 103
         private const val BREATH_MIN = 0.35f
@@ -1619,12 +1656,32 @@ class OverlayService : Service() {
             val intent = Intent(context, OverlayService::class.java).apply {
                 action = ACTION_REFRESH_BUBBLE
             }
-            context.startForegroundService(intent)
+            startSafely(context, intent)
+        }
+
+        /**
+         * Starts the service, swallowing an OS refusal rather than letting it reach the caller.
+         * At targetSdk 31+ `startForegroundService` throws
+         * `ForegroundServiceStartNotAllowedException` (an [IllegalStateException]) when the OS
+         * decides the app isn't entitled to a background start. The service's own try/catch
+         * around `startForeground()` cannot help: this throws at the *caller*, and
+         * [timerFired] is called from [TimerReceiver], where an escape would crash the app from
+         * a broadcast receiver on the single path that matters most.
+         *
+         * Degrading here is survivable: nothing clears [PauseState], so the next successful
+         * start catches the timer up through `restoreSession()`.
+         */
+        private fun startSafely(context: Context, intent: Intent) {
+            try {
+                context.startForegroundService(intent)
+            } catch (e: IllegalStateException) {
+                // Refused; the bubble or wind-down just doesn't appear this time.
+            }
         }
 
         fun start(context: Context) {
             val intent = Intent(context, OverlayService::class.java)
-            context.startForegroundService(intent)
+            startSafely(context, intent)
         }
 
         fun stop(context: Context) {
@@ -1636,7 +1693,7 @@ class OverlayService : Service() {
             val intent = Intent(context, OverlayService::class.java).apply {
                 action = ACTION_TIMER_FIRED
             }
-            context.startForegroundService(intent)
+            startSafely(context, intent)
         }
 
         /** Creates the LOW-importance status channel and clears out the earlier channels. */

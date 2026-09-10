@@ -247,3 +247,37 @@ class CloseSystemDialogsTest {
         assertFalse(CloseSystemDialogs.closesOverlayForReason(null))
     }
 }
+
+class SessionRestoreTest {
+    private val now = 1_000_000L
+
+    @Test
+    fun `no persisted timer means idle`() {
+        assertEquals(SessionRestore.Decision.Idle, SessionRestore.decide(0L, 0L, now))
+    }
+
+    @Test
+    fun `a deadline still ahead resumes the timer`() {
+        val decision = SessionRestore.decide(now - 5_000L, now + 60_000L, now)
+        assertEquals(SessionRestore.Decision.ResumeTimer(now - 5_000L, now + 60_000L), decision)
+    }
+
+    @Test
+    fun `a deadline exactly now counts as expired, not resumed`() {
+        // A late render must never arm a Chronometer-style countdown on zero or negative time.
+        assertEquals(SessionRestore.Decision.TimerExpiredWhileDead, SessionRestore.decide(now - 60_000L, now, now))
+    }
+
+    @Test
+    fun `a deadline that already passed while the process was dead is caught up, not resumed`() {
+        val decision = SessionRestore.decide(now - 120_000L, now - 1_000L, now)
+        assertEquals(SessionRestore.Decision.TimerExpiredWhileDead, decision)
+    }
+
+    @Test
+    fun `a break deadline still ahead is still active`() {
+        assertTrue(SessionRestore.breakStillActive(now + 1L, now))
+        assertFalse(SessionRestore.breakStillActive(now, now))
+        assertFalse(SessionRestore.breakStillActive(0L, now))
+    }
+}

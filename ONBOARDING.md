@@ -36,15 +36,20 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio1\jbr"
 |---|---|
 | `OverlayService.kt` | The foreground service: floating bubble, timer + `AlarmManager` scheduling, breathing wind-down, "Stop for now" app-blocking break, notification. The big one. |
 | `MainActivity.kt` | Compose setup screen: permissions, bubble alignment, theme/accent, breathing settings, app blocking. |
-| `SettingsStore.kt` | SharedPreferences-backed settings. First-run defaults come from `SettingsDefaults`. |
-| `PauseLogic.kt` | **Pure, Android-free** logic — `TimeFormat`, `HourglassMath`, `BubblePosition`, `BubblePresets`, `SettingsRanges`, `SettingsDefaults`. Unit-tested. |
+| `SettingsStore.kt` | SharedPreferences-backed *settings* — what the user chose. First-run defaults come from `SettingsDefaults`. |
+| `PauseState.kt` | SharedPreferences-backed *state* — the live timer/break deadlines, a separate file from `SettingsStore` because it changes on every start/stop rather than by user choice. Written with `commit()` so it survives an imminent kill; read back by `restoreSession()` after the OS restarts the service. |
+| `PauseAlarm.kt` | Owns the single `AlarmManager` alarm a timer fires on, so nothing else reconstructs that `PendingIntent` and risks a copy that can't cancel the original. |
+| `PauseLogic.kt` | **Pure, Android-free** logic — `TimeFormat`, `HourglassMath`, `BubblePosition`, `BubblePresets`, `SettingsRanges`, `SettingsDefaults`, `SessionRestore`. Unit-tested. |
 | `ui/theme/Accents.kt` | Accent palette (Blue is the default, listed first). |
 | `HourglassDrawable` / `RingDrawable` / `ShadowDrawable` | Custom bubble glyphs (white + soft shadow). |
 | `TimerReceiver` / `BootReceiver` | Alarm fire; re-post the "Start" notification after reboot. |
 | `res/layout/` | `overlay_bubble`, `timer_picker`, `breathing`, `block_overlay`, `dismiss_target`. |
 
 Pure logic lives in `PauseLogic.kt` and is covered by `app/src/test/.../PauseLogicTest.kt`; keep
-that split so behaviour stays unit-testable without an emulator.
+that split so behaviour stays unit-testable without an emulator. `OverlayServiceTest.kt` drives
+`OverlayService` itself under Robolectric — safe there even though `OverlayBackTest.kt`'s KDoc
+rejects doing this from an *instrumented* test (real background-start restrictions apply on a
+device, not under Robolectric, which has no `system_server` to restrict anything).
 
 ## Permissions
 
