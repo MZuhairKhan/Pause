@@ -51,8 +51,9 @@
     <string name="block_confirm_end">Pause beenden</string>
 
     <!-- Setup screen (Compose) -->
-    <string name="start_overlay">Bubble anzeigen</string>
-    <string name="stop_overlay">Bubble ausblenden</string>
+    <string name="start_overlay">Pause starten</string>
+    <string name="stop_overlay">Pause beenden</string>
+    <string name="stop_overlay_hint">Beim Beenden wird auch ein laufender Timer abgebrochen.</string>
     <string name="permissions_title">Berechtigungen</string>
     <string name="all_set">Alles erledigt ✓</string>
     <string name="perm_overlay">Über anderen Apps anzeigen</string>

@@ -51,8 +51,9 @@
     <string name="block_confirm_end">Terminar pausa</string>
 
     <!-- Setup screen (Compose) -->
-    <string name="start_overlay">Mostrar a bolha</string>
-    <string name="stop_overlay">Ocultar a bolha</string>
+    <string name="start_overlay">Iniciar o Pause</string>
+    <string name="stop_overlay">Parar o Pause</string>
+    <string name="stop_overlay_hint">Parar também cancela um temporizador em curso.</string>
     <string name="permissions_title">Permissões</string>
     <string name="all_set">Tudo pronto ✓</string>
     <string name="perm_overlay">Sobrepor a outras apps</string>

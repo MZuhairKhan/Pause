@@ -51,8 +51,9 @@
     <string name="block_confirm_end">Avsluta paus</string>
 
     <!-- Setup screen (Compose) -->
-    <string name="start_overlay">Visa bubblan</string>
-    <string name="stop_overlay">Dölj bubblan</string>
+    <string name="start_overlay">Starta Pause</string>
+    <string name="stop_overlay">Stoppa Pause</string>
+    <string name="stop_overlay_hint">Att stoppa avbryter även en pågående timer.</string>
     <string name="permissions_title">Behörigheter</string>
     <string name="all_set">Klart ✓</string>
     <string name="perm_overlay">Visa över andra appar</string>

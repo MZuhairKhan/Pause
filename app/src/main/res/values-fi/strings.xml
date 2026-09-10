@@ -50,8 +50,9 @@
     <string name="block_confirm_end">Lopeta tauko</string>
 
     <!-- Setup screen (Compose) -->
-    <string name="start_overlay">Näytä kupla</string>
-    <string name="stop_overlay">Piilota kupla</string>
+    <string name="start_overlay">Käynnistä Pause</string>
+    <string name="stop_overlay">Pysäytä Pause</string>
+    <string name="stop_overlay_hint">Pysäyttäminen peruuttaa myös käynnissä olevan ajastimen.</string>
     <string name="permissions_title">Käyttöoikeudet</string>
     <string name="all_set">Kaikki valmista ✓</string>
     <string name="perm_overlay">Näytä muiden sovellusten päällä</string>

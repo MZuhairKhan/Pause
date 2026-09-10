@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pull-request flows, which `ONBOARDING.md` never was.
 
 ### Changed
+- **"Hide the bubble" is now "Stop Pause".** The button always ended the running timer; the label
+  described only the visible half of that, and an F-Droid reviewer reasonably read hiding as parking
+  a timer out of sight. While the overlay is running the button also carries a line saying stopping
+  cancels a running timer. The behaviour is unchanged and deliberate — dismissing means stop, which
+  is why the alternative was reverted in `412450c` — but nothing said so.
 - The app name and the launcher-preset brands (Instagram, TikTok, Shorts) are `translatable="false"`;
   Finnish had been repeating all six verbatim.
 - **The CHANGELOG check accepts translation-only pull requests.** Weblate opens one per language

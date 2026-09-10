@@ -240,27 +240,38 @@ private fun SettingsScreen(
     ) {
         Hero(accentColor)
 
-        Button(
-            modifier = Modifier.fillMaxWidth(),
-            // Only the overlay permission is load-bearing: startForeground() succeeds without
-            // POST_NOTIFICATIONS, it just silently skips the notification (canPostNotifications()
-            // already guards that). Requiring it here blocked the bubble entirely for anyone who
-            // denies notifications, with no way to start it at all.
-            enabled = overlayGranted,
-            onClick = {
-                if (serviceRunning) {
-                    OverlayService.stop(context)
-                } else if (Settings.canDrawOverlays(context)) {
-                    OverlayService.start(context)
-                } else {
-                    // The cached grant only refreshes on resume; if it was revoked while this
-                    // screen stayed open, correct the flag (disabling the button) rather than
-                    // starting a service that can't draw the bubble.
-                    overlayGranted = false
+        // "Hide the bubble" read as parking the timer out of sight; it has always ended it.
+        // The label now says so, and the caption spells out what stopping takes with it.
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                // Only the overlay permission is load-bearing: startForeground() succeeds without
+                // POST_NOTIFICATIONS, it just silently skips the notification (canPostNotifications()
+                // already guards that). Requiring it here blocked the bubble entirely for anyone who
+                // denies notifications, with no way to start it at all.
+                enabled = overlayGranted,
+                onClick = {
+                    if (serviceRunning) {
+                        OverlayService.stop(context)
+                    } else if (Settings.canDrawOverlays(context)) {
+                        OverlayService.start(context)
+                    } else {
+                        // The cached grant only refreshes on resume; if it was revoked while this
+                        // screen stayed open, correct the flag (disabling the button) rather than
+                        // starting a service that can't draw the bubble.
+                        overlayGranted = false
+                    }
                 }
+            ) {
+                Text(if (serviceRunning) stringResource(R.string.stop_overlay) else stringResource(R.string.start_overlay))
             }
-        ) {
-            Text(if (serviceRunning) stringResource(R.string.stop_overlay) else stringResource(R.string.start_overlay))
+            if (serviceRunning) {
+                Text(
+                    text = stringResource(R.string.stop_overlay_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
 
         PermissionsSection(
