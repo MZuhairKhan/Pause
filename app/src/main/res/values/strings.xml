@@ -134,6 +134,8 @@
     <string name="onb_size_body">We\'ll size the bubble to match that app\'s buttons.</string>
     <string name="onb_apps_title">Block distracting apps</string>
     <string name="onb_apps_body">Optional — grant Usage access, then choose the apps a break should cover.</string>
+    <string name="onb_breathing_title" tools:ignore="MissingTranslation">When your timer ends</string>
+    <string name="onb_breathing_body" tools:ignore="MissingTranslation">A short breathing exercise comes first. You can turn it off.</string>
     <string name="onb_done_title">You\'re all set</string>
     <string name="onb_done_body">Tap Get started to show the bubble.</string>
     <string name="onb_back">Back</string>

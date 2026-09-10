@@ -1,5 +1,6 @@
 package io.github.mzuhairkhan.pause
 
+import androidx.annotation.ChecksSdkIntAtLeast
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -39,6 +40,47 @@ object HourglassMath {
     }
 
     fun surface(progress: Float): Float = sqrt(fill(progress))
+}
+
+/**
+ * One frame of the breathing circle: grow through the inhale, hold at full size, shrink back
+ * through the exhale. Two surfaces animate this -- the wind-down overlay's `ValueAnimator` and
+ * the setup wizard's Compose preview -- and the preview would be a lie if the two drifted, so
+ * the arithmetic lives here rather than in either of them.
+ */
+object BreathingCycle {
+    /** Resting size, as a fraction of full. Never 0: the circle shrinks, it doesn't vanish. */
+    const val MIN_SCALE = 0.35f
+
+    enum class Phase { INHALE, HOLD, EXHALE }
+
+    data class Frame(val phase: Phase, val scale: Float)
+
+    fun cycleMillis(inhaleMillis: Float, holdMillis: Float, exhaleMillis: Float): Float =
+        inhaleMillis + holdMillis + exhaleMillis
+
+    /**
+     * The frame at [elapsedMillis] into the cycle. A zero-length phase is skipped rather than
+     * dividing by zero -- `SettingsRanges` keeps these at a second or more, but a NaN scale
+     * blanks the view silently instead of failing, which is the worst way to find out.
+     */
+    fun frameAt(
+        elapsedMillis: Float,
+        inhaleMillis: Float,
+        holdMillis: Float,
+        exhaleMillis: Float
+    ): Frame {
+        val span = 1f - MIN_SCALE
+        return when {
+            elapsedMillis < inhaleMillis ->
+                Frame(Phase.INHALE, MIN_SCALE + span * (elapsedMillis / inhaleMillis))
+            elapsedMillis < inhaleMillis + holdMillis ->
+                Frame(Phase.HOLD, 1f)
+            exhaleMillis > 0f ->
+                Frame(Phase.EXHALE, 1f - span * ((elapsedMillis - inhaleMillis - holdMillis) / exhaleMillis))
+            else -> Frame(Phase.EXHALE, MIN_SCALE)
+        }.let { it.copy(scale = it.scale.coerceIn(MIN_SCALE, 1f)) }
+    }
 }
 
 /**
@@ -249,4 +291,15 @@ object TimerFire {
  */
 object BreakPolling {
     fun shouldQueryForeground(screenOn: Boolean): Boolean = screenOn
+}
+
+/**
+ * Picks which `TileService#startActivityAndCollapse` overload to call. The deprecated
+ * `Intent` overload throws `UnsupportedOperationException` at API 34+ under the
+ * `START_ACTIVITY_NEEDS_PENDING_INTENT` compat behavior; the `PendingIntent` overload
+ * (API 34+) is the only one that exists below that level.
+ */
+object TileLaunch {
+    @ChecksSdkIntAtLeast(api = 34, parameter = 0)
+    fun usePendingIntentOverload(sdkInt: Int): Boolean = sdkInt >= 34
 }

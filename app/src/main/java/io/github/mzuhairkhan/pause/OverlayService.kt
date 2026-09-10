@@ -51,6 +51,7 @@ import android.widget.Switch
 import android.widget.TextView
 import android.widget.TimePicker
 import android.Manifest
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
@@ -301,6 +302,15 @@ class OverlayService : Service() {
             showBubble()
             hidePicker()
             resetToIdle()
+            return START_STICKY
+        }
+
+        // Opens the picker directly -- what the Quick Settings tile and the widget's launch
+        // trampoline both send. Neither should disturb a running timer, same reasoning as the
+        // bubble-metrics refresh above; showBubble()/showPicker() are no-ops if already up.
+        if (intent?.action == ACTION_SHOW_PICKER) {
+            showBubble()
+            showPicker()
             return START_STICKY
         }
 
@@ -1537,27 +1547,34 @@ class OverlayService : Service() {
         val inhaleMs = SettingsStore.inhaleSeconds(this) * 1000f
         val holdMs = SettingsStore.holdSeconds(this) * 1000f
         val exhaleMs = SettingsStore.exhaleSeconds(this) * 1000f
-        val cycle = inhaleMs + holdMs + exhaleMs
+        val cycle = BreathingCycle.cycleMillis(inhaleMs, holdMs, exhaleMs)
         breathingAnimator = ValueAnimator.ofFloat(0f, cycle).apply {
             duration = cycle.toLong()
             interpolator = LinearInterpolator()
             repeatCount = ValueAnimator.INFINITE
             addUpdateListener { animation ->
-                val t = animation.animatedValue as Float
-                val (scale, label) = when {
-                    t < inhaleMs ->
-                        (BREATH_MIN + (1f - BREATH_MIN) * (t / inhaleMs)) to getString(R.string.breathing_in)
-                    t < inhaleMs + holdMs ->
-                        1f to getString(R.string.breathing_hold)
-                    else ->
-                        (1f - (1f - BREATH_MIN) * ((t - inhaleMs - holdMs) / exhaleMs)) to getString(R.string.breathing_out)
-                }
-                circle.scaleX = scale
-                circle.scaleY = scale
+                val frame = BreathingCycle.frameAt(
+                    animation.animatedValue as Float, inhaleMs, holdMs, exhaleMs
+                )
+                val label = getString(breathingPhaseLabel(frame.phase))
+                circle.scaleX = frame.scale
+                circle.scaleY = frame.scale
                 if (phase.text != label) phase.text = label
             }
             start()
         }
+    }
+
+    /**
+     * Phase to instruction. Deliberately not in [BreathingCycle]: that stays free of resources
+     * so it unit-tests on a plain JVM, and picking wording is the UI's job. The wizard's preview
+     * maps the same enum to the same three strings.
+     */
+    @StringRes
+    private fun breathingPhaseLabel(phase: BreathingCycle.Phase): Int = when (phase) {
+        BreathingCycle.Phase.INHALE -> R.string.breathing_in
+        BreathingCycle.Phase.HOLD -> R.string.breathing_hold
+        BreathingCycle.Phase.EXHALE -> R.string.breathing_out
     }
 
     // --- Notification / foreground service ---
@@ -1710,7 +1727,6 @@ class OverlayService : Service() {
         private const val REQ_START = 102
         private const val REQ_OPEN = 103
         private const val REQ_CANCEL = 104
-        private const val BREATH_MIN = 0.35f
 
         /** How often the active break checks the foreground app. */
         private const val BLOCK_POLL_MS = 1000L
@@ -1720,6 +1736,7 @@ class OverlayService : Service() {
         const val ACTION_TIMER_FIRED = "io.github.mzuhairkhan.pause.action.TIMER_FIRED"
         const val ACTION_REFRESH_BUBBLE = "io.github.mzuhairkhan.pause.action.REFRESH_BUBBLE"
         const val ACTION_CANCEL_TIMER = "io.github.mzuhairkhan.pause.action.CANCEL_TIMER"
+        const val ACTION_SHOW_PICKER = "io.github.mzuhairkhan.pause.action.SHOW_PICKER"
 
         /**
          * Makes the live bubble reflect the latest saved size/offset, starting the overlay if needed
@@ -1749,6 +1766,28 @@ class OverlayService : Service() {
                 context.startForegroundService(intent)
             } catch (e: IllegalStateException) {
                 // Refused; the bubble or wind-down just doesn't appear this time.
+            }
+        }
+
+        /**
+         * Opens the timer picker directly, starting the overlay if needed. Used by the Quick
+         * Settings tile and the widget's launch trampoline -- both call this from an already-
+         * foreground activity, so the foreground-service start is never a background one.
+         *
+         * Wrapped in try/catch: at targetSdk 34+ `startForegroundService` can throw
+         * `ForegroundServiceStartNotAllowedException` if the OS disagrees that the caller is
+         * foreground, and this is reachable from a tile tap or a widget click -- letting that
+         * propagate would crash the caller rather than just failing to open the picker.
+         */
+        fun openPicker(context: Context) {
+            val intent = Intent(context, OverlayService::class.java).apply {
+                action = ACTION_SHOW_PICKER
+            }
+            try {
+                context.startForegroundService(intent)
+            } catch (e: IllegalStateException) {
+                // Nothing to fall back to here; the caller (trampoline activity, tile) just
+                // finishes/collapses without the picker appearing.
             }
         }
 
