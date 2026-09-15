@@ -29,19 +29,6 @@
         android:textSize="22sp"
         android:textStyle="bold" />
 
-    <!-- Shown only when the breathing exercise is off: a headline filling the empty centre. -->
-    <TextView
-        android:id="@+id/breathing_done"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:gravity="center"
-        android:text="@string/breathing_done"
-        android:textColor="@color/overlay_on_scrim"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:visibility="gone" />
-
     <!-- Revealed only after the non-skippable lock window. -->
     <LinearLayout
         android:id="@+id/breathing_actions"

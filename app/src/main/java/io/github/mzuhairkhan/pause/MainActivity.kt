@@ -202,7 +202,6 @@ private fun SettingsScreen(
     var exhale by remember { mutableStateOf(SettingsStore.exhaleSeconds(context)) }
     var lockSec by remember { mutableStateOf(SettingsStore.lockSeconds(context)) }
     var snoozeMin by remember { mutableStateOf(SettingsStore.snoozeMinutes(context)) }
-    var breathingOn by remember { mutableStateOf(SettingsStore.breathingEnabled(context)) }
     var blockMinutes by remember { mutableStateOf(SettingsStore.blockMinutes(context)) }
     var blockedApps by remember { mutableStateOf(SettingsStore.blockedApps(context)) }
     var usageAccessGranted by remember { mutableStateOf(hasUsageAccess(context)) }
@@ -408,38 +407,21 @@ private fun SettingsScreen(
         }
 
         SettingsSection(stringResource(R.string.section_breathing)) {
-            SwitchRow(
-                stringResource(R.string.breathing_toggle),
-                breathingOn,
-                subtitle = stringResource(R.string.breathing_toggle_subtitle)
-            ) {
-                breathingOn = it
-                SettingsStore.setBreathingEnabled(context, it)
+            StepperRow(stringResource(R.string.breathing_in), inhale) {
+                inhale = it
+                SettingsStore.setInhaleSeconds(context, it)
             }
-            // The breathing-specific controls are moot once the exercise is off; snooze still
-            // applies (snooze is one of the dismiss options either way).
-            if (breathingOn) {
-                StepperRow(stringResource(R.string.breathing_in), inhale) {
-                    inhale = it
-                    SettingsStore.setInhaleSeconds(context, it)
-                }
-                StepperRow(stringResource(R.string.breathing_hold), hold) {
-                    hold = it
-                    SettingsStore.setHoldSeconds(context, it)
-                }
-                StepperRow(stringResource(R.string.breathing_out), exhale) {
-                    exhale = it
-                    SettingsStore.setExhaleSeconds(context, it)
-                }
-                StepperRow(
-                    stringResource(R.string.no_skip_lock),
-                    lockSec,
-                    min = SettingsRanges.LOCK_MIN_SECONDS,
-                    max = SettingsRanges.LOCK_MAX_SECONDS
-                ) {
-                    lockSec = it
-                    SettingsStore.setLockSeconds(context, it)
-                }
+            StepperRow(stringResource(R.string.breathing_hold), hold) {
+                hold = it
+                SettingsStore.setHoldSeconds(context, it)
+            }
+            StepperRow(stringResource(R.string.breathing_out), exhale) {
+                exhale = it
+                SettingsStore.setExhaleSeconds(context, it)
+            }
+            MinimumTimeControls(lockSec) {
+                lockSec = it
+                SettingsStore.setLockSeconds(context, it)
             }
             StepperRow(
                 stringResource(R.string.snooze_length),
@@ -668,7 +650,6 @@ private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
     // keeps the pick; normalised to the offered options (strip any region, fall back to system).
     // Written straight through on change, like the bubble-size page: the settings screen is the
     // same control, so deferring these would be the odd one out.
-    var wizardBreathingOn by rememberSaveable { mutableStateOf(SettingsStore.breathingEnabled(context)) }
     var wizardLockSec by rememberSaveable { mutableStateOf(SettingsStore.lockSeconds(context)) }
 
     var selectedLang by rememberSaveable {
@@ -679,8 +660,8 @@ private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
     // Written straight through on pick, not deferred to Get started -- the rest of the wizard
     // should read in the language just chosen rather than finish it in English. AppCompat
     // recreates the Activity to apply this (the framework's own LocaleManager on 33+, its
-    // recreate() below that), which is exactly why selectedLang, wizardBreathingOn,
-    // wizardLockSec and the pager's own position are all rememberSaveable.
+    // recreate() below that), which is exactly why selectedLang, wizardLockSec and the pager's
+    // own position are all rememberSaveable.
     val selectLanguage: (String?) -> Unit = { tag ->
         selectedLang = tag
         AppCompatDelegate.setApplicationLocales(
@@ -816,36 +797,14 @@ private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
                     stringResource(R.string.onb_breathing_title),
                     stringResource(R.string.onb_breathing_body)
                 ) {
-                    BreathingPreview(
-                        enabled = wizardBreathingOn,
-                        accentColor = SettingsStore.accentColor(context)
-                    )
+                    BreathingPreview(accentColor = SettingsStore.accentColor(context))
                     Spacer(Modifier.height(16.dp))
-                    SwitchRow(
-                        stringResource(R.string.breathing_toggle),
-                        wizardBreathingOn,
-                        subtitle = stringResource(R.string.breathing_toggle_subtitle)
-                    ) {
-                        wizardBreathingOn = it
-                        SettingsStore.setBreathingEnabled(context, it)
-                    }
                     // The lock is the part nobody expects -- 30 seconds of dead buttons. Shown
                     // here so the first encounter is something they agreed to, and so anyone the
-                    // idea bothers can zero it now instead of uninstalling. Hidden when the
-                    // exercise is off, exactly as the settings screen hides it.
-                    if (wizardBreathingOn) {
-                        // WizardPage doesn't space its children; without this the stepper's
-                        // label collides with the switch subtitle's second line in Finnish.
-                        Spacer(Modifier.height(12.dp))
-                        StepperRow(
-                            stringResource(R.string.no_skip_lock),
-                            wizardLockSec,
-                            min = SettingsRanges.LOCK_MIN_SECONDS,
-                            max = SettingsRanges.LOCK_MAX_SECONDS
-                        ) {
-                            wizardLockSec = it
-                            SettingsStore.setLockSeconds(context, it)
-                        }
+                    // idea bothers can skip it now instead of uninstalling.
+                    MinimumTimeControls(wizardLockSec) {
+                        wizardLockSec = it
+                        SettingsStore.setLockSeconds(context, it)
                     }
                 }
 
@@ -959,22 +918,9 @@ private fun Hero(accentColor: Int) {
  * cannot drift from the thing it is previewing.
  */
 @Composable
-private fun BreathingPreview(enabled: Boolean, accentColor: Int) {
+private fun BreathingPreview(accentColor: Int) {
     val context = LocalContext.current
     val height = 168.dp
-    if (!enabled) {
-        // What the wind-down actually shows with the exercise off: no circle, just the headline
-        // over the dismiss options.
-        Box(modifier = Modifier.fillMaxWidth().height(height), contentAlignment = Alignment.Center) {
-            Text(
-                stringResource(R.string.breathing_done),
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        return
-    }
-
     val inhaleMs = SettingsStore.inhaleSeconds(context) * 1000f
     val holdMs = SettingsStore.holdSeconds(context) * 1000f
     val exhaleMs = SettingsStore.exhaleSeconds(context) * 1000f
@@ -1237,6 +1183,42 @@ private fun SwitchRow(
             }
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/**
+ * Switch + stepper for the wind-down's no-skip lock. Skipping is stored as a lock of 0 rather
+ * than a pref of its own, so the switch is derived from [lockSec]; the value held before
+ * skipping is remembered so switching back off restores it instead of landing on the default.
+ */
+@Composable
+private fun MinimumTimeControls(lockSec: Int, onChange: (Int) -> Unit) {
+    var remembered by rememberSaveable {
+        mutableStateOf(if (lockSec == 0) SettingsDefaults.LOCK_SECONDS else lockSec)
+    }
+    SwitchRow(
+        stringResource(R.string.breathing_skip),
+        lockSec == 0,
+        subtitle = stringResource(R.string.breathing_skip_subtitle)
+    ) { skip ->
+        if (skip) {
+            remembered = lockSec
+            onChange(0)
+        } else {
+            onChange(remembered)
+        }
+    }
+    if (lockSec != 0) {
+        // WizardPage doesn't space its children; without this the stepper's label collides
+        // with the switch subtitle's second line in Finnish.
+        Spacer(Modifier.height(12.dp))
+        StepperRow(
+            stringResource(R.string.no_skip_lock),
+            lockSec,
+            min = SettingsRanges.LOCK_MIN_SECONDS,
+            max = SettingsRanges.LOCK_MAX_SECONDS,
+            onChange = onChange
+        )
     }
 }
 

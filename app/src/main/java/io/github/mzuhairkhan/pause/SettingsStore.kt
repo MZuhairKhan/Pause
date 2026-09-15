@@ -25,7 +25,8 @@ object SettingsStore {
     private const val KEY_HOLD = "breath_hold"
     private const val KEY_EXHALE = "breath_exhale"
     private const val KEY_LOCK = "breath_lock"
-    private const val KEY_BREATHING = "breath_enabled"
+    // Superseded by lockSeconds() == 0; the one-shot migration below reads and drops this.
+    private const val KEY_LEGACY_BREATHING = "breath_enabled"
     private const val KEY_ONBOARDING = "onboarding_complete"
     private const val KEY_SNOOZE_MINUTES = "snooze_minutes"
     private const val KEY_MUTED_VOLUME = "muted_music_volume"
@@ -38,15 +39,6 @@ object SettingsStore {
 
     fun setShowCountdown(context: Context, enabled: Boolean) {
         context.prefs().edit().putBoolean(KEY_SHOW_COUNTDOWN, enabled).apply()
-    }
-
-    /** When true a finished timer runs the breathing exercise; when false it drops straight to
-     *  the dismiss options over the full themed background. */
-    fun breathingEnabled(context: Context): Boolean =
-        context.prefs().getBoolean(KEY_BREATHING, SettingsDefaults.BREATHING_ENABLED)
-
-    fun setBreathingEnabled(context: Context, enabled: Boolean) {
-        context.prefs().edit().putBoolean(KEY_BREATHING, enabled).apply()
     }
 
     /** Whether the first-run setup wizard has been completed. */
@@ -133,8 +125,18 @@ object SettingsStore {
     }
 
     /** Seconds the breathing wind-down stays non-skippable before the action buttons appear. */
-    fun lockSeconds(context: Context): Int =
-        SettingsRanges.lockSeconds(context.prefs().getInt(KEY_LOCK, SettingsDefaults.LOCK_SECONDS))
+    fun lockSeconds(context: Context): Int {
+        val prefs = context.prefs()
+        // The breathing on/off switch became a 0 s minimum; anyone who had the exercise off
+        // keeps the closest equivalent. One-shot: the legacy key is dropped as it is read.
+        if (prefs.contains(KEY_LEGACY_BREATHING)) {
+            val wasOn = prefs.getBoolean(KEY_LEGACY_BREATHING, true)
+            val edit = prefs.edit().remove(KEY_LEGACY_BREATHING)
+            if (!wasOn) edit.putInt(KEY_LOCK, 0)
+            edit.apply()
+        }
+        return SettingsRanges.lockSeconds(prefs.getInt(KEY_LOCK, SettingsDefaults.LOCK_SECONDS))
+    }
 
     fun setLockSeconds(context: Context, value: Int) {
         context.prefs().edit().putInt(KEY_LOCK, value).apply()

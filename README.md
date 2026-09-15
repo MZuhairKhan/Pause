@@ -4,7 +4,7 @@ A small translucent floating button for Android that lets you set a "stop using 
 
 ## What it does
 
-Tap a draggable bubble that floats over any app. Pick a **duration** (5 / 10 / 15 min presets or a 1–120 min wheel) or set a **clock alarm**. When the timer fires, a full-screen 4-7-8 breathing wind-down helps you stop — or turn it off and the timer just ends.
+Tap a draggable bubble that floats over any app. Pick a **duration** (5 / 10 / 15 min presets or a 1–120 min wheel) or set a **clock alarm**. When the timer fires, a full-screen 4-7-8 breathing wind-down helps you stop — set its minimum time to 0 to skip straight to the dismiss options instead.
 
 Optionally, a **"Stop for now"** break covers apps you choose with a full-screen reminder whenever you open them.
 

@@ -222,7 +222,6 @@ class SettingsRangesTest {
 class SettingsDefaultsTest {
     @Test fun firstRunValuesAreTheChosenDefaults() {
         assertFalse(SettingsDefaults.SHOW_COUNTDOWN)   // bubble shows the draining hourglass
-        assertTrue(SettingsDefaults.BREATHING_ENABLED) // wind-down on by default
         assertEquals(4, SettingsDefaults.INHALE_SECONDS)
         assertEquals(7, SettingsDefaults.HOLD_SECONDS)
         assertEquals(8, SettingsDefaults.EXHALE_SECONDS)

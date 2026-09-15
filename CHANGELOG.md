@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Setup now shows what happens when a timer ends.** The wind-down is on by default and its
   dismiss options stay locked for the first 30 seconds, and nothing in setup said so — an F-Droid
   reviewer testing 0.5.0 could find no way out of it at all. A new step previews the breathing
-  circle at its real pace, names the lock, and lets you shorten it or turn the exercise off before
+  circle at its real pace, names the lock, and lets you shorten it — or skip it outright — before
   ever meeting it. The circle's arithmetic is now shared with the wind-down itself, so the preview
   can't drift from what it previews.
 - **German, Spanish, Italian, Portuguese, Swedish and Turkish string files**, extracted from review
@@ -41,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from its English source.
 
 ### Changed
+- **The breathing on/off switch is gone; skipping it is now a 0-second minimum.** The two
+  controls overlapped — "off" and a 0 s lock already looked almost the same — and "off" was the
+  odd one out: it hid the breathing circle behind a "Time's up" headline, while every other value
+  left it breathing. The exercise itself now always runs; **Skip right away** just sets the lock
+  to 0, and switching it back off restores whatever the lock held before. Anyone who had the
+  exercise off is migrated to a 0 s lock the first time settings are read.
 - **"Hide the bubble" is now "Stop Pause".** The button always ended the running timer; the label
   described only the visible half of that, and an F-Droid reviewer reasonably read hiding as parking
   a timer out of sight. While the overlay is running the button also carries a line saying stopping

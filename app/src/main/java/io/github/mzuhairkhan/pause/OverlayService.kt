@@ -1235,30 +1235,21 @@ class OverlayService : Service() {
         // happens to tap "Stop for now". Otherwise leaving via HOME (or the drag/back paths)
         // skipped the break entirely, so a blocked app opened right after showed no cover.
         startBreakIfConfigured()
-        if (SettingsStore.breathingEnabled(this)) {
-            startBreathingAnimator(circle, phase)
-            // Hold the screen non-skippable for the lock window, then fade the actions in. Under
-            // a screen reader, skip the lock so a TalkBack user isn't trapped in a modal with no
-            // announced way out.
-            val screenReader = (getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)
-                ?.isTouchExplorationEnabled == true
-            val lockMs = if (screenReader) 0L else SettingsStore.lockSeconds(this).toLong() * 1000L
-            view.postDelayed({
-                if (breathingView === view) {
-                    actions.alpha = 0f
-                    actions.visibility = View.VISIBLE
-                    actions.animate().alpha(1f).setDuration(250L).start()
-                }
-            }, lockMs)
-        } else {
-            // Wind-down turned off: skip the breathing exercise and the lock window, dropping
-            // straight to the dismiss options over the full themed background, with a headline
-            // filling the space the breathing circle would have occupied.
-            circle.visibility = View.GONE
-            phase.visibility = View.GONE
-            view.findViewById<View>(R.id.breathing_done).visibility = View.VISIBLE
-            actions.visibility = View.VISIBLE
-        }
+        startBreathingAnimator(circle, phase)
+        // Hold the screen non-skippable for the lock window, then fade the actions in. Under
+        // a screen reader, skip the lock so a TalkBack user isn't trapped in a modal with no
+        // announced way out. A lock of 0 (the user chose to skip it) takes the same path --
+        // postDelayed still reveals the actions, just on the next frame.
+        val screenReader = (getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)
+            ?.isTouchExplorationEnabled == true
+        val lockMs = if (screenReader) 0L else SettingsStore.lockSeconds(this).toLong() * 1000L
+        view.postDelayed({
+            if (breathingView === view) {
+                actions.alpha = 0f
+                actions.visibility = View.VISIBLE
+                actions.animate().alpha(1f).setDuration(250L).start()
+            }
+        }, lockMs)
     }
 
     private fun hideBreathing(keepMute: Boolean = false) {

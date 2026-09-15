@@ -39,7 +39,6 @@
     <string name="breathing_keep">Jatka selaamista</string>
     <string name="breathing_stop">Lopeta toistaiseksi</string>
     <string name="breathing_snooze">Torkuta %1$d min</string>
-    <string name="breathing_done">Harjoitus ohi</string>
 
     <string name="block_title">Tauolla</string>
     <string name="block_subtitle">%1$s on tauolla</string>
@@ -83,8 +82,6 @@
     <string name="done">Valmis</string>
 
     <string name="section_breathing">Rauhoittava hengitys</string>
-    <string name="breathing_toggle">Hengitysharjoitus</string>
-    <string name="breathing_toggle_subtitle">Pois päältä ohittaa harjoituksen — ajastin päättyy pelkkiin sulkemisvaihtoehtoihin.</string>
     <string name="no_skip_lock">Harjoituksen vähimmäiskesto</string>
     <string name="stepper_decrease">Vähennä: %1$s</string>
     <string name="stepper_increase">Lisää: %1$s</string>
@@ -127,7 +124,7 @@
     <string name="onb_apps_title">Estä häiritsevät sovellukset</string>
     <string name="onb_apps_body">Valinnainen — myönnä käyttötietojen käyttöoikeus ja valitse, mitä sovelluksia tauko peittää.</string>
     <string name="onb_breathing_title">Kun ajastin päättyy</string>
-    <string name="onb_breathing_body">Ensin tulee lyhyt hengitysharjoitus. Voit poistaa sen käytöstä.</string>
+    <string name="onb_breathing_body">Ensin tulee lyhyt hengitysharjoitus. Voit valita, kuinka pian voit sulkea sen.</string>
     <string name="onb_done_title">Kaikki valmista</string>
     <string name="onb_done_body">Näytä kupla napauttamalla Aloita.</string>
     <string name="onb_back">Takaisin</string>

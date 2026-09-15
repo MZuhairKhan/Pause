@@ -125,7 +125,6 @@ object SettingsRanges {
  */
 object SettingsDefaults {
     const val SHOW_COUNTDOWN = false
-    const val BREATHING_ENABLED = true
     const val INHALE_SECONDS = 4
     const val HOLD_SECONDS = 7
     const val EXHALE_SECONDS = 8

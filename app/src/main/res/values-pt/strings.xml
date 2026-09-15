@@ -39,7 +39,6 @@
     <string name="breathing_keep">Continua a deslizar</string>
     <string name="breathing_stop">Parar por agora</string>
     <string name="breathing_snooze">Adiar %1$d min</string>
-    <string name="breathing_done">Tempo esgotado</string>
 
     <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
     <string name="block_title">A fazer uma pausa</string>
@@ -84,8 +83,6 @@
     <string name="done">Concluído</string>
 
     <string name="section_breathing">Respiração relaxante</string>
-    <string name="breathing_toggle">Exercício de respiração</string>
-    <string name="breathing_toggle_subtitle">Se desativado, ignora o exercício — o temporizador termina apenas com as opções para fechar.</string>
     <string name="no_skip_lock">Duração mínima do exercício</string>
     <!-- Screen-reader labels for the stepper buttons; %1$s is the setting being changed. -->
     <string name="snooze_length">Duração do adiamento</string>
