@@ -330,6 +330,10 @@ class OverlayService : Service() {
         // bubble-metrics refresh above; showBubble()/showPicker() are no-ops if already up.
         if (intent?.action == ACTION_SHOW_PICKER) {
             showBubble()
+            // A bubble this branch just created still carries the layout's placeholder src --
+            // the state setters that swap in the real glyph all live below the return. Reflect
+            // the current state instead of resetting to it, so a running timer is left alone.
+            refreshBubbleGlyph()
             showPicker()
             return START_STICKY
         }
@@ -550,6 +554,16 @@ class OverlayService : Service() {
         }
         updateCountdown((endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0))
         refreshTicker()
+    }
+
+    /**
+     * Re-applies the glyph that matches the current timer state without changing that state.
+     * [showBubble] only inflates `overlay_bubble.xml`, whose `android:src` is a placeholder:
+     * unwrapped it has no [ShadowDrawable] to keep it legible on a light background, and it
+     * draws across the whole window rather than inside the blur margin that wrapper reserves.
+     */
+    private fun refreshBubbleGlyph() {
+        if (endTimeMillis > System.currentTimeMillis()) setBubbleActive() else setBubbleIdle()
     }
 
     private fun setBubbleIdle() {

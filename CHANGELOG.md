@@ -83,6 +83,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   finished, because the pick was only written through on the final button. It now behaves like
   every other wizard control that writes straight through — the bubble-size preset and the
   breathing lock beside it already did.
+- **The Quick Settings tile no longer puts up an oversized, shadowless bubble.** The tile opens
+  the picker through a branch that returns before the code which swaps the real glyph in, so a
+  bubble the tile itself had created kept the placeholder drawable from its layout. That drawable
+  carries no drop shadow — the thing that keeps a white glyph legible on a light background — and,
+  unwrapped, was drawn across the whole bubble window rather than inside the margin the shadow
+  reserves, making the stopwatch about 30% wider than every other way of starting Pause produces.
+  Starting from the app, the notification or a restart was never affected.
 - **Timers can no longer stack.** Because the "a timer is already running" check read state that a
   restart had erased, a session that came back idle would offer to start a second timer while the
   first was still armed, and the notification could describe one while the other was counting down.
