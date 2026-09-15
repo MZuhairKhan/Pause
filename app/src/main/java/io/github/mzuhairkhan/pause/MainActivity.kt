@@ -676,6 +676,18 @@ private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
             .substringBefore(',').substringBefore('-')
         mutableStateOf(primary.takeIf { it == "en" || it == "fi" })
     }
+    // Written straight through on pick, not deferred to Get started -- the rest of the wizard
+    // should read in the language just chosen rather than finish it in English. AppCompat
+    // recreates the Activity to apply this (the framework's own LocaleManager on 33+, its
+    // recreate() below that), which is exactly why selectedLang, wizardBreathingOn,
+    // wizardLockSec and the pager's own position are all rememberSaveable.
+    val selectLanguage: (String?) -> Unit = { tag ->
+        selectedLang = tag
+        AppCompatDelegate.setApplicationLocales(
+            if (tag == null) LocaleListCompat.getEmptyLocaleList()
+            else LocaleListCompat.forLanguageTags(tag)
+        )
+    }
 
     Column(modifier = modifier.fillMaxSize().padding(24.dp)) {
         HorizontalPager(state = pager, modifier = Modifier.weight(1f)) { page ->
@@ -702,7 +714,7 @@ private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
                                 .selectable(
                                     selected = selectedLang == tag,
                                     role = Role.RadioButton,
-                                    onClick = { selectedLang = tag }
+                                    onClick = { selectLanguage(tag) }
                                 )
                                 .padding(horizontal = 8.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -873,10 +885,8 @@ private fun SetupWizard(modifier: Modifier = Modifier, onFinish: () -> Unit) {
             val last = pager.currentPage == pageCount - 1
             Button(onClick = {
                 if (last) {
-                    AppCompatDelegate.setApplicationLocales(
-                        if (selectedLang == null) LocaleListCompat.getEmptyLocaleList()
-                        else LocaleListCompat.forLanguageTags(selectedLang)
-                    )
+                    // Language is applied the moment it's picked (selectLanguage above); nothing
+                    // left to do with it here.
                     SettingsStore.setOnboardingComplete(context, true)
                     // Only the overlay permission gates starting; see the matching comment on
                     // the Settings screen's Start button for why notificationsGranted does not.

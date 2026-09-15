@@ -78,6 +78,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback trusted an in-memory deadline that a stop never touches, so a live service instance
   could still raise the wind-down off a timer that was already gone from disk. It now asks
   `PauseState` the same way `TimerReceiver` does before trusting that fallback.
+- **The setup wizard's language pick now applies the moment it's tapped**, not deferred to
+  Get started. Picking Suomi on page 2 used to leave every later page in English until the wizard
+  finished, because the pick was only written through on the final button. It now behaves like
+  every other wizard control that writes straight through — the bubble-size preset and the
+  breathing lock beside it already did.
 - **Timers can no longer stack.** Because the "a timer is already running" check read state that a
   restart had erased, a session that came back idle would offer to start a second timer while the
   first was still armed, and the notification could describe one while the other was counting down.
