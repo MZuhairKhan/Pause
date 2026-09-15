@@ -72,6 +72,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   actually due: a broadcast with nothing behind it is spurious and gets dropped and cancelled
   instead of raising an overlay. Why the original cancel didn't take on that ROM was never
   established, which is the point — the guard doesn't depend on knowing.
+- **The same stopped-timer wind-down, reached a second way.** The alarm guard above closed the
+  `AlarmManager` path, but device testing found the overlay still arriving after a stop with *zero*
+  alarm broadcasts involved: the per-second ticker's own "the alarm should have fired by now"
+  fallback trusted an in-memory deadline that a stop never touches, so a live service instance
+  could still raise the wind-down off a timer that was already gone from disk. It now asks
+  `PauseState` the same way `TimerReceiver` does before trusting that fallback.
 - **Timers can no longer stack.** Because the "a timer is already running" check read state that a
   restart had erased, a session that came back idle would offer to start a second timer while the
   first was still armed, and the notification could describe one while the other was counting down.

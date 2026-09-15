@@ -216,11 +216,31 @@ class OverlayService : Service() {
                 rawRemaining > 0 -> tickHandler.postDelayed(this, 1000L)
                 // The scheduled alarm should have fired the wind-down by now. If it didn't
                 // (some OEMs silently drop alarms under battery management), fire it here so
-                // the timer never just expires unnoticed. resetToIdle() clears the timer the
-                // same way the real fired path does, and showBreathing() no-ops if it's up.
+                // the timer never just expires unnoticed.
+                //
+                // [endTimeMillis] alone can't authorize that: it belongs to this instance and
+                // outlives the timer it describes, because a stop clears the *persisted* timer
+                // without reaching in here. Ask [PauseState] instead, exactly as [TimerReceiver]
+                // does for an alarm broadcast -- and ask before resetToIdle(), which clears it.
                 endTimeMillis > 0L && breathingView == null && blockUntilMillis == 0L -> {
-                    resetToIdle()
-                    showBreathing()
+                    val persisted = PauseState.snapshot(this@OverlayService)
+                    when (TimerFire.decide(persisted.timerEndMillis, System.currentTimeMillis())) {
+                        TimerFire.Decision.FIRE -> {
+                            // resetToIdle() clears the timer the same way the real fired path
+                            // does, and showBreathing() no-ops if it's already up.
+                            resetToIdle()
+                            showBreathing()
+                        }
+                        // Nothing is persisted: the timer was stopped and this is its ghost.
+                        TimerFire.Decision.ORPHAN -> resetToIdle()
+                        // A timer is persisted, but later than the deadline this instance holds.
+                        // Adopt the real one and keep counting, as restoreSession() would.
+                        TimerFire.Decision.TOO_EARLY -> {
+                            startTimeMillis = persisted.timerStartMillis
+                            endTimeMillis = persisted.timerEndMillis
+                            setBubbleActive()
+                        }
+                    }
                 }
             }
         }
