@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `CONTRIBUTORS.md`, where contributors add their own name. It replaces the README's Credits list,
   and the README's Translations section is merged into Contributing.
+- Added a contributor and updated the README.md
 
 ## [0.6.0] — 2026-09-16
 
@@ -338,3 +339,4 @@ that release.
   grows on inhale, holds, shrinks on exhale; no numbers), with a configurable
   no-skip lock window.
 - Theming: system/light/dark mode, preset accent colors, and a custom color picker.
+- 
