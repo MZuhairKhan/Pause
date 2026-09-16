@@ -1,5 +1,6 @@
 package io.github.mzuhairkhan.pause
 
+import android.Manifest
 import android.app.AlarmManager
 import android.app.Application
 import android.app.NotificationManager
@@ -14,6 +15,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -374,6 +376,31 @@ class OverlayServiceTest {
         tickTo(end)
 
         assertFalse("a stopped service must raise nothing at all", windDownAppeared())
+    }
+
+    @Test
+    fun `a destroyed service's ticker stops repainting the running notification`() {
+        // The quieter half of the same stale-field problem: a ticker restarted during teardown
+        // outlives the instance, repainting "Alarm in Xm" over the idle notification.
+        ShadowSettings.setCanDrawOverlays(true)
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        // Far enough out that the ticker's own ORPHAN guard never reaches it -- that guard only
+        // stops the lie once the deadline passes.
+        val end = System.currentTimeMillis() + 30 * 60_000L
+        PauseState.setTimer(app, System.currentTimeMillis(), end)
+        PauseAlarm.schedule(app, end)
+
+        val service = newService()
+        service.onStartCommand(null, 0, 1)
+        service.onDestroy()
+
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+
+        val cancel = shadowOf(app.getSystemService(NotificationManager::class.java))
+            .allNotifications
+            .flatMap { it.actions?.asList().orEmpty() }
+            .firstOrNull { it.title == app.getString(R.string.picker_cancel) }
+        assertNull("a stopped service must not go on advertising a timer it no longer has", cancel)
     }
 
     @Test

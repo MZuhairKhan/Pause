@@ -84,6 +84,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback trusted an in-memory deadline that a stop never touches, so a live service instance
   could still raise the wind-down off a timer that was already gone from disk. It now asks
   `PauseState` the same way `TimerReceiver` does before trusting that fallback.
+- **A stopped Pause no longer leaves a phantom countdown in the shade.** Device testing caught the
+  notification still advertising "Alarm in 4m" with nothing armed and no timer on disk. `onDestroy()`
+  leaves `endTimeMillis` set, and its teardown runs `hidePicker()` after `stopTicker()` — which ends
+  in `refreshTicker()` and restarted the ticker off that stale field. Nothing held the dead instance,
+  so nothing could cancel it again. The ticker now refuses to start once destruction has begun.
 - **The setup wizard's language pick now applies the moment it's tapped**, not deferred to
   Get started. Picking Suomi on page 2 used to leave every later page in English until the wizard
   finished, because the pick was only written through on the final button. It now behaves like

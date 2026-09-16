@@ -111,6 +111,13 @@ class OverlayService : Service() {
      */
     private var refusedPromotion = false
 
+    /**
+     * Set once [onDestroy] begins. Teardown reaches [refreshTicker] ([hidePicker] ends in one)
+     * while [endTimeMillis] is deliberately still set, which would restart the ticker on an
+     * instance nothing holds any more -- and nothing could then cancel it again.
+     */
+    private var destroyed = false
+
     /** Packages covered for the duration of the current break. */
     private var blockedPackages: Set<String> = emptySet()
 
@@ -371,6 +378,7 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        destroyed = true
         _running.value = false
         // A manual stop cancels any pending timer so it can't fire after the overlay is gone --
         // and clears it from disk with it, or every PauseState reader (the widget, a later
@@ -1162,6 +1170,7 @@ class OverlayService : Service() {
     }
 
     private fun startTicker() {
+        if (destroyed) return
         tickHandler.removeCallbacks(tickRunnable)
         tickHandler.post(tickRunnable)
     }
