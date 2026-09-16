@@ -11,3 +11,4 @@ People who helped build Pause. Add yourself as `- Name or handle - what you did`
 ## Code
 
 ## Ideas, design and testing
+- Zarin Maisha - Helped with the idea and testing
