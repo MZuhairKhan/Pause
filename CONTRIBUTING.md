@@ -39,6 +39,12 @@ requests are exempt.)
 Match the surrounding code; comments should say why, not restate what. New behaviour needs tests in
 the same change.
 
+## Credit
+
+Add yourself to `CONTRIBUTORS.md` in your pull request. A real name, handle or nickname is fine, but
+Git history keeps it even if removed later. Translated on Weblate without Git? Open an issue with the
+name you want.
+
 ## Architecture
 
 `ONBOARDING.md` documents the architecture, permission model and translation setup. Its second
