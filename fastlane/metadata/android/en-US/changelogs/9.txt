@@ -1,0 +1,7 @@
+• The breathing wind-down no longer has an on/off switch. It always runs, and a new "Skip right away" option sets its minimum time to zero so the dismiss buttons appear at once — if you had the exercise off, it becomes a zero-second minimum.
+• Setup now shows what happens when a timer ends, and lets you shorten or skip that wait before you first meet it.
+• Stopping Pause cancels a running timer immediately, so a stopped timer can no longer fire later — and no longer leaves a phantom countdown in the shade.
+• Two timers can no longer run at once; a leftover alarm from an older timer is ignored rather than obeyed.
+• A running timer can be cancelled straight from its notification.
+• "Hide the bubble" is now "Stop Pause" — it always ended the timer, and now says so.
+• New: a Quick Settings tile, a themed launcher icon, and a setup wizard that switches language as soon as you pick one.
