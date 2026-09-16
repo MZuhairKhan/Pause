@@ -1196,29 +1196,32 @@ private fun MinimumTimeControls(lockSec: Int, onChange: (Int) -> Unit) {
     var remembered by rememberSaveable {
         mutableStateOf(if (lockSec == 0) SettingsDefaults.LOCK_SECONDS else lockSec)
     }
-    SwitchRow(
-        stringResource(R.string.breathing_skip),
-        lockSec == 0,
-        subtitle = stringResource(R.string.breathing_skip_subtitle)
-    ) { skip ->
-        if (skip) {
-            remembered = lockSec
-            onChange(0)
-        } else {
-            onChange(remembered)
+    // Its own Column with a fixed gap, rather than relying on whatever arrangement the caller's
+    // Column happens to use: SettingsSection already spaces its children by 12dp, and stacking
+    // a second 12dp spacer on top of that doubled the gap there while the wizard page (which
+    // doesn't space its children at all) needed that spacer just to avoid a collision.
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SwitchRow(
+            stringResource(R.string.breathing_skip),
+            lockSec == 0,
+            subtitle = stringResource(R.string.breathing_skip_subtitle)
+        ) { skip ->
+            if (skip) {
+                remembered = lockSec
+                onChange(0)
+            } else {
+                onChange(remembered)
+            }
         }
-    }
-    if (lockSec != 0) {
-        // WizardPage doesn't space its children; without this the stepper's label collides
-        // with the switch subtitle's second line in Finnish.
-        Spacer(Modifier.height(12.dp))
-        StepperRow(
-            stringResource(R.string.no_skip_lock),
-            lockSec,
-            min = SettingsRanges.LOCK_MIN_SECONDS,
-            max = SettingsRanges.LOCK_MAX_SECONDS,
-            onChange = onChange
-        )
+        if (lockSec != 0) {
+            StepperRow(
+                stringResource(R.string.no_skip_lock),
+                lockSec,
+                min = SettingsRanges.LOCK_MIN_SECONDS,
+                max = SettingsRanges.LOCK_MAX_SECONDS,
+                onChange = onChange
+            )
+        }
     }
 }
 
