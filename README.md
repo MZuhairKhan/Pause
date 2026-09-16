@@ -26,7 +26,7 @@ On first launch the app walks you through the permission grants it needs: displa
 
 ## Contributing
 
-Bug reports, translations and code are welcome. See `CONTRIBUTING.md` for how, and
+Bug reports, translations and code are welcome. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for how, and
 [`CONTRIBUTORS.md`](CONTRIBUTORS.md) for who has helped.
 
 ## License
