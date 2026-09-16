@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CONTRIBUTORS.md`, where contributors add their own name. It replaces the README's Credits list,
   and the README's Translations section is merged into Contributing.
 - Added a contributor and updated the README.md.
+- **A `translations` label**, auto-applied to Weblate's PRs. They come from a fork, so labeling
+  them needs `pull_request_target` rather than `pull_request` — the job only calls the label API,
+  never checks out or runs the fork's code, so the elevated token is safe.
 
 ## [0.6.0] — 2026-09-16
 
