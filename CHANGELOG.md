@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Setup now shows what happens when a timer ends.** The wind-down is on by default and its
   dismiss options stay locked for the first 30 seconds, and nothing in setup said so — an F-Droid
   reviewer testing 0.5.0 could find no way out of it at all. A new step previews the breathing
-  circle at its real pace, names the lock, and lets you shorten it or turn the exercise off before
+  circle at its real pace, names the lock, and lets you shorten it — or skip it outright — before
   ever meeting it. The circle's arithmetic is now shared with the wind-down itself, so the preview
   can't drift from what it previews.
 - **German, Spanish, Italian, Portuguese, Swedish and Turkish string files**, extracted from review
@@ -41,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from its English source.
 
 ### Changed
+- **The breathing on/off switch is gone; skipping it is now a 0-second minimum.** The two
+  controls overlapped — "off" and a 0 s lock already looked almost the same — and "off" was the
+  odd one out: it hid the breathing circle behind a "Time's up" headline, while every other value
+  left it breathing. The exercise itself now always runs; **Skip right away** just sets the lock
+  to 0, and switching it back off restores whatever the lock held before. Anyone who had the
+  exercise off is migrated to a 0 s lock the first time settings are read.
 - **"Hide the bubble" is now "Stop Pause".** The button always ended the running timer; the label
   described only the visible half of that, and an F-Droid reviewer reasonably read hiding as parking
   a timer out of sight. While the overlay is running the button also carries a line saying stopping
@@ -72,6 +78,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   actually due: a broadcast with nothing behind it is spurious and gets dropped and cancelled
   instead of raising an overlay. Why the original cancel didn't take on that ROM was never
   established, which is the point — the guard doesn't depend on knowing.
+- **The same stopped-timer wind-down, reached a second way.** The alarm guard above closed the
+  `AlarmManager` path, but device testing found the overlay still arriving after a stop with *zero*
+  alarm broadcasts involved: the per-second ticker's own "the alarm should have fired by now"
+  fallback trusted an in-memory deadline that a stop never touches, so a live service instance
+  could still raise the wind-down off a timer that was already gone from disk. It now asks
+  `PauseState` the same way `TimerReceiver` does before trusting that fallback.
+- **A stopped Pause no longer leaves a phantom countdown in the shade.** Device testing caught the
+  notification still advertising "Alarm in 4m" with nothing armed and no timer on disk. `onDestroy()`
+  leaves `endTimeMillis` set, and its teardown runs `hidePicker()` after `stopTicker()` — which ends
+  in `refreshTicker()` and restarted the ticker off that stale field. Nothing held the dead instance,
+  so nothing could cancel it again. The ticker now refuses to start once destruction has begun.
+- **The setup wizard's language pick now applies the moment it's tapped**, not deferred to
+  Get started. Picking Suomi on page 2 used to leave every later page in English until the wizard
+  finished, because the pick was only written through on the final button. It now behaves like
+  every other wizard control that writes straight through — the bubble-size preset and the
+  breathing lock beside it already did.
+- **The Quick Settings tile no longer puts up an oversized, shadowless bubble.** The tile opens
+  the picker through a branch that returns before the code which swaps the real glyph in, so a
+  bubble the tile itself had created kept the placeholder drawable from its layout. That drawable
+  carries no drop shadow — the thing that keeps a white glyph legible on a light background — and,
+  unwrapped, was drawn across the whole bubble window rather than inside the margin the shadow
+  reserves, making the stopwatch about 30% wider than every other way of starting Pause produces.
+  Starting from the app, the notification or a restart was never affected.
 - **Timers can no longer stack.** Because the "a timer is already running" check read state that a
   restart had erased, a session that came back idle would offer to start a second timer while the
   first was still armed, and the notification could describe one while the other was counting down.

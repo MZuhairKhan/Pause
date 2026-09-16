@@ -39,7 +39,6 @@
     <string name="breathing_keep">Kaydırmaya devam et</string>
     <string name="breathing_stop">Şimdilik dur</string>
     <string name="breathing_snooze">%1$d dk ertele</string>
-    <string name="breathing_done">Süre doldu</string>
 
     <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
     <string name="block_title">Mola veriliyor</string>
@@ -84,8 +83,6 @@
     <string name="done">Tamam</string>
 
     <string name="section_breathing">Rahatlatıcı nefes</string>
-    <string name="breathing_toggle">Nefes egzersizi</string>
-    <string name="breathing_toggle_subtitle">Kapalıyken egzersizi atlar — zamanlayıcı yalnızca kapatma seçenekleriyle biter.</string>
     <string name="no_skip_lock">En az egzersiz süresi</string>
     <!-- Screen-reader labels for the stepper buttons; %1$s is the setting being changed. -->
     <string name="snooze_length">Erteleme süresi</string>

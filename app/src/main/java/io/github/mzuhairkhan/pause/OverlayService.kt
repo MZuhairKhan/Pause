@@ -111,6 +111,13 @@ class OverlayService : Service() {
      */
     private var refusedPromotion = false
 
+    /**
+     * Set once [onDestroy] begins. Teardown reaches [refreshTicker] ([hidePicker] ends in one)
+     * while [endTimeMillis] is deliberately still set, which would restart the ticker on an
+     * instance nothing holds any more -- and nothing could then cancel it again.
+     */
+    private var destroyed = false
+
     /** Packages covered for the duration of the current break. */
     private var blockedPackages: Set<String> = emptySet()
 
@@ -216,11 +223,31 @@ class OverlayService : Service() {
                 rawRemaining > 0 -> tickHandler.postDelayed(this, 1000L)
                 // The scheduled alarm should have fired the wind-down by now. If it didn't
                 // (some OEMs silently drop alarms under battery management), fire it here so
-                // the timer never just expires unnoticed. resetToIdle() clears the timer the
-                // same way the real fired path does, and showBreathing() no-ops if it's up.
+                // the timer never just expires unnoticed.
+                //
+                // [endTimeMillis] alone can't authorize that: it belongs to this instance and
+                // outlives the timer it describes, because a stop clears the *persisted* timer
+                // without reaching in here. Ask [PauseState] instead, exactly as [TimerReceiver]
+                // does for an alarm broadcast -- and ask before resetToIdle(), which clears it.
                 endTimeMillis > 0L && breathingView == null && blockUntilMillis == 0L -> {
-                    resetToIdle()
-                    showBreathing()
+                    val persisted = PauseState.snapshot(this@OverlayService)
+                    when (TimerFire.decide(persisted.timerEndMillis, System.currentTimeMillis())) {
+                        TimerFire.Decision.FIRE -> {
+                            // resetToIdle() clears the timer the same way the real fired path
+                            // does, and showBreathing() no-ops if it's already up.
+                            resetToIdle()
+                            showBreathing()
+                        }
+                        // Nothing is persisted: the timer was stopped and this is its ghost.
+                        TimerFire.Decision.ORPHAN -> resetToIdle()
+                        // A timer is persisted, but later than the deadline this instance holds.
+                        // Adopt the real one and keep counting, as restoreSession() would.
+                        TimerFire.Decision.TOO_EARLY -> {
+                            startTimeMillis = persisted.timerStartMillis
+                            endTimeMillis = persisted.timerEndMillis
+                            setBubbleActive()
+                        }
+                    }
                 }
             }
         }
@@ -310,6 +337,10 @@ class OverlayService : Service() {
         // bubble-metrics refresh above; showBubble()/showPicker() are no-ops if already up.
         if (intent?.action == ACTION_SHOW_PICKER) {
             showBubble()
+            // A bubble this branch just created still carries the layout's placeholder src --
+            // the state setters that swap in the real glyph all live below the return. Reflect
+            // the current state instead of resetting to it, so a running timer is left alone.
+            refreshBubbleGlyph()
             showPicker()
             return START_STICKY
         }
@@ -347,6 +378,7 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        destroyed = true
         _running.value = false
         // A manual stop cancels any pending timer so it can't fire after the overlay is gone --
         // and clears it from disk with it, or every PauseState reader (the widget, a later
@@ -530,6 +562,16 @@ class OverlayService : Service() {
         }
         updateCountdown((endTimeMillis - System.currentTimeMillis()).coerceAtLeast(0))
         refreshTicker()
+    }
+
+    /**
+     * Re-applies the glyph that matches the current timer state without changing that state.
+     * [showBubble] only inflates `overlay_bubble.xml`, whose `android:src` is a placeholder:
+     * unwrapped it has no [ShadowDrawable] to keep it legible on a light background, and it
+     * draws across the whole window rather than inside the blur margin that wrapper reserves.
+     */
+    private fun refreshBubbleGlyph() {
+        if (endTimeMillis > System.currentTimeMillis()) setBubbleActive() else setBubbleIdle()
     }
 
     private fun setBubbleIdle() {
@@ -1128,6 +1170,7 @@ class OverlayService : Service() {
     }
 
     private fun startTicker() {
+        if (destroyed) return
         tickHandler.removeCallbacks(tickRunnable)
         tickHandler.post(tickRunnable)
     }
@@ -1201,30 +1244,21 @@ class OverlayService : Service() {
         // happens to tap "Stop for now". Otherwise leaving via HOME (or the drag/back paths)
         // skipped the break entirely, so a blocked app opened right after showed no cover.
         startBreakIfConfigured()
-        if (SettingsStore.breathingEnabled(this)) {
-            startBreathingAnimator(circle, phase)
-            // Hold the screen non-skippable for the lock window, then fade the actions in. Under
-            // a screen reader, skip the lock so a TalkBack user isn't trapped in a modal with no
-            // announced way out.
-            val screenReader = (getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)
-                ?.isTouchExplorationEnabled == true
-            val lockMs = if (screenReader) 0L else SettingsStore.lockSeconds(this).toLong() * 1000L
-            view.postDelayed({
-                if (breathingView === view) {
-                    actions.alpha = 0f
-                    actions.visibility = View.VISIBLE
-                    actions.animate().alpha(1f).setDuration(250L).start()
-                }
-            }, lockMs)
-        } else {
-            // Wind-down turned off: skip the breathing exercise and the lock window, dropping
-            // straight to the dismiss options over the full themed background, with a headline
-            // filling the space the breathing circle would have occupied.
-            circle.visibility = View.GONE
-            phase.visibility = View.GONE
-            view.findViewById<View>(R.id.breathing_done).visibility = View.VISIBLE
-            actions.visibility = View.VISIBLE
-        }
+        startBreathingAnimator(circle, phase)
+        // Hold the screen non-skippable for the lock window, then fade the actions in. Under
+        // a screen reader, skip the lock so a TalkBack user isn't trapped in a modal with no
+        // announced way out. A lock of 0 (the user chose to skip it) takes the same path --
+        // postDelayed still reveals the actions, just on the next frame.
+        val screenReader = (getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)
+            ?.isTouchExplorationEnabled == true
+        val lockMs = if (screenReader) 0L else SettingsStore.lockSeconds(this).toLong() * 1000L
+        view.postDelayed({
+            if (breathingView === view) {
+                actions.alpha = 0f
+                actions.visibility = View.VISIBLE
+                actions.animate().alpha(1f).setDuration(250L).start()
+            }
+        }, lockMs)
     }
 
     private fun hideBreathing(keepMute: Boolean = false) {

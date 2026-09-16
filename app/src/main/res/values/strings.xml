@@ -42,7 +42,6 @@
     <string name="breathing_keep">Keep scrolling</string>
     <string name="breathing_stop">Stop for now</string>
     <string name="breathing_snooze">Snooze %1$dm</string>
-    <string name="breathing_done">Time\'s up</string>
 
     <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
     <string name="block_title">Taking a break</string>
@@ -90,8 +89,8 @@
     <string name="done">Done</string>
 
     <string name="section_breathing">Breathing wind-down</string>
-    <string name="breathing_toggle">Breathing exercise</string>
-    <string name="breathing_toggle_subtitle">Off skips the exercise — the timer ends with just the dismiss options.</string>
+    <string name="breathing_skip" tools:ignore="MissingTranslation">Skip right away</string>
+    <string name="breathing_skip_subtitle" tools:ignore="MissingTranslation">Show the dismiss buttons the moment the timer ends.</string>
     <string name="no_skip_lock">Minimum exercise time</string>
     <!-- Screen-reader labels for the stepper buttons; %1$s is the setting being changed. -->
     <string name="stepper_decrease" tools:ignore="MissingTranslation">Decrease %1$s</string>
@@ -135,7 +134,7 @@
     <string name="onb_apps_title">Block distracting apps</string>
     <string name="onb_apps_body">Optional — grant Usage access, then choose the apps a break should cover.</string>
     <string name="onb_breathing_title" tools:ignore="MissingTranslation">When your timer ends</string>
-    <string name="onb_breathing_body" tools:ignore="MissingTranslation">A short breathing exercise comes first. You can turn it off.</string>
+    <string name="onb_breathing_body" tools:ignore="MissingTranslation">A short breathing exercise comes first. You choose how long before you can dismiss it.</string>
     <string name="onb_done_title">You\'re all set</string>
     <string name="onb_done_body">Tap Get started to show the bubble.</string>
     <string name="onb_back">Back</string>

@@ -39,7 +39,6 @@
     <string name="breathing_keep">Fortsätt skrolla</string>
     <string name="breathing_stop">Sluta för nu</string>
     <string name="breathing_snooze">Snooza %1$d min</string>
-    <string name="breathing_done">Tiden är ute</string>
 
     <!-- App-blocking break (shown when a chosen app is opened during a "Stop for now" break) -->
     <string name="block_title">Tar en paus</string>
@@ -84,8 +83,6 @@
     <string name="done">Klar</string>
 
     <string name="section_breathing">Lugnande andning</string>
-    <string name="breathing_toggle">Andningsövning</string>
-    <string name="breathing_toggle_subtitle">Av hoppar över övningen – timern avslutas med bara stängningsalternativen.</string>
     <string name="no_skip_lock">Minsta övningstid</string>
     <!-- Screen-reader labels for the stepper buttons; %1$s is the setting being changed. -->
     <string name="snooze_length">Snooze-längd</string>

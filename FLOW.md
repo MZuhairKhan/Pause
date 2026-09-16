@@ -27,8 +27,7 @@ flowchart TD
     CancelStop --> Off
 
     WindDown{Wind-down opens}
-    WindDown -->|breathing on| Breathe[4-7-8 breathing - non-skippable lock window]
-    WindDown -->|breathing off| Actions
+    WindDown --> Breathe[4-7-8 breathing - non-skippable lock window, 0s if skipped]
     Breathe -->|lock window elapses| Actions[Keep scrolling / Stop for now / Snooze]
 
     Actions -->|Keep scrolling| Idle

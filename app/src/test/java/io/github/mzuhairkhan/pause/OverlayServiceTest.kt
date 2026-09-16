@@ -1,5 +1,6 @@
 package io.github.mzuhairkhan.pause
 
+import android.Manifest
 import android.app.AlarmManager
 import android.app.Application
 import android.app.NotificationManager
@@ -9,10 +10,12 @@ import android.media.AudioManager
 import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import java.time.Duration
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -313,5 +316,143 @@ class OverlayServiceTest {
             "cancelling a timer is not stopping Pause -- the bubble stays",
             shadowOf(service).isStoppedBySelf
         )
+    }
+
+    /**
+     * Drives the per-second ticker to its deadline on a service that is still alive, having set
+     * [STREAM_MUSIC][AudioManager.STREAM_MUSIC] to 5 first: `showBreathing()` mutes media on entry
+     * and `resetToIdle()` never touches audio, so a 5 that stays 5 means no wind-down appeared.
+     */
+    private fun tickTo(endMillis: Long) {
+        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, 5, 0)
+        // Robolectric simulates the *looper* clock, not `System.currentTimeMillis()`, and
+        // tickRunnable measures against the latter -- so idling alone never reaches the deadline.
+        // Hence a real (tiny) wait, then an idle to release the queued tick.
+        val remaining = endMillis - System.currentTimeMillis()
+        if (remaining > 0) Thread.sleep(remaining + TICK_OVERSHOOT_MILLIS)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+    }
+
+    private fun windDownAppeared(): Boolean =
+        audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0
+
+    @Test
+    fun `a stopped timer does not raise the wind-down when the ticker reaches its deadline`() {
+        // The reviewer's case, reached through the ticker rather than the alarm: the timer is
+        // stopped, so PauseState is empty, but this instance still holds the old deadline in
+        // endTimeMillis. The OEM-dropped-alarm fallback must not fire off a stale field.
+        ShadowSettings.setCanDrawOverlays(true)
+        val end = System.currentTimeMillis() + TICK_DEADLINE_MILLIS
+        PauseState.setTimer(app, System.currentTimeMillis(), end)
+        PauseAlarm.schedule(app, end)
+
+        val service = newService()
+        service.onStartCommand(null, 0, 1)
+
+        // What OverlayService.stop() writes before it asks the service to go.
+        PauseAlarm.cancel(app)
+        PauseState.clearTimer(app)
+
+        tickTo(end)
+
+        assertFalse(
+            "a timer the user stopped must never raise a wind-down over what they are doing",
+            windDownAppeared()
+        )
+    }
+
+    @Test
+    fun `a destroyed service's ticker does not fire afterwards`() {
+        // The other half of the stop: even with the instance gone, nothing queued on its handler
+        // may still reach showBreathing().
+        ShadowSettings.setCanDrawOverlays(true)
+        val end = System.currentTimeMillis() + TICK_DEADLINE_MILLIS
+        PauseState.setTimer(app, System.currentTimeMillis(), end)
+
+        val service = newService()
+        service.onStartCommand(null, 0, 1)
+        service.onDestroy()
+
+        tickTo(end)
+
+        assertFalse("a stopped service must raise nothing at all", windDownAppeared())
+    }
+
+    @Test
+    fun `a destroyed service's ticker stops repainting the running notification`() {
+        // The quieter half of the same stale-field problem: a ticker restarted during teardown
+        // outlives the instance, repainting "Alarm in Xm" over the idle notification.
+        ShadowSettings.setCanDrawOverlays(true)
+        shadowOf(app).grantPermissions(Manifest.permission.POST_NOTIFICATIONS)
+        // Far enough out that the ticker's own ORPHAN guard never reaches it -- that guard only
+        // stops the lie once the deadline passes.
+        val end = System.currentTimeMillis() + 30 * 60_000L
+        PauseState.setTimer(app, System.currentTimeMillis(), end)
+        PauseAlarm.schedule(app, end)
+
+        val service = newService()
+        service.onStartCommand(null, 0, 1)
+        service.onDestroy()
+
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+
+        val cancel = shadowOf(app.getSystemService(NotificationManager::class.java))
+            .allNotifications
+            .flatMap { it.actions?.asList().orEmpty() }
+            .firstOrNull { it.title == app.getString(R.string.picker_cancel) }
+        assertNull("a stopped service must not go on advertising a timer it no longer has", cancel)
+    }
+
+    @Test
+    fun `the ticker still fires the wind-down when the alarm was dropped but the timer stands`() {
+        // Why the fallback exists: some OEMs silently drop the alarm. PauseState still has the
+        // timer, so the wind-down is genuinely due and the guard above must not swallow it.
+        ShadowSettings.setCanDrawOverlays(true)
+        val end = System.currentTimeMillis() + TICK_DEADLINE_MILLIS
+        PauseState.setTimer(app, System.currentTimeMillis(), end)
+
+        val service = newService()
+        service.onStartCommand(null, 0, 1)
+
+        tickTo(end)
+
+        assertTrue(
+            "a due timer whose alarm never arrived is exactly what the ticker is for",
+            windDownAppeared()
+        )
+    }
+
+    @Test
+    fun `a ticker deadline earlier than the persisted one resyncs instead of firing`() {
+        // endTimeMillis can lag the real deadline (a timer re-armed elsewhere). Firing early is
+        // worse than late, so adopt what's on disk and keep counting toward it.
+        ShadowSettings.setCanDrawOverlays(true)
+        val stale = System.currentTimeMillis() + TICK_DEADLINE_MILLIS
+        PauseState.setTimer(app, System.currentTimeMillis(), stale)
+
+        val service = newService()
+        service.onStartCommand(null, 0, 1)
+
+        val real = System.currentTimeMillis() + 30 * 60_000L
+        PauseState.setTimer(app, System.currentTimeMillis(), real)
+
+        tickTo(stale)
+
+        assertFalse("a wind-down half an hour early is worse than a late one", windDownAppeared())
+        assertEquals(
+            "the ticker should now be counting toward the persisted deadline",
+            real,
+            PauseState.snapshot(app).timerEndMillis
+        )
+    }
+
+    private companion object {
+        /**
+         * Must comfortably outlast building the service under Robolectric: if the deadline has
+         * already passed by the time `restoreSession()` reads it, the restore fires the wind-down
+         * itself as `TimerExpiredWhileDead` and the ticker -- the thing under test -- never runs.
+         */
+        const val TICK_DEADLINE_MILLIS = 3_000L
+        const val TICK_OVERSHOOT_MILLIS = 150L
     }
 }

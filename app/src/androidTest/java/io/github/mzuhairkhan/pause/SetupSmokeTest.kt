@@ -57,12 +57,12 @@ class SetupSmokeTest {
      * Sections are disclosure panels that start *expanded*, so tapping the header collapses.
      * This walks collapse then expand, checking the renamed "Minimum exercise time" row follows.
      *
-     * The row lives behind `if (breathingOn)`, so the toggle is seeded on: another test in the
-     * same process could otherwise have turned it off and taken the row with it.
+     * The row lives behind a non-zero lock, so it's seeded away from zero: another test in the
+     * same process could otherwise have skipped it and taken the row with it.
      */
     @Test
     fun breathingSectionCollapsesAndExpands() {
-        SettingsStore.setBreathingEnabled(app, true)
+        SettingsStore.setLockSeconds(app, SettingsDefaults.LOCK_SECONDS)
         launchSettings()
 
         val header = app.getString(R.string.section_breathing)

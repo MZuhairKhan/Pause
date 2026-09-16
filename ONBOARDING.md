@@ -1,9 +1,10 @@
 # Pause — Onboarding & Release Tracker
 
 **Pause** is an Android digital-wellbeing app: a draggable floating bubble runs a timer; when it
-ends, a 4-7-8 breathing wind-down (skippable) plays, and a "Stop for now" break can cover chosen
-apps (TikTok/Instagram/…) for a set time. Kotlin, Jetpack Compose setup screen + a foreground
-`OverlayService` that draws the overlays. Package `io.github.mzuhairkhan.pause`.
+ends, a 4-7-8 breathing wind-down plays (its non-skippable lock can be set down to 0), and a
+"Stop for now" break can cover chosen apps (TikTok/Instagram/…) for a set time. Kotlin, Jetpack
+Compose setup screen + a foreground `OverlayService` that draws the overlays. Package
+`io.github.mzuhairkhan.pause`.
 
 Near-term goal: **ship on F-Droid**. Possibly Google Play later (optional).
 
