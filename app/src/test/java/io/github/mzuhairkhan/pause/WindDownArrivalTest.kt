@@ -6,12 +6,14 @@ import android.os.Looper
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.PathInterpolator
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import java.time.Duration
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -74,6 +76,30 @@ class WindDownArrivalTest {
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(900))
 
         assertEquals(1f, root.alpha, 0.01f)
+    }
+
+    @Test
+    fun `the fade follows One UI's motion rules`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        fireTimer(newService())
+        val root = windowRoot(R.id.breathing_circle)
+        assertNotNull("precondition: the wind-down came up", root)
+
+        // Asserted on the animator itself: Robolectric's clock settles an animation too eagerly
+        // for a "finished by 500 ms" check to tell 500 from 600.
+        val animator = root!!.animate()
+        assertTrue("Samsung's maximum is 500 ms, was ${animator.duration}", animator.duration <= 500L)
+        val actual = animator.interpolator
+        assertNotNull("the fade needs an explicit curve", actual)
+        val oneUiBasic = PathInterpolator(0.22f, 0.25f, 0f, 1f)
+        listOf(0.1f, 0.25f, 0.5f, 0.75f).forEach { t ->
+            assertEquals(
+                "not One UI's basic curve at t=$t",
+                oneUiBasic.getInterpolation(t),
+                actual!!.getInterpolation(t),
+                0.001f
+            )
+        }
     }
 
     @Test

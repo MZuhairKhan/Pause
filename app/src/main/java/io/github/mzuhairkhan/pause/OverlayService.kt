@@ -44,8 +44,8 @@ import android.view.WindowManager
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import android.view.accessibility.AccessibilityManager
-import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
+import android.view.animation.PathInterpolator
 import android.widget.ImageView
 import android.widget.NumberPicker
 import android.widget.Switch
@@ -1242,7 +1242,7 @@ class OverlayService : Service() {
         breathingView = view
         // Fade in with one confirm haptic rather than snapping over whatever was on screen. Every
         // route lands here (alarm, ticker fallback, restore), so none can skip it.
-        view.animate().alpha(1f).setDuration(ARRIVAL_FADE_MS).setInterpolator(DecelerateInterpolator()).start()
+        view.animate().alpha(1f).setDuration(ARRIVAL_FADE_MS).setInterpolator(ONE_UI_BASIC_CURVE).start()
         Haptics.confirm(view)
         // Silence whatever was playing (a video, music) so the wind-down isn't competing
         // with background media; focus is handed back when the wind-down closes.
@@ -1743,8 +1743,11 @@ class OverlayService : Service() {
         private val _running = MutableStateFlow(false)
         val running: StateFlow<Boolean> = _running
 
-        /** How long the wind-down takes to fade in when it arrives. */
-        private const val ARRIVAL_FADE_MS = 600L
+        /** How long the wind-down takes to fade in. One UI's motion guide caps animations at 500 ms. */
+        private const val ARRIVAL_FADE_MS = 500L
+
+        /** One UI's basic path interpolator: a fast start that settles gently. */
+        private val ONE_UI_BASIC_CURVE = PathInterpolator(0.22f, 0.25f, 0f, 1f)
 
         private const val CHANNEL_ID = "pause_status"
         private val LEGACY_CHANNELS = listOf("overlay_service", "overlay_service_min")

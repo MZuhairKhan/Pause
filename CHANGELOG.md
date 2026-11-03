@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **The wind-down fades in instead of snapping on, and setting a timer now feels like something
-  happened.** When a timer ends the breathing screen fades up over 0.6 s with one confirm haptic,
+  happened.** When a timer ends the breathing screen fades up over 0.5 s, on Samsung One UI's own motion curve and within its
+  500 ms animation limit, with one confirm haptic,
   rather than appearing at full opacity over whatever you were doing. Picking a duration or alarm
   time, and Snooze, give the same firmer confirm tick; tab switches keep the light one, so the two
   are distinguishable. Android's animation and touch-feedback settings still apply. `CONFIRM` needs
