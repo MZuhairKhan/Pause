@@ -1575,21 +1575,19 @@ class OverlayService : Service() {
         startActivity(home)
     }
 
+    /** Length of the running breathing loop in ms, or 0 when none is. Read by tests only. */
+    internal val breathingCycleMillis: Long get() = breathingAnimator?.duration ?: 0L
+
     /** Loops a 4-7-8 cycle: grow on inhale (4s), hold (7s), shrink on exhale (8s). No numbers. */
     private fun startBreathingAnimator(circle: View, phase: TextView) {
         breathingAnimator?.cancel()
-        val inhaleMs = SettingsStore.inhaleSeconds(this) * 1000f
-        val holdMs = SettingsStore.holdSeconds(this) * 1000f
-        val exhaleMs = SettingsStore.exhaleSeconds(this) * 1000f
-        val cycle = BreathingCycle.cycleMillis(inhaleMs, holdMs, exhaleMs)
+        val cycle = BreathingCycle.CYCLE_MILLIS
         breathingAnimator = ValueAnimator.ofFloat(0f, cycle).apply {
             duration = cycle.toLong()
             interpolator = LinearInterpolator()
             repeatCount = ValueAnimator.INFINITE
             addUpdateListener { animation ->
-                val frame = BreathingCycle.frameAt(
-                    animation.animatedValue as Float, inhaleMs, holdMs, exhaleMs
-                )
+                val frame = BreathingCycle.frameAt(animation.animatedValue as Float)
                 val label = getString(breathingPhaseLabel(frame.phase))
                 circle.scaleX = frame.scale
                 circle.scaleY = frame.scale

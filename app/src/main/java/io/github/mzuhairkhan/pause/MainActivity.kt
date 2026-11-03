@@ -523,9 +523,6 @@ private fun SettingsScreen(
 ) {
     val context = LocalContext.current
     var showCountdown by remember { mutableStateOf(SettingsStore.showCountdown(context)) }
-    var inhale by remember { mutableStateOf(SettingsStore.inhaleSeconds(context)) }
-    var hold by remember { mutableStateOf(SettingsStore.holdSeconds(context)) }
-    var exhale by remember { mutableStateOf(SettingsStore.exhaleSeconds(context)) }
     var lockSec by remember { mutableStateOf(SettingsStore.lockSeconds(context)) }
     var snoozeMin by remember { mutableStateOf(SettingsStore.snoozeMinutes(context)) }
     var blockMinutes by remember { mutableStateOf(SettingsStore.blockMinutes(context)) }
@@ -646,18 +643,6 @@ private fun SettingsScreen(
             }
 
             SettingsSection(stringResource(R.string.section_breathing)) {
-                StepperRow(stringResource(R.string.breathing_in), inhale) {
-                    inhale = it
-                    SettingsStore.setInhaleSeconds(context, it)
-                }
-                StepperRow(stringResource(R.string.breathing_hold), hold) {
-                    hold = it
-                    SettingsStore.setHoldSeconds(context, it)
-                }
-                StepperRow(stringResource(R.string.breathing_out), exhale) {
-                    exhale = it
-                    SettingsStore.setExhaleSeconds(context, it)
-                }
                 MinimumTimeControls(lockSec) {
                     lockSec = it
                     SettingsStore.setLockSeconds(context, it)
@@ -1153,22 +1138,18 @@ private fun Hero(accentColor: Int) {
 /** A static hourglass logo (mostly-full, not animated) on a soft accent glow. */
 /**
  * The wind-down, in miniature: the same accent circle scaling on the same cycle, with the same
- * phase wording above it. Runs at **real speed** off the user's stored durations -- a sped-up
- * demo would misrepresent how long 4-7-8 actually takes, which is precisely the expectation
- * this page exists to set. Nobody will sit through all 19 seconds, and that is fine; it starts
- * on the inhale so the recognisable part comes first.
+ * phase wording above it. Runs at **real speed** -- a sped-up demo would misrepresent how long
+ * 4-7-8 actually takes, which is precisely the expectation this page exists to set. Nobody will
+ * sit through all 19 seconds, and that is fine; it starts on the inhale so the recognisable part
+ * comes first.
  *
  * [BreathingCycle] does the arithmetic, shared with the overlay's own animator so the preview
  * cannot drift from the thing it is previewing.
  */
 @Composable
 private fun BreathingPreview(accentColor: Int) {
-    val context = LocalContext.current
     val height = 168.dp
-    val inhaleMs = SettingsStore.inhaleSeconds(context) * 1000f
-    val holdMs = SettingsStore.holdSeconds(context) * 1000f
-    val exhaleMs = SettingsStore.exhaleSeconds(context) * 1000f
-    val cycleMs = BreathingCycle.cycleMillis(inhaleMs, holdMs, exhaleMs)
+    val cycleMs = BreathingCycle.CYCLE_MILLIS
 
     val transition = rememberInfiniteTransition(label = "breathing")
     val elapsed by transition.animateFloat(
@@ -1180,7 +1161,7 @@ private fun BreathingPreview(accentColor: Int) {
         ),
         label = "cycle"
     )
-    val frame = BreathingCycle.frameAt(elapsed, inhaleMs, holdMs, exhaleMs)
+    val frame = BreathingCycle.frameAt(elapsed)
     val phase = stringResource(
         when (frame.phase) {
             BreathingCycle.Phase.INHALE -> R.string.breathing_in
