@@ -160,6 +160,9 @@ class MainScreenTest {
 
         compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
         compose.waitForIdle()
+        // The permission rows are their own page behind the list now.
+        compose.onNodeWithText(app.getString(R.string.permissions_title)).performClick()
+        compose.waitForIdle()
 
         compose.onNodeWithText(app.getString(R.string.perm_overlay)).assertIsDisplayed()
         compose.onNodeWithText(app.getString(R.string.perm_notifications)).assertIsDisplayed()

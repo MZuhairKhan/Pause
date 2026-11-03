@@ -62,15 +62,28 @@ class SettingsScreenshotTest {
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/settings_en.png")
     }
 
-    /** The new About section, scrolled into view at the bottom of Settings. */
+    /** The About page, opened from its row in the settings list. */
     @Test
-    fun settingsAboutSection() {
+    fun settingsAboutPage() {
         SettingsStore.setOnboardingComplete(app, true)
         ActivityScenario.launch(MainActivity::class.java)
         compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
         compose.waitForIdle()
-        compose.onNodeWithText(app.getString(R.string.about_translate)).performScrollTo()
+        compose.onNodeWithText(app.getString(R.string.section_about)).performScrollTo().performClick()
+        compose.waitForIdle()
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/settings_about_en.png")
+    }
+
+    /** The Feedback page: report a bug, suggest a feature, ask a question, help translate. */
+    @Test
+    fun settingsFeedbackPage() {
+        SettingsStore.setOnboardingComplete(app, true)
+        ActivityScenario.launch(MainActivity::class.java)
+        compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(app.getString(R.string.feedback_title)).performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/settings_feedback_en.png")
     }
 }
 

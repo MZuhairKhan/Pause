@@ -128,9 +128,21 @@
     <string name="about_version" tools:ignore="MissingTranslation">Version</string>
     <string name="about_license" tools:ignore="MissingTranslation">License</string>
     <string name="about_source_code" tools:ignore="MissingTranslation">Source code</string>
-    <string name="about_report_bug" tools:ignore="MissingTranslation">Report a bug</string>
     <string name="about_translate" tools:ignore="MissingTranslation">Help translate</string>
     <string name="about_no_browser" tools:ignore="MissingTranslation">No app found to open this link.</string>
+
+    <!-- Settings list and its Feedback and Credits pages. English only until reviewed. -->
+    <plurals name="perm_missing" tools:ignore="MissingTranslation">
+        <item quantity="one">%1$d missing</item>
+        <item quantity="other">%1$d missing</item>
+    </plurals>
+    <string name="feedback_title" tools:ignore="MissingTranslation">Feedback and bug reports</string>
+    <string name="feedback_report_bug" tools:ignore="MissingTranslation">Report a bug</string>
+    <string name="feedback_report_bug_hint" tools:ignore="MissingTranslation">Opens GitHub with your device details filled in.</string>
+    <string name="feedback_suggest" tools:ignore="MissingTranslation">Suggest a feature</string>
+    <string name="feedback_question" tools:ignore="MissingTranslation">Ask a question</string>
+    <string name="credits_title" tools:ignore="MissingTranslation">Credits</string>
+    <string name="credits_unavailable" tools:ignore="MissingTranslation">The credits could not be loaded.</string>
 
     <!-- First-run setup wizard -->
     <string name="onb_welcome_title">Welcome to Pause</string>
