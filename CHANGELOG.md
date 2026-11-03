@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The wind-down fades in instead of snapping on, and setting a timer now feels like something
+  happened.** When a timer ends the breathing screen fades up over 0.6 s with one confirm haptic,
+  rather than appearing at full opacity over whatever you were doing. Picking a duration or alarm
+  time, and Snooze, give the same firmer confirm tick; tab switches keep the light one, so the two
+  are distinguishable. Android's animation and touch-feedback settings still apply. `CONFIRM` needs
+  API 30, so older phones get a virtual-key press instead.
+
 ### Added
 - `CONTRIBUTORS.md`, where contributors add their own name. It replaces the README's Credits list,
   and the README's Translations section is merged into Contributing.

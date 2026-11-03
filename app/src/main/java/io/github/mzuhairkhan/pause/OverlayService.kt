@@ -44,6 +44,7 @@ import android.view.WindowManager
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import android.view.accessibility.AccessibilityManager
+import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import android.widget.NumberPicker
@@ -967,7 +968,7 @@ class OverlayService : Service() {
             view.findViewById<TextView>(id).apply {
                 text = minutes.toString()
                 setOnClickListener {
-                    Haptics.tap(it)
+                    Haptics.confirm(it)
                     startDurationAndClose(minutes)
                 }
             }
@@ -986,7 +987,7 @@ class OverlayService : Service() {
         view.findViewById<TextView>(R.id.btn_start_duration).apply {
             backgroundTintList = ColorStateList.valueOf(accentColor())
             setOnClickListener {
-                Haptics.tap(it)
+                Haptics.confirm(it)
                 startDurationAndClose(wheel.value)
             }
         }
@@ -1000,7 +1001,7 @@ class OverlayService : Service() {
         view.findViewById<TextView>(R.id.btn_start_alarm).apply {
             backgroundTintList = ColorStateList.valueOf(accentColor())
             setOnClickListener {
-                Haptics.tap(it)
+                Haptics.confirm(it)
                 startAlarmAndClose(timePicker.hour, timePicker.minute)
             }
         }
@@ -1210,7 +1211,7 @@ class OverlayService : Service() {
         view.findViewById<TextView>(R.id.breathing_snooze).apply {
             text = getString(R.string.breathing_snooze, snoozeMinutes)
             setOnClickListener {
-                Haptics.tap(it)
+                Haptics.confirm(it)
                 snoozeTimer(snoozeMinutes)
             }
         }
@@ -1229,6 +1230,8 @@ class OverlayService : Service() {
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
             PixelFormat.TRANSLUCENT
         )
+        // Transparent before it's attached, so the first frame can't flash at full opacity.
+        view.alpha = 0f
         if (!safeAddView(view, params)) return
         view.requestFocus()
         breathingBackRelease = registerBackCallback(view) { /* no-skip lock: back does nothing */ }
@@ -1237,6 +1240,10 @@ class OverlayService : Service() {
         // instead of leaving it stuck drawn on top once the user has already left.
         breathingHomeRelease = registerHomeCloseReceiver { hideBreathing() }
         breathingView = view
+        // Fade in with one confirm haptic rather than snapping over whatever was on screen. Every
+        // route lands here (alarm, ticker fallback, restore), so none can skip it.
+        view.animate().alpha(1f).setDuration(ARRIVAL_FADE_MS).setInterpolator(DecelerateInterpolator()).start()
+        Haptics.confirm(view)
         // Silence whatever was playing (a video, music) so the wind-down isn't competing
         // with background media; focus is handed back when the wind-down closes.
         muteMedia()
@@ -1735,6 +1742,9 @@ class OverlayService : Service() {
         /** Whether the overlay service is currently running; observed by the setup screen. */
         private val _running = MutableStateFlow(false)
         val running: StateFlow<Boolean> = _running
+
+        /** How long the wind-down takes to fade in when it arrives. */
+        private const val ARRIVAL_FADE_MS = 600L
 
         private const val CHANNEL_ID = "pause_status"
         private val LEGACY_CHANNELS = listOf("overlay_service", "overlay_service_min")
