@@ -25,6 +25,7 @@
     </queries>
 
     <application
+        android:name=".PauseApp"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -45,6 +46,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- What a crash notification opens: shows the saved crash and lets the person decide what
+             happens to it. Not exported; the notification reaches it through its own PendingIntent. -->
+        <activity
+            android:name=".CrashReportActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Pause" />
 
         <!-- Trampoline for the Quick Settings tile and the widget's body tap: no UI, opens the
              picker (or MainActivity if overlay permission is missing) and finishes at once. -->

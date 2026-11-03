@@ -27,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that.
 
 ### Added
+- **If Pause crashes, it offers to report it.** The crash is saved on the phone and a "Pause
+  stopped unexpectedly" notification opens a screen showing exactly what would be shared: the
+  version, Android version, device, the stack trace and Pause's own recent log lines — not the
+  chosen apps, system settings or device identifiers. From there the person can open a pre-filled
+  GitHub crash form, copy the report, share it, or discard it; the saved report is removed only
+  once it has been handed over. Nothing is sent by the app, which still has no internet
+  permission. Notifications off? Settings → Feedback offers "Report the last crash". Built on
+  ACRA 5.13.1, crash capture only: its sender modules are not included, and 5.14 needs a newer
+  Kotlin than the project uses. ANRs and native crashes are not captured yet. The store
+  description and README now say a report leaves the phone only when you send it.
 - **A Feedback page that opens a pre-filled GitHub form.** Report a bug fills in the app version,
   where it was installed from, Android version, device, ROM and which permissions are granted,
   which the bug form requires because most Pause bugs only happen on particular phones. Suggest a

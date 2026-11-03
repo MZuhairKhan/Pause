@@ -117,6 +117,13 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    // Crash capture only: reports are saved on the phone and shown to the user, never sent by ACRA
+    // (no sender module is included, and the app has no INTERNET permission). Its POM lists the
+    // auto-service annotation *processor* at runtime scope, which a build-time tool has no business
+    // in an APK; the service files it generated are already inside acra-core.
+    implementation(libs.acra.core) {
+        exclude(group = "com.google.auto.service")
+    }
     debugImplementation(libs.androidx.ui.tooling)
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
