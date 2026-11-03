@@ -3,8 +3,8 @@
 **Pause** is an Android digital-wellbeing app: a draggable floating bubble runs a timer; when it
 ends, a 4-7-8 breathing wind-down plays (its non-skippable lock can be set down to 0), and a
 "Stop for now" break can cover chosen apps (TikTok/Instagram/…) for a set time. Kotlin, Jetpack
-Compose setup screen + a foreground `OverlayService` that draws the overlays. Package
-`io.github.mzuhairkhan.pause`.
+Compose main screen (a gear leads to the rest in Settings) + a foreground `OverlayService` that
+draws the overlays. Package `io.github.mzuhairkhan.pause`.
 
 Near-term goal: **ship on F-Droid**. Possibly Google Play later (optional).
 
@@ -36,7 +36,7 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio1\jbr"
 | File | Role |
 |---|---|
 | `OverlayService.kt` | The foreground service: floating bubble, timer + `AlarmManager` scheduling, breathing wind-down, "Stop for now" app-blocking break, notification. The big one. |
-| `MainActivity.kt` | Compose setup screen: permissions, bubble alignment, theme/accent, breathing settings, app blocking. |
+| `MainActivity.kt` | Compose UI: the main screen (Start/Stop, a missing-permission card, the gear) and, behind it, Settings — permissions, bubble alignment, theme/accent, breathing settings, app blocking, about. |
 | `SettingsStore.kt` | SharedPreferences-backed *settings* — what the user chose. First-run defaults come from `SettingsDefaults`. |
 | `PauseState.kt` | SharedPreferences-backed *state* — the live timer/break deadlines, a separate file from `SettingsStore` because it changes on every start/stop rather than by user choice. Written with `commit()` so it survives an imminent kill; read back by `restoreSession()` after the OS restarts the service. |
 | `PauseAlarm.kt` | Owns the single `AlarmManager` alarm a timer fires on, so nothing else reconstructs that `PendingIntent` and risks a copy that can't cancel the original. |

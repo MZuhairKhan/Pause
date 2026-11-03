@@ -3,6 +3,7 @@ package io.github.mzuhairkhan.pause
 import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -36,18 +37,28 @@ class SetupSmokeTest {
 
     private val app: Application get() = ApplicationProvider.getApplicationContext()
 
-    private fun launchSettings() {
+    /** Launches onto the main screen, where Start lives now. */
+    private fun launchMain() {
         SettingsStore.setOnboardingComplete(app, true)
         ActivityScenario.launch(MainActivity::class.java)
         compose.waitForIdle()
     }
 
-    /** The settings screen renders, and its main action uses the current wording. */
+    /** Launches onto the main screen, then taps the gear through to Settings. */
+    private fun launchSettings() {
+        launchMain()
+        compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
+        compose.waitForIdle()
+    }
+
+    /** The main screen renders with its current Start wording, and the gear reaches Settings. */
     @Test
-    fun settingsScreenShowsBubbleControls() {
-        launchSettings()
-        // Near the top, so it should be on screen even on a small display.
+    fun mainScreenShowsStartAndTheGearOpensSettings() {
+        launchMain()
         compose.onNodeWithText(app.getString(R.string.start_overlay)).assertIsDisplayed()
+
+        compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
+        compose.waitForIdle()
         compose.onNodeWithText(app.getString(R.string.section_bubble))
             .performScrollTo()
             .assertIsDisplayed()

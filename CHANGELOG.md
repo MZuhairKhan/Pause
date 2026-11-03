@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **The app opens to a simple main screen** — logo, Start/Stop and a gear — instead of the long
+  scrolling settings page. Permissions, bubble, appearance, breathing and app blocking all move
+  behind the gear into a new Settings screen; the main screen keeps only a card naming whichever
+  required permission is still missing, since the Quick Settings tile routes here for exactly
+  that.
+
 ### Added
+- **An About section** at the bottom of Settings: version, license, and links to the repo, its
+  issues page and the Weblate translation project. The link addresses are Kotlin constants, not
+  string resources — Weblate translations can propose new label text but can never redirect where
+  a tap actually goes, matching the guard `StringResourceIntegrityTest` already enforces against
+  links appearing in translated strings.
 - `CONTRIBUTORS.md`, where contributors add their own name. It replaces the README's Credits list,
   and the README's Translations section is merged into Contributing.
 - Added a contributor and updated the README.md.
