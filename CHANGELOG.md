@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`FLOW.md` is corrected and extended with the planned changes.** The wizard is shown with its
+  seven real pages (the wind-down page was missing), the language is described as applying when
+  picked rather than at *Get started*, and the main-screen buttons use their real labels. Three new
+  diagrams, each marked with its status, cover the planned settings map, where the timer gives
+  haptic and visual feedback, and the crash-report flow, so designers can check them before they
+  are built.
 - **The app opens to a simple main screen** — logo, Start/Stop and a gear — instead of the long
   scrolling settings page. Permissions, bubble, appearance, breathing and app blocking all move
   behind the gear into a new Settings screen; the main screen keeps only a card naming whichever
