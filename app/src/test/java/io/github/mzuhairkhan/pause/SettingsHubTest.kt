@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -266,6 +267,24 @@ class SettingsHubTest {
         seedGrants()
         openList()
         openRow(str(R.string.feedback_title))
+
+        compose.onNodeWithText(str(R.string.feedback_last_crash)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the crash row goes once its report is gone and the page is shown again`() {
+        // Found on a phone: after Don't send, Back landed on this page with the row still there,
+        // leading to "no longer available". The page looked the report up once, when it opened.
+        seedGrants()
+        val file = saveCrash()
+        val scenario = openList()
+        openRow(str(R.string.feedback_title))
+        compose.onNodeWithText(str(R.string.feedback_last_crash)).performScrollTo().assertIsDisplayed()
+
+        file.delete()
+        scenario.moveToState(Lifecycle.State.STARTED)
+        scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.waitForIdle()
 
         compose.onNodeWithText(str(R.string.feedback_last_crash)).assertDoesNotExist()
     }

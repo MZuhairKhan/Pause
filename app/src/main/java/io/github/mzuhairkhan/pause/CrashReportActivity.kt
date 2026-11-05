@@ -70,6 +70,7 @@ class CrashReportActivity : AppCompatActivity() {
                             onShare = { note -> shareReport(report, note) },
                             onDiscard = {
                                 file.delete()
+                                CrashNotification.clear(this@CrashReportActivity)
                                 finish()
                             }
                         )
@@ -106,6 +107,7 @@ class CrashReportActivity : AppCompatActivity() {
         // Handed over only once something opened it; otherwise it stays, still on the clipboard.
         if (openLink(this, url)) {
             file.delete()
+            CrashNotification.clear(this)
             finish()
         }
     }

@@ -129,6 +129,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.mzuhairkhan.pause.ui.theme.Accents
 import io.github.mzuhairkhan.pause.ui.theme.PauseTheme
@@ -850,16 +851,18 @@ private fun FeedbackPage() {
     val openLink = rememberLinkOpener()
     fun openForm(template: String, fields: Map<String, String>) =
         openLink(IssueUrl.build(LinkTargets.NEW_ISSUE, template, fields))
-    // Looked up when the page opens: a crash that left no notification (notifications off) is
-    // still offered here until it is reported or dismissed.
-    val lastCrash = remember { PendingCrash.latest(context) }
+    // A crash that left no notification (notifications off) is still offered here until it is
+    // reported or dismissed. Looked up again on every resume: the report screen is another
+    // activity, and coming back from it with the row left over led to "no longer available".
+    var lastCrash by remember { mutableStateOf(PendingCrash.latest(context)) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { lastCrash = PendingCrash.latest(context) }
 
     SettingsCard {
-        if (lastCrash != null) {
+        lastCrash?.let { crash ->
             AboutLinkRow(
                 stringResource(R.string.feedback_last_crash),
                 stringResource(R.string.feedback_last_crash_hint)
-            ) { context.startActivity(CrashReportActivity.intent(context, lastCrash)) }
+            ) { context.startActivity(CrashReportActivity.intent(context, crash)) }
         }
         AboutLinkRow(
             stringResource(R.string.feedback_report_bug),

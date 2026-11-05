@@ -173,6 +173,44 @@ class CrashReportActivityTest {
         assertTrue("nothing was opened or shared", shadowOf(app).nextStartedActivity == null)
     }
 
+    private val shownNotifications
+        get() = shadowOf(app.getSystemService(android.app.NotificationManager::class.java)).allNotifications
+
+    @Test
+    fun `Don't send also clears the crash notification`() {
+        // Found on a phone: the notification outlived the report and led to "no longer available".
+        val file = savedReport()
+        CrashNotification.post(app, file)
+        assertEquals("precondition: it was posted", 1, shownNotifications.size)
+        open(file)
+
+        compose.onNodeWithText(str(R.string.crash_discard)).performScrollTo().performClick()
+
+        assertTrue(shownNotifications.isEmpty())
+    }
+
+    @Test
+    fun `handing the report to GitHub also clears the crash notification`() {
+        val file = savedReport()
+        CrashNotification.post(app, file)
+        open(file)
+
+        compose.onNodeWithText(str(R.string.crash_report_github)).performScrollTo().performClick()
+
+        assertTrue(shownNotifications.isEmpty())
+    }
+
+    @Test
+    fun `a report kept for later keeps its notification`() {
+        val file = savedReport()
+        CrashNotification.post(app, file)
+        open(file)
+
+        compose.onNodeWithText(str(R.string.crash_copy)).performScrollTo().performClick()
+
+        assertEquals(1, shownNotifications.size)
+    }
+
     @Test
     fun `a report that is gone says so instead of crashing`() {
         open(File(app.cacheDir, "already-deleted.json"))

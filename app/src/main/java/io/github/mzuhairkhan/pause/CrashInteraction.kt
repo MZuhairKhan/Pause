@@ -38,6 +38,15 @@ internal object CrashNotification {
     const val CHANNEL_ID = "pause_crash"
     private const val NOTIFICATION_ID = 2
 
+    /**
+     * Removes it once its report has been reported or discarded. Android's auto-cancel only covers
+     * a tap on the notification itself, and on a phone it did not even do that when the tap came
+     * through a grouped notification, so a handled crash kept offering "no longer available".
+     */
+    fun clear(context: Context) {
+        context.getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID)
+    }
+
     fun post(context: Context, reportFile: File) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannel(
