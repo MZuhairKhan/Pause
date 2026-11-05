@@ -65,6 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   permissions, since most Pause bugs only reproduce on particular phones. Blank issues are off; the
   chooser links to Weblate and `CONTRIBUTING.md`. The field ids are what the app's upcoming
   report button will pre-fill.
+- **`IOS.md`, a feasibility note for an iPhone version.** iOS can't draw over other apps, so a
+  port can't be the bubble; the note maps each Android feature to what iOS offers (AlarmKit, the
+  Screen Time API, Shortcuts automations), lists the Mac, account and entitlement costs, and flags
+  the GPL-3.0 and App Store conflict as a decision to make before accepting outside code.
 - `CONTRIBUTORS.md`, where contributors add their own name. It replaces the README's Credits list,
   and the README's Translations section is merged into Contributing.
 - Added a contributor and updated the README.md.
