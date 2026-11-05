@@ -1,9 +1,13 @@
 package io.github.mzuhairkhan.pause
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import java.net.URLEncoder
 
 /** The four GitHub issue forms in `.github/ISSUE_TEMPLATE`. */
@@ -132,6 +136,18 @@ internal data class DeviceInfo(
             null
         }
     }
+}
+
+/**
+ * Opens a link in whatever handles it, and says whether anything did. Some F-Droid devices have no
+ * browser installed at all, in which case the person is told instead of the app crashing.
+ */
+internal fun openLink(context: Context, url: String): Boolean = try {
+    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    true
+} catch (e: ActivityNotFoundException) {
+    Toast.makeText(context, R.string.about_no_browser, Toast.LENGTH_SHORT).show()
+    false
 }
 
 /**

@@ -3,7 +3,6 @@ package io.github.mzuhairkhan.pause
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AppOpsManager
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -15,7 +14,6 @@ import android.os.Process
 import android.provider.Settings
 import android.util.LruCache
 import android.widget.ImageView
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.annotation.StringRes
@@ -131,6 +129,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.mzuhairkhan.pause.ui.theme.Accents
 import io.github.mzuhairkhan.pause.ui.theme.PauseTheme
@@ -471,19 +470,12 @@ private fun AboutLinkRow(label: String, subtitle: String?, onClick: () -> Unit) 
     }
 }
 
-/** Opens a link in whatever handles it. Some F-Droid devices have no browser installed at all. */
 @Composable
 private fun rememberLinkOpener(): (String) -> Unit {
     val context = LocalContext.current
-    val noBrowserMessage = stringResource(R.string.about_no_browser)
-    return remember(context, noBrowserMessage) {
-        { url: String ->
-            try {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-            } catch (e: ActivityNotFoundException) {
-                Toast.makeText(context, noBrowserMessage, Toast.LENGTH_SHORT).show()
-            }
-        }
+    return remember(context) {
+        val open: (String) -> Unit = { url -> openLink(context, url) }
+        open
     }
 }
 
@@ -859,8 +851,19 @@ private fun FeedbackPage() {
     val openLink = rememberLinkOpener()
     fun openForm(template: String, fields: Map<String, String>) =
         openLink(IssueUrl.build(LinkTargets.NEW_ISSUE, template, fields))
+    // A crash that left no notification (notifications off) is still offered here until it is
+    // reported or dismissed. Looked up again on every resume: the report screen is another
+    // activity, and coming back from it with the row left over led to "no longer available".
+    var lastCrash by remember { mutableStateOf(PendingCrash.latest(context)) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { lastCrash = PendingCrash.latest(context) }
 
     SettingsCard {
+        lastCrash?.let { crash ->
+            AboutLinkRow(
+                stringResource(R.string.feedback_last_crash),
+                stringResource(R.string.feedback_last_crash_hint)
+            ) { context.startActivity(CrashReportActivity.intent(context, crash)) }
+        }
         AboutLinkRow(
             stringResource(R.string.feedback_report_bug),
             stringResource(R.string.feedback_report_bug_hint)

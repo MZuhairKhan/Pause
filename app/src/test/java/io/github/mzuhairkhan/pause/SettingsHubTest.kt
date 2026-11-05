@@ -14,10 +14,13 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.lifecycle.Lifecycle
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
+import java.io.File
+import org.acra.file.ReportLocator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -253,5 +256,51 @@ class SettingsHubTest {
         compose.onNodeWithText("Maintainer").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("Zuhair Khan - creator and maintainer").performScrollTo().assertIsDisplayed()
         assertNotNull(app.assets.open("CONTRIBUTORS.md"))
+    }
+
+    /** Where ACRA keeps a crash nobody has approved sending, which is every crash here. */
+    private fun saveCrash(): File =
+        File(app.getDir("ACRA-unapproved", Context.MODE_PRIVATE), "crash.stacktrace").apply { writeText("{}") }
+
+    @Test
+    fun `no crash row is offered while nothing is saved`() {
+        seedGrants()
+        openList()
+        openRow(str(R.string.feedback_title))
+
+        compose.onNodeWithText(str(R.string.feedback_last_crash)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the crash row goes once its report is gone and the page is shown again`() {
+        // Found on a phone: after Don't send, Back landed on this page with the row still there,
+        // leading to "no longer available". The page looked the report up once, when it opened.
+        seedGrants()
+        val file = saveCrash()
+        val scenario = openList()
+        openRow(str(R.string.feedback_title))
+        compose.onNodeWithText(str(R.string.feedback_last_crash)).performScrollTo().assertIsDisplayed()
+
+        file.delete()
+        scenario.moveToState(Lifecycle.State.STARTED)
+        scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.waitForIdle()
+
+        compose.onNodeWithText(str(R.string.feedback_last_crash)).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a saved crash adds a row that opens its report screen`() {
+        seedGrants()
+        val file = saveCrash()
+        assertTrue("precondition: ACRA sees the file", ReportLocator(app).unapprovedReports.any { it.path == file.path })
+        openList()
+        openRow(str(R.string.feedback_title))
+
+        compose.onNodeWithText(str(R.string.feedback_last_crash)).performScrollTo().performClick()
+
+        val started = shadowOf(app).nextStartedActivity
+        assertEquals(CrashReportActivity::class.java.name, started?.component?.className)
+        assertEquals(file.path, started?.getStringExtra(CrashReportActivity.EXTRA_REPORT_PATH))
     }
 }
