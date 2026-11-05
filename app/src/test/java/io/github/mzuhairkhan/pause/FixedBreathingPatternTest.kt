@@ -1,9 +1,16 @@
 package io.github.mzuhairkhan.pause
 
+import android.animation.ValueAnimator
 import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.os.Looper
+import android.view.View
+import android.view.WindowManager
+import android.widget.TextView
+import java.time.Duration
+import org.robolectric.shadow.api.Shadow
+import org.robolectric.shadows.ShadowWindowManagerImpl
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.After
@@ -32,7 +39,14 @@ class FixedBreathingPatternTest {
 
     @After
     fun tearDown() {
+        animatorScale(1f)
         createdService?.onDestroy()
+    }
+
+    /** The same global the "Remove animations" setting drives; the setter is hidden API. */
+    private fun animatorScale(scale: Float) {
+        ValueAnimator::class.java.getMethod("setDurationScale", Float::class.javaPrimitiveType)
+            .invoke(null, scale)
     }
 
     private fun seedLegacyTimings(inhale: Int, hold: Int, exhale: Int) {
@@ -65,5 +79,26 @@ class FixedBreathingPatternTest {
     @Test
     fun `with nothing stored the loop is the same 4-7-8`() {
         assertEquals(19_000L, breathingLoopMillis())
+    }
+
+    @Test
+    fun `the breathing keeps moving when the system animations are off`() {
+        // "Remove animations" (or animator duration scale 0) makes a ValueAnimator jump to its end
+        // value, which froze the circle and the label. The pattern is a guide to breathe by, so it
+        // must follow real time whatever the animation setting is.
+        animatorScale(0f)
+        ShadowSettings.setCanDrawOverlays(true)
+        val service = Robolectric.buildService(OverlayService::class.java).create().get()
+            .also { createdService = it }
+        service.onStartCommand(Intent(app, OverlayService::class.java).apply {
+            action = OverlayService.ACTION_TIMER_FIRED
+        }, 0, 1)
+        val root = Shadow.extract<ShadowWindowManagerImpl>(app.getSystemService(WindowManager::class.java))
+            .views.first { it.findViewById<View>(R.id.breathing_phase) != null }
+        val phase = root.findViewById<TextView>(R.id.breathing_phase)
+
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(5_000))
+
+        assertEquals("5 s into a 4-7-8 cycle is the hold", app.getString(R.string.breathing_hold), phase.text.toString())
     }
 }
