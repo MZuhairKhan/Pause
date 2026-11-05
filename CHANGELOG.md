@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **The wind-down fades in instead of snapping on, and setting a timer now feels like something
+  happened.** When a timer ends the breathing screen fades up over 0.5 s, on Samsung One UI's own
+  motion curve and within its 500 ms animation limit, with one click vibration (alarm usage, so a
+  silenced ringer does not swallow it; adds the VIBRATE permission), rather than appearing at full
+  opacity over whatever you were doing. Picking a duration or alarm time, and Snooze, give the same
+  firmer confirm tick; tab switches keep the light one, so the two are distinguishable. Android's
+  animation and touch-feedback settings still apply. `CONFIRM` needs API 30, so older phones get a
+  virtual-key press instead.
 - **Settings is a short list of categories, each its own page, instead of one long scroll.** The
   gear opens Permissions, Bubble, Appearance, Breathing wind-down and App blocking, then Feedback
   and bug reports, Credits and About. Each row shows a one-line summary of where it stands ("All
@@ -63,6 +71,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   permissions, since most Pause bugs only reproduce on particular phones. Blank issues are off; the
   chooser links to Weblate and `CONTRIBUTING.md`. The field ids are what the app's upcoming
   report button will pre-fill.
+- **`IOS.md`, a feasibility note for an iPhone version.** iOS can't draw over other apps, so a
+  port can't be the bubble; the note maps each Android feature to what iOS offers (AlarmKit, the
+  Screen Time API, Shortcuts automations), lists the Mac, account and entitlement costs, and flags
+  the GPL-3.0 and App Store conflict as a decision to make before accepting outside code.
 - `CONTRIBUTORS.md`, where contributors add their own name. It replaces the README's Credits list,
   and the README's Translations section is merged into Contributing.
 - Added a contributor and updated the README.md.
