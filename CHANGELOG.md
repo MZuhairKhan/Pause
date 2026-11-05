@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Issue forms for bugs, crashes, feature requests and questions**, modelled on NewPipe's. The bug
+  and crash forms require version, install source, Android version, device, ROM and granted
+  permissions, since most Pause bugs only reproduce on particular phones. Blank issues are off; the
+  chooser links to Weblate and `CONTRIBUTING.md`. The field ids are what the app's upcoming
+  report button will pre-fill.
 - `CONTRIBUTORS.md`, where contributors add their own name. It replaces the README's Credits list,
   and the README's Translations section is merged into Contributing.
 - Added a contributor and updated the README.md.
