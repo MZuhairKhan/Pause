@@ -49,6 +49,12 @@ object HourglassMath {
  * the arithmetic lives here rather than in either of them.
  */
 object BreathingCycle {
+    /** The 4-7-8 pattern. Fixed: it is the exercise, not a preference. */
+    const val INHALE_MILLIS = 4_000f
+    const val HOLD_MILLIS = 7_000f
+    const val EXHALE_MILLIS = 8_000f
+    const val CYCLE_MILLIS = INHALE_MILLIS + HOLD_MILLIS + EXHALE_MILLIS
+
     /** Resting size, as a fraction of full. Never 0: the circle shrinks, it doesn't vanish. */
     const val MIN_SCALE = 0.35f
 
@@ -58,6 +64,10 @@ object BreathingCycle {
 
     fun cycleMillis(inhaleMillis: Float, holdMillis: Float, exhaleMillis: Float): Float =
         inhaleMillis + holdMillis + exhaleMillis
+
+    /** The frame at [elapsedMillis] into the fixed 4-7-8 cycle. */
+    fun frameAt(elapsedMillis: Float): Frame =
+        frameAt(elapsedMillis, INHALE_MILLIS, HOLD_MILLIS, EXHALE_MILLIS)
 
     /**
      * The frame at [elapsedMillis] into the cycle. A zero-length phase is skipped rather than
@@ -100,8 +110,6 @@ object BubblePosition {
  * pref can't feed an animation or alarm, and bounds the setup steppers.
  */
 object SettingsRanges {
-    const val BREATH_MIN_SECONDS = 1
-    const val BREATH_MAX_SECONDS = 20
     const val LOCK_MIN_SECONDS = 0
     const val LOCK_MAX_SECONDS = 60
     const val BLOCK_MIN_MINUTES = 1
@@ -111,7 +119,6 @@ object SettingsRanges {
     const val THEME_MIN = 0
     const val THEME_MAX = 2
 
-    fun breathSeconds(value: Int): Int = value.coerceIn(BREATH_MIN_SECONDS, BREATH_MAX_SECONDS)
     fun lockSeconds(value: Int): Int = value.coerceIn(LOCK_MIN_SECONDS, LOCK_MAX_SECONDS)
     fun blockMinutes(value: Int): Int = value.coerceIn(BLOCK_MIN_MINUTES, BLOCK_MAX_MINUTES)
     fun snoozeMinutes(value: Int): Int = value.coerceIn(SNOOZE_MIN_MINUTES, SNOOZE_MAX_MINUTES)
@@ -125,9 +132,6 @@ object SettingsRanges {
  */
 object SettingsDefaults {
     const val SHOW_COUNTDOWN = false
-    const val INHALE_SECONDS = 4
-    const val HOLD_SECONDS = 7
-    const val EXHALE_SECONDS = 8
     const val LOCK_SECONDS = 30
     const val SNOOZE_MINUTES = 5
     const val BLOCK_MINUTES = 30

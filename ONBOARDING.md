@@ -40,6 +40,8 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio1\jbr"
 | `SettingsStore.kt` | SharedPreferences-backed *settings* — what the user chose. First-run defaults come from `SettingsDefaults`. |
 | `PauseState.kt` | SharedPreferences-backed *state* — the live timer/break deadlines, a separate file from `SettingsStore` because it changes on every start/stop rather than by user choice. Written with `commit()` so it survives an imminent kill; read back by `restoreSession()` after the OS restarts the service. |
 | `PauseAlarm.kt` | Owns the single `AlarmManager` alarm a timer fires on, so nothing else reconstructs that `PendingIntent` and risks a copy that can't cancel the original. |
+| `PauseApp.kt` / `CrashInteraction.kt` / `CrashReportActivity.kt` / `CrashReport.kt` | Crash capture and what follows it. `PauseApp` configures ACRA with an allowlist of report fields; `CrashInteraction` (registered in `META-INF/services`, kept by `proguard-rules.pro`) posts the notification and always returns false so ACRA never sends; the activity is the review screen; `CrashReport.kt` holds the pure trace digest and report text. |
+| `Diagnostics.kt` / `Credits.kt` / `SettingsDestination.kt` | Settings pages' helpers: the pre-filled issue-form URL and the device details it carries, the `CONTRIBUTORS.md` parser behind the Credits page, and the navigation enum. All pure except where they read the `Context`. |
 | `PauseLogic.kt` | **Pure, Android-free** logic — `TimeFormat`, `HourglassMath`, `BubblePosition`, `BubblePresets`, `SettingsRanges`, `SettingsDefaults`, `SessionRestore`, `TileLaunch`. Unit-tested. |
 | `PauseLaunchActivity.kt` | Transparent trampoline the Quick Settings tile (and, later, the widget) use to open the picker from an already-foreground context, so the `startForegroundService` call it triggers is never a background one. |
 | `PauseTileService.kt` | Quick Settings tile; tapping it always opens the picker via `PauseLaunchActivity`, never toggles anything itself. |
@@ -250,8 +252,15 @@ Google treats as sensitive. Ordered by what blocks what.
   of letting Google generate one. Google will not hand over a key it generated, so choosing
   wrong here is permanent. If we take the default instead, pick which store is canonical and say
   so in the README.
-- **No crash reporting.** The store description promises no analytics and no network access.
-  Keeping that promise means shipping blind. That is a legitimate choice — just an explicit one.
+- **Crash reporting is local and opt-in.** ACRA (`acra-core` only, pinned to 5.13.1: 5.14 is built
+  on Kotlin 2.4, 5.13.1 is the newest on 2.2, which the project's Kotlin 2.1 can read) saves a
+  crash on the phone. `CrashInteraction` posts a notification, `CrashReportActivity` shows exactly
+  what would be shared, and the person chooses to open a pre-filled GitHub form, copy it, share it
+  or discard it. There is no sender module and no `INTERNET` permission, so the store promise —
+  no analytics, no network access — holds; the wording now says a report leaves the phone only
+  when the person sends it. What it cannot see: ANRs and native crashes, which never reach the
+  Java handler (`ApplicationExitInfo` on API 30+ would be the way in). Revisit the pin when the
+  Kotlin toolchain moves.
 
 ### Quality backlog (not blocking)
 - [x] Internationalization: all UI strings live in `strings.xml`; Finnish (`values-fi`) added
