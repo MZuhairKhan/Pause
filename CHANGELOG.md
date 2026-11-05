@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Settings is a short list of categories, each its own page, instead of one long scroll.** The
+  gear opens Permissions, Bubble, Appearance, Breathing wind-down and App blocking, then Feedback
+  and bug reports, Credits and About. Each row shows a one-line summary of where it stands ("All
+  set", "2 missing", the bubble preset, "30s · 5m"), and Back goes up one level at a time, from the
+  header arrow and the system gesture alike. Nothing was added or removed from the controls
+  themselves; they moved onto their pages.
+- **The breathing pattern is fixed at 4-7-8; the three timing steppers are gone.** Breathe in for
+  4 seconds, hold for 7, out for 8 is the technique the wind-down is named for, and changing it
+  stopped it being that exercise. The Breathing section in Settings keeps the minimum time and the
+  snooze length. Anyone who had tuned the lengths in an earlier version goes back to 4-7-8: the old
+  stored values are left in place, unread, so there is nothing to migrate. The setup wizard's
+  preview and the wind-down itself now take their timings from one shared definition.
 - **`FLOW.md` is corrected and extended with the planned changes.** The wizard is shown with its
   seven real pages (the wind-down page was missing), the language is described as applying when
   picked rather than at *Get started*, and the main-screen buttons use their real labels. Three new
@@ -21,14 +33,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that.
 
 ### Added
-- **An About section** at the bottom of Settings: version, license, and links to the repo, its
-  issues page and the Weblate translation project. The link addresses are Kotlin constants, not
-  string resources — Weblate translations can propose new label text but can never redirect where
-  a tap actually goes, matching the guard `StringResourceIntegrityTest` already enforces against
-  links appearing in translated strings.
+- **If Pause crashes, it offers to report it.** The crash is saved on the phone and a "Pause
+  stopped unexpectedly" notification opens a screen showing exactly what would be shared: the
+  version, Android version, device, the stack trace and Pause's own recent log lines — not the
+  chosen apps, system settings or device identifiers. From there the person can open a pre-filled
+  GitHub crash form, copy the report, share it, or discard it; the saved report is removed only
+  once it has been handed over. Nothing is sent by the app, which still has no internet
+  permission. Notifications off? Settings → Feedback offers "Report the last crash". Built on
+  ACRA 5.13.1, crash capture only: its sender modules are not included, and 5.14 needs a newer
+  Kotlin than the project uses. ANRs and native crashes are not captured yet. The store
+  description and README now say a report leaves the phone only when you send it.
+- **A Feedback page that opens a pre-filled GitHub form.** Report a bug fills in the app version,
+  where it was installed from, Android version, device, ROM and which permissions are granted,
+  which the bug form requires because most Pause bugs only happen on particular phones. Suggest a
+  feature and Ask a question open their own forms, and Help translate opens Weblate. Pause has no
+  internet permission, so nothing is sent by the app: it opens the browser, and the person reads the
+  form and presses Submit. The chosen apps to block are never included. If the link would be too
+  long for GitHub, the longest field is trimmed first.
+- **A Credits page**, read from `CONTRIBUTORS.md` so the file people edit and the list the app
+  shows are one thing. A Gradle step copies it into the app's assets at build time; links in it
+  show as plain text. A test reads the real issue forms, so renaming a field there fails the build
+  instead of silently leaving it blank.
+- **An About page** with the version, license, and a link to the repo. The link addresses are
+  Kotlin constants, not string resources — Weblate translations can propose new label text but can
+  never redirect where a tap actually goes, matching the guard `StringResourceIntegrityTest`
+  already enforces against links appearing in translated strings.
+- **Issue forms for bugs, crashes, feature requests and questions**, modelled on NewPipe's. The bug
+  and crash forms require version, install source, Android version, device, ROM and granted
+  permissions, since most Pause bugs only reproduce on particular phones. Blank issues are off; the
+  chooser links to Weblate and `CONTRIBUTING.md`. The field ids are what the app's upcoming
+  report button will pre-fill.
 - `CONTRIBUTORS.md`, where contributors add their own name. It replaces the README's Credits list,
   and the README's Translations section is merged into Contributing.
 - Added a contributor and updated the README.md.
+- **A `translations` label**, auto-applied to Weblate's PRs. They come from a fork, so labeling
+  them needs `pull_request_target` rather than `pull_request` — the job only calls the label API,
+  never checks out or runs the fork's code, so the elevated token is safe.
 
 ## [0.6.0] — 2026-09-16
 

@@ -1,0 +1,93 @@
+name: Bug report
+description: Something in Pause doesn't work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Behaviour varies a lot between phones, so the device fields below matter.
+        Settings → Feedback → Report a bug in the app fills them in for you.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I can reproduce this on the latest release.
+          required: true
+        - label: I searched open and closed issues and found no duplicate.
+          required: true
+        - label: This report covers one bug.
+          required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: Pause version
+      placeholder: "0.6.0"
+    validations:
+      required: true
+  - type: input
+    id: install-source
+    attributes:
+      label: Installed from
+      placeholder: F-Droid, GitHub release, built from source
+    validations:
+      required: true
+  - type: input
+    id: android-version
+    attributes:
+      label: Android version
+      placeholder: "Android 16 (API 36)"
+    validations:
+      required: true
+  - type: input
+    id: device-model
+    attributes:
+      label: Device model
+      placeholder: Samsung Galaxy S24
+    validations:
+      required: true
+  - type: input
+    id: rom
+    attributes:
+      label: ROM / skin
+      description: One UI, MIUI, stock, a custom ROM…
+    validations:
+      required: true
+  - type: input
+    id: permissions
+    attributes:
+      label: Permissions granted
+      description: Overlay, notifications, battery exemption, usage access.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recordings
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else
