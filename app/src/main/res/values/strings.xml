@@ -65,6 +65,7 @@
     <string name="perm_grant">Grant</string>
     <string name="perm_granted">Granted</string>
     <string name="hero_tagline">A bubble you tap to set a “stop using this app” timer.</string>
+    <string name="settings_title" tools:ignore="MissingTranslation">Settings</string>
 
     <string name="section_bubble">Bubble</string>
     <string name="show_countdown_title">Show countdown on the bubble</string>
@@ -120,6 +121,16 @@
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>
     </plurals>
+
+    <!-- About section. Link *targets* live in code (LinkTargets in MainActivity.kt), never in a
+         string resource: see StringResourceIntegrityTest, which rejects links in translations. -->
+    <string name="section_about" tools:ignore="MissingTranslation">About</string>
+    <string name="about_version" tools:ignore="MissingTranslation">Version</string>
+    <string name="about_license" tools:ignore="MissingTranslation">License</string>
+    <string name="about_source_code" tools:ignore="MissingTranslation">Source code</string>
+    <string name="about_report_bug" tools:ignore="MissingTranslation">Report a bug</string>
+    <string name="about_translate" tools:ignore="MissingTranslation">Help translate</string>
+    <string name="about_no_browser" tools:ignore="MissingTranslation">No app found to open this link.</string>
 
     <!-- First-run setup wizard -->
     <string name="onb_welcome_title">Welcome to Pause</string>
