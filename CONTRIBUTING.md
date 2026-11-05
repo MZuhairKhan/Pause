@@ -4,9 +4,10 @@ Thanks for taking an interest. Bug reports, translations and code are all welcom
 
 ## Reporting a bug
 
-Open an issue at https://github.com/MZuhairKhan/Pause/issues. Behaviour varies a lot between
-devices, so include your Android version, phone model and which permissions were granted. "The
-bubble disappeared" is hard to act on; "…after the screen locked on Android 14, Samsung A54" is not.
+Open an issue at https://github.com/MZuhairKhan/Pause/issues and pick a form. Behaviour varies a lot
+between devices, so the bug and crash forms require your Android version, phone model, ROM and which
+permissions were granted. "The bubble disappeared" is hard to act on; "…after the screen locked on
+Android 14, Samsung A54" is not. Feature ideas and questions have their own forms.
 
 ## Translating
 

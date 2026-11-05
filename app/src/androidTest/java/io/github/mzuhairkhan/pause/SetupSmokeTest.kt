@@ -65,30 +65,25 @@ class SetupSmokeTest {
     }
 
     /**
-     * Sections are disclosure panels that start *expanded*, so tapping the header collapses.
-     * This walks collapse then expand, checking the renamed "Minimum exercise time" row follows.
+     * Each category is its own page now, so this opens the wind-down page, checks the "Minimum
+     * exercise time" row is on it, and that Back returns to the list without it.
      *
      * The row lives behind a non-zero lock, so it's seeded away from zero: another test in the
      * same process could otherwise have skipped it and taken the row with it.
      */
     @Test
-    fun breathingSectionCollapsesAndExpands() {
+    fun windDownRowOpensItsPageAndBackReturns() {
         SettingsStore.setLockSeconds(app, SettingsDefaults.LOCK_SECONDS)
         launchSettings()
-
-        val header = app.getString(R.string.section_breathing)
         val row = app.getString(R.string.no_skip_lock)
 
-        // Expanded by default, so the row is there before anything is tapped.
+        compose.onNodeWithText(app.getString(R.string.section_breathing)).performScrollTo().performClick()
+        compose.waitForIdle()
         compose.onNodeWithText(row).performScrollTo().assertIsDisplayed()
 
-        compose.onNodeWithText(header).performScrollTo().performClick()
+        compose.onNodeWithContentDescription(app.getString(R.string.onb_back)).performClick()
         compose.waitForIdle()
         compose.onNodeWithText(row).assertDoesNotExist()
-
-        compose.onNodeWithText(header).performScrollTo().performClick()
-        compose.waitForIdle()
-        compose.onNodeWithText(row).performScrollTo().assertIsDisplayed()
     }
 
     // The "Start button works without notification permission" regression lives in
