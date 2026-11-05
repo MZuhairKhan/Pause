@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Help translate Pause
+    url: https://hosted.weblate.org/projects/pause/
+    about: Translations are done on Weblate, no Git needed.
+  - name: Contributing guide
+    url: https://github.com/MZuhairKhan/Pause/blob/main/CONTRIBUTING.md
+    about: How to report bugs, translate and send code.

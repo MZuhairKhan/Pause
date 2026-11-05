@@ -20,9 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   string resources — Weblate translations can propose new label text but can never redirect where
   a tap actually goes, matching the guard `StringResourceIntegrityTest` already enforces against
   links appearing in translated strings.
+- **Issue forms for bugs, crashes, feature requests and questions**, modelled on NewPipe's. The bug
+  and crash forms require version, install source, Android version, device, ROM and granted
+  permissions, since most Pause bugs only reproduce on particular phones. Blank issues are off; the
+  chooser links to Weblate and `CONTRIBUTING.md`. The field ids are what the app's upcoming
+  report button will pre-fill.
 - `CONTRIBUTORS.md`, where contributors add their own name. It replaces the README's Credits list,
   and the README's Translations section is merged into Contributing.
 - Added a contributor and updated the README.md.
+- **A `translations` label**, auto-applied to Weblate's PRs. They come from a fork, so labeling
+  them needs `pull_request_target` rather than `pull_request` — the job only calls the label API,
+  never checks out or runs the fork's code, so the elevated token is safe.
 
 ## [0.6.0] — 2026-09-16
 
