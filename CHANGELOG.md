@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - The wind-down's breathing circle and its Breathe in / Hold / Breathe out label no longer freeze
-  when the system's animations are turned off.
+  when the system's animations are turned off. The setup wizard's breathing preview had the same
+  problem and is fixed too.
 
 ### Changed
 - **The breathing pattern is fixed at 4-7-8; the three timing steppers are gone.** Breathe in for
