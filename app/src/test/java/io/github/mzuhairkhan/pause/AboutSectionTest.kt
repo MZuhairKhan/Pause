@@ -22,9 +22,10 @@ import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowToast
 
 /**
- * The About section's three links are code constants ([LinkTargets]), never string resources --
+ * The About page's links are code constants ([LinkTargets]), never string resources --
  * [StringResourceIntegrityTest] rejects links in translations, so this is what actually pins the
- * addresses a tap opens.
+ * addresses a tap opens. "Report a bug" and "Help translate" moved to the Feedback page; their
+ * tests are in [SettingsHubTest].
  */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34], qualifiers = RobolectricDeviceQualifiers.Pixel5)
@@ -41,7 +42,9 @@ class AboutSectionTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
         compose.waitForIdle()
-        compose.onNodeWithText(app.getString(R.string.section_about)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(app.getString(R.string.section_about)).performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(app.getString(R.string.about_source_code)).performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -52,26 +55,6 @@ class AboutSectionTest {
         val started = shadowOf(app).nextStartedActivity
         assertEquals(Intent.ACTION_VIEW, started?.action)
         assertEquals(Uri.parse(LinkTargets.SOURCE_CODE), started?.data)
-    }
-
-    @Test
-    fun `report a bug opens the issues page`() {
-        openAbout()
-        compose.onNodeWithText(app.getString(R.string.about_report_bug)).performScrollTo().performClick()
-
-        val started = shadowOf(app).nextStartedActivity
-        assertEquals(Intent.ACTION_VIEW, started?.action)
-        assertEquals(Uri.parse(LinkTargets.REPORT_BUG), started?.data)
-    }
-
-    @Test
-    fun `help translate opens the Weblate project`() {
-        openAbout()
-        compose.onNodeWithText(app.getString(R.string.about_translate)).performScrollTo().performClick()
-
-        val started = shadowOf(app).nextStartedActivity
-        assertEquals(Intent.ACTION_VIEW, started?.action)
-        assertEquals(Uri.parse(LinkTargets.TRANSLATE), started?.data)
     }
 
     @Test

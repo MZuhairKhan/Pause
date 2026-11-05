@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Settings is a short list of categories, each its own page, instead of one long scroll.** The
+  gear opens Permissions, Bubble, Appearance, Breathing wind-down and App blocking, then Feedback
+  and bug reports, Credits and About. Each row shows a one-line summary of where it stands ("All
+  set", "2 missing", the bubble preset, "30s · 5m"), and Back goes up one level at a time, from the
+  header arrow and the system gesture alike. Nothing was added or removed from the controls
+  themselves; they moved onto their pages.
 - **The breathing pattern is fixed at 4-7-8; the three timing steppers are gone.** Breathe in for
   4 seconds, hold for 7, out for 8 is the technique the wind-down is named for, and changing it
   stopped it being that exercise. The Breathing section in Settings keeps the minimum time and the
@@ -21,11 +27,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that.
 
 ### Added
-- **An About section** at the bottom of Settings: version, license, and links to the repo, its
-  issues page and the Weblate translation project. The link addresses are Kotlin constants, not
-  string resources — Weblate translations can propose new label text but can never redirect where
-  a tap actually goes, matching the guard `StringResourceIntegrityTest` already enforces against
-  links appearing in translated strings.
+- **A Feedback page that opens a pre-filled GitHub form.** Report a bug fills in the app version,
+  where it was installed from, Android version, device, ROM and which permissions are granted,
+  which the bug form requires because most Pause bugs only happen on particular phones. Suggest a
+  feature and Ask a question open their own forms, and Help translate opens Weblate. Pause has no
+  internet permission, so nothing is sent by the app: it opens the browser, and the person reads the
+  form and presses Submit. The chosen apps to block are never included. If the link would be too
+  long for GitHub, the longest field is trimmed first.
+- **A Credits page**, read from `CONTRIBUTORS.md` so the file people edit and the list the app
+  shows are one thing. A Gradle step copies it into the app's assets at build time; links in it
+  show as plain text. A test reads the real issue forms, so renaming a field there fails the build
+  instead of silently leaving it blank.
+- **An About page** with the version, license, and a link to the repo. The link addresses are
+  Kotlin constants, not string resources — Weblate translations can propose new label text but can
+  never redirect where a tap actually goes, matching the guard `StringResourceIntegrityTest`
+  already enforces against links appearing in translated strings.
 - **Issue forms for bugs, crashes, feature requests and questions**, modelled on NewPipe's. The bug
   and crash forms require version, install source, Android version, device, ROM and granted
   permissions, since most Pause bugs only reproduce on particular phones. Blank issues are off; the

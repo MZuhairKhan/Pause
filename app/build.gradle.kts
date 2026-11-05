@@ -5,6 +5,36 @@ plugins {
     alias(libs.plugins.roborazzi)
 }
 
+// The Credits page reads CONTRIBUTORS.md, so the list people edit and the list the app shows are
+// one file. It is copied into generated assets at build time rather than duplicated by hand; the
+// content comes only from the repo, so the build stays reproducible.
+abstract class CopyCreditsTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val source: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        source.get().asFile.copyTo(outputDir.get().file("CONTRIBUTORS.md").asFile, overwrite = true)
+    }
+}
+
+val copyCredits = tasks.register<CopyCreditsTask>("copyCredits") {
+    source.set(rootProject.layout.projectDirectory.file("CONTRIBUTORS.md"))
+    outputDir.set(layout.buildDirectory.dir("generated/credits"))
+}
+
+// Registered through the variant API so every task that reads assets, lint included, depends on
+// the copy; a plain asset source directory only wires up the ones AGP happens to know about.
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(copyCredits, CopyCreditsTask::outputDir)
+    }
+}
+
 android {
     namespace = "io.github.mzuhairkhan.pause"
     compileSdk = 36
