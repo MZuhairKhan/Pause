@@ -20,13 +20,12 @@ import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -86,6 +85,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -96,6 +96,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -143,6 +144,11 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
+
+/** Animation time that ignores the system animator scale. */
+private object RealTimeScale : MotionDurationScale {
+    override val scaleFactor: Float = 1f
+}
 
 /** A clear success green for granted-permission affordances, readable on light or dark. */
 private val GrantedGreen = Color(0xFF2EBD6B)
@@ -1337,21 +1343,25 @@ private fun Hero(accentColor: Int) {
  * cannot drift from the thing it is previewing.
  */
 @Composable
-private fun BreathingPreview(accentColor: Int) {
+internal fun BreathingPreview(accentColor: Int) {
     val height = 168.dp
     val cycleMs = BreathingCycle.CYCLE_MILLIS
 
-    val transition = rememberInfiniteTransition(label = "breathing")
-    val elapsed by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = cycleMs,
-        animationSpec = infiniteRepeatable(
-            animation = tween(cycleMs.toInt(), easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "cycle"
-    )
-    val frame = BreathingCycle.frameAt(elapsed)
+    // Pinned to real time: the system's animator scale would otherwise be 0 for someone who
+    // removed animations, and the preview would sit on one frame.
+    val elapsed = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        withContext(RealTimeScale) {
+            elapsed.animateTo(
+                targetValue = cycleMs,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(cycleMs.toInt(), easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart
+                )
+            )
+        }
+    }
+    val frame = BreathingCycle.frameAt(elapsed.value)
     val phase = stringResource(
         when (frame.phase) {
             BreathingCycle.Phase.INHALE -> R.string.breathing_in

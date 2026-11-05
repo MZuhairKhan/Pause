@@ -72,6 +72,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   them needs `pull_request_target` rather than `pull_request` — the job only calls the label API,
   never checks out or runs the fork's code, so the elevated token is safe.
 
+### Fixed
+- The wind-down's breathing circle and its Breathe in / Hold / Breathe out label no longer freeze
+  when the system's animations are turned off. The setup wizard's breathing preview had the same
+  problem and is fixed too.
+
 ## [0.6.0] — 2026-09-16
 
 ### Added
