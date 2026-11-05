@@ -1240,10 +1240,10 @@ class OverlayService : Service() {
         // instead of leaving it stuck drawn on top once the user has already left.
         breathingHomeRelease = registerHomeCloseReceiver { hideBreathing() }
         breathingView = view
-        // Fade in with one confirm haptic rather than snapping over whatever was on screen. Every
+        // Fade in with one vibration rather than snapping over whatever was on screen. Every
         // route lands here (alarm, ticker fallback, restore), so none can skip it.
         view.animate().alpha(1f).setDuration(ARRIVAL_FADE_MS).setInterpolator(ONE_UI_BASIC_CURVE).start()
-        Haptics.confirm(view)
+        Haptics.arrive(this)
         // Silence whatever was playing (a video, music) so the wind-down isn't competing
         // with background media; focus is handed back when the wind-down closes.
         muteMedia()

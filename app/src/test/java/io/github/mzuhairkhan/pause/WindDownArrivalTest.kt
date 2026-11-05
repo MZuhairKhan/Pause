@@ -1,8 +1,13 @@
 package io.github.mzuhairkhan.pause
 
+import android.Manifest
 import android.app.Application
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Looper
+import android.os.VibrationAttributes
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.WindowManager
@@ -26,8 +31,8 @@ import org.robolectric.shadows.ShadowWindowManagerImpl
 
 /**
  * The wind-down used to appear at full opacity with no feedback, which designers called abrupt.
- * It now fades in and gives one confirm haptic; setting a timer gives the same confirm, while
- * navigation taps keep the lighter tick so the two stay distinguishable.
+ * It now fades in and vibrates once; setting a timer gives a firmer confirm tap than the light tick
+ * that navigation keeps, so the two stay distinguishable.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(sdk = [34])
@@ -102,13 +107,59 @@ class WindDownArrivalTest {
         }
     }
 
+    private val vibrator: Vibrator get() = app.getSystemService(Vibrator::class.java)
+
     @Test
-    fun `the wind-down gives one confirm haptic as it arrives`() {
+    fun `the wind-down vibrates as it arrives, with no touch involved`() {
+        // Found on a phone: View.performHapticFeedback is for touches, and Android drops it when
+        // nobody is touching, so the arrival never buzzed. A real vibration needs the permission.
         ShadowSettings.setCanDrawOverlays(true)
         fireTimer(newService())
         shadowOf(Looper.getMainLooper()).idle()
 
-        assertEquals(listOf(HapticFeedbackConstants.CONFIRM), haptics)
+        // isVibrating is time-based and never true for a predefined click, so the recorded
+        // attributes are what show vibrate() was called. EFFECT_CLICK is 0, the field's default.
+        assertNotNull("it never vibrated", shadowOf(vibrator).vibrationAttributesFromLastVibration)
+        assertEquals(VibrationEffect.EFFECT_CLICK, shadowOf(vibrator).effectId)
+    }
+
+    @Test
+    fun `the arrival vibration is an alarm, so a silenced ringer does not swallow it`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        fireTimer(newService())
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val attributes = shadowOf(vibrator).vibrationAttributesFromLastVibration as VibrationAttributes
+        assertEquals(VibrationAttributes.USAGE_ALARM, attributes.usage)
+    }
+
+    @Test
+    fun `the arrival vibrates once and no longer asks the window for touch feedback`() {
+        ShadowSettings.setCanDrawOverlays(true)
+        fireTimer(newService())
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals("touch feedback is for touches", emptyList<Int>(), haptics)
+    }
+
+    @Test
+    fun `a phone with no vibrator still shows the wind-down`() {
+        shadowOf(vibrator).setHasVibrator(false)
+        ShadowSettings.setCanDrawOverlays(true)
+        fireTimer(newService())
+        shadowOf(Looper.getMainLooper()).idle()
+
+        assertNotNull(windowRoot(R.id.breathing_circle))
+        assertEquals(null, shadowOf(vibrator).vibrationAttributesFromLastVibration)
+    }
+
+    @Test
+    fun `the app asks for the vibrate permission`() {
+        @Suppress("DEPRECATION")
+        val requested = app.packageManager
+            .getPackageInfo(app.packageName, PackageManager.GET_PERMISSIONS).requestedPermissions.orEmpty()
+
+        assertTrue(Manifest.permission.VIBRATE in requested)
     }
 
     @Test
