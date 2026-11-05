@@ -80,6 +80,19 @@ class BreathingCycleTest {
         assertEquals(19_000f, BreathingCycle.cycleMillis(inhale, hold, exhale), 1e-3f)
     }
 
+    @Test fun theFixedPatternIsFourSevenEight() {
+        assertEquals(inhale, BreathingCycle.INHALE_MILLIS, 1e-3f)
+        assertEquals(hold, BreathingCycle.HOLD_MILLIS, 1e-3f)
+        assertEquals(exhale, BreathingCycle.EXHALE_MILLIS, 1e-3f)
+        assertEquals(19_000f, BreathingCycle.CYCLE_MILLIS, 1e-3f)
+    }
+
+    @Test fun theShortFormFollowsTheFixedPattern() {
+        for (ms in 0..19_000 step 500) {
+            assertEquals(frameAt(ms.toFloat()), BreathingCycle.frameAt(ms.toFloat()))
+        }
+    }
+
     @Test fun inhaleGrowsFromTheRestingSizeToFull() {
         assertEquals(BreathingCycle.MIN_SCALE, frameAt(0f).scale, 1e-6f)
         assertEquals(BreathingCycle.Phase.INHALE, frameAt(0f).phase)
@@ -180,13 +193,6 @@ class BubblePresetsTest {
 }
 
 class SettingsRangesTest {
-    @Test fun breathSecondsClampToOneToTwenty() {
-        assertEquals(1, SettingsRanges.breathSeconds(0))
-        assertEquals(1, SettingsRanges.breathSeconds(-99))
-        assertEquals(20, SettingsRanges.breathSeconds(1000))
-        assertEquals(7, SettingsRanges.breathSeconds(7))
-    }
-
     @Test fun lockSecondsAllowZero() {
         assertEquals(0, SettingsRanges.lockSeconds(-5))
         assertEquals(60, SettingsRanges.lockSeconds(120))
@@ -222,9 +228,6 @@ class SettingsRangesTest {
 class SettingsDefaultsTest {
     @Test fun firstRunValuesAreTheChosenDefaults() {
         assertFalse(SettingsDefaults.SHOW_COUNTDOWN)   // bubble shows the draining hourglass
-        assertEquals(4, SettingsDefaults.INHALE_SECONDS)
-        assertEquals(7, SettingsDefaults.HOLD_SECONDS)
-        assertEquals(8, SettingsDefaults.EXHALE_SECONDS)
         assertEquals(30, SettingsDefaults.LOCK_SECONDS)
         assertEquals(5, SettingsDefaults.SNOOZE_MINUTES)
         assertEquals(30, SettingsDefaults.BLOCK_MINUTES)
@@ -232,9 +235,6 @@ class SettingsDefaultsTest {
 
     @Test fun everyNumericDefaultIsWithinItsRange() {
         // A default outside its range would be silently clamped on read — a real footgun.
-        assertEquals(SettingsDefaults.INHALE_SECONDS, SettingsRanges.breathSeconds(SettingsDefaults.INHALE_SECONDS))
-        assertEquals(SettingsDefaults.HOLD_SECONDS, SettingsRanges.breathSeconds(SettingsDefaults.HOLD_SECONDS))
-        assertEquals(SettingsDefaults.EXHALE_SECONDS, SettingsRanges.breathSeconds(SettingsDefaults.EXHALE_SECONDS))
         assertEquals(SettingsDefaults.LOCK_SECONDS, SettingsRanges.lockSeconds(SettingsDefaults.LOCK_SECONDS))
         assertEquals(SettingsDefaults.SNOOZE_MINUTES, SettingsRanges.snoozeMinutes(SettingsDefaults.SNOOZE_MINUTES))
         assertEquals(SettingsDefaults.BLOCK_MINUTES, SettingsRanges.blockMinutes(SettingsDefaults.BLOCK_MINUTES))

@@ -21,9 +21,6 @@ object SettingsStore {
     private const val KEY_BUBBLE_CUSTOM_EDGE = "bubble_custom_edge"
     private const val KEY_THEME_MODE = "theme_mode"
     private const val KEY_ACCENT_COLOR = "accent_color"
-    private const val KEY_INHALE = "breath_inhale"
-    private const val KEY_HOLD = "breath_hold"
-    private const val KEY_EXHALE = "breath_exhale"
     private const val KEY_LOCK = "breath_lock"
     // Superseded by lockSeconds() == 0; the one-shot migration below reads and drops this.
     private const val KEY_LEGACY_BREATHING = "breath_enabled"
@@ -102,26 +99,6 @@ object SettingsStore {
 
     fun setAccentColor(context: Context, color: Int) {
         context.prefs().edit().putInt(KEY_ACCENT_COLOR, color).apply()
-    }
-
-    /** Breathing wind-down phase durations in seconds (default 4-7-8: in 4, hold 7, out 8). */
-    fun inhaleSeconds(context: Context): Int =
-        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_INHALE, SettingsDefaults.INHALE_SECONDS))
-    fun holdSeconds(context: Context): Int =
-        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_HOLD, SettingsDefaults.HOLD_SECONDS))
-    fun exhaleSeconds(context: Context): Int =
-        SettingsRanges.breathSeconds(context.prefs().getInt(KEY_EXHALE, SettingsDefaults.EXHALE_SECONDS))
-
-    fun setInhaleSeconds(context: Context, value: Int) {
-        context.prefs().edit().putInt(KEY_INHALE, value).apply()
-    }
-
-    fun setHoldSeconds(context: Context, value: Int) {
-        context.prefs().edit().putInt(KEY_HOLD, value).apply()
-    }
-
-    fun setExhaleSeconds(context: Context, value: Int) {
-        context.prefs().edit().putInt(KEY_EXHALE, value).apply()
     }
 
     /** Seconds the breathing wind-down stays non-skippable before the action buttons appear. */

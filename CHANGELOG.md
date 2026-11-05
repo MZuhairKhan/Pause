@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **The breathing pattern is fixed at 4-7-8; the three timing steppers are gone.** Breathe in for
+  4 seconds, hold for 7, out for 8 is the technique the wind-down is named for, and changing it
+  stopped it being that exercise. The Breathing section in Settings keeps the minimum time and the
+  snooze length. Anyone who had tuned the lengths in an earlier version goes back to 4-7-8: the old
+  stored values are left in place, unread, so there is nothing to migrate. The setup wizard's
+  preview and the wind-down itself now take their timings from one shared definition.
 - **The app opens to a simple main screen** — logo, Start/Stop and a gear — instead of the long
   scrolling settings page. Permissions, bubble, appearance, breathing and app blocking all move
   behind the gear into a new Settings screen; the main screen keeps only a card naming whichever
