@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The wind-down's breathing circle and its Breathe in / Hold / Breathe out label no longer freeze
+  when the system's animations are turned off.
+
 ### Changed
 - **The breathing pattern is fixed at 4-7-8; the three timing steppers are gone.** Breathe in for
   4 seconds, hold for 7, out for 8 is the technique the wind-down is named for, and changing it
