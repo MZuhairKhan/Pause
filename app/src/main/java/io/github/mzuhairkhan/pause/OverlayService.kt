@@ -31,6 +31,7 @@ import android.os.HandlerThread
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import android.view.ContextThemeWrapper
 import android.view.Gravity
@@ -44,7 +45,6 @@ import android.view.WindowManager
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import android.view.accessibility.AccessibilityManager
-import android.view.animation.LinearInterpolator
 import android.widget.ImageView
 import android.widget.NumberPicker
 import android.widget.Switch
@@ -86,7 +86,8 @@ class OverlayService : Service() {
     private var breathingView: View? = null
     private var breathingBackRelease: (() -> Unit)? = null
     private var breathingHomeRelease: (() -> Unit)? = null
-    private var breathingAnimator: ValueAnimator? = null
+    private val breathingHandler = Handler(Looper.getMainLooper())
+    private var breathingFrames: Runnable? = null
 
     /** Held while the wind-down is up, to pause other apps' media; null when not muting. */
     private var audioFocusRequest: AudioFocusRequest? = null
@@ -1262,8 +1263,7 @@ class OverlayService : Service() {
     }
 
     private fun hideBreathing(keepMute: Boolean = false) {
-        breathingAnimator?.cancel()
-        breathingAnimator = null
+        stopBreathingFrames()
         breathingBackRelease?.invoke()
         breathingBackRelease = null
         breathingHomeRelease?.invoke()
@@ -1576,25 +1576,36 @@ class OverlayService : Service() {
     }
 
     /** Length of the running breathing loop in ms, or 0 when none is. Read by tests only. */
-    internal val breathingCycleMillis: Long get() = breathingAnimator?.duration ?: 0L
+    internal val breathingCycleMillis: Long
+        get() = if (breathingFrames != null) BreathingCycle.CYCLE_MILLIS.toLong() else 0L
 
-    /** Loops a 4-7-8 cycle: grow on inhale (4s), hold (7s), shrink on exhale (8s). No numbers. */
+    /**
+     * Loops a 4-7-8 cycle: grow on inhale (4s), hold (7s), shrink on exhale (8s). No numbers.
+     * Ticks on elapsed time, not a ValueAnimator: with the system's animations off the animator
+     * scale is 0 and a ValueAnimator jumps to its end, freezing the circle.
+     */
     private fun startBreathingAnimator(circle: View, phase: TextView) {
-        breathingAnimator?.cancel()
+        stopBreathingFrames()
         val cycle = BreathingCycle.CYCLE_MILLIS
-        breathingAnimator = ValueAnimator.ofFloat(0f, cycle).apply {
-            duration = cycle.toLong()
-            interpolator = LinearInterpolator()
-            repeatCount = ValueAnimator.INFINITE
-            addUpdateListener { animation ->
-                val frame = BreathingCycle.frameAt(animation.animatedValue as Float)
+        val startedAt = SystemClock.uptimeMillis()
+        val tick = object : Runnable {
+            override fun run() {
+                val elapsed = (SystemClock.uptimeMillis() - startedAt) % cycle.toLong()
+                val frame = BreathingCycle.frameAt(elapsed.toFloat())
                 val label = getString(breathingPhaseLabel(frame.phase))
                 circle.scaleX = frame.scale
                 circle.scaleY = frame.scale
                 if (phase.text != label) phase.text = label
+                breathingHandler.postDelayed(this, BREATHING_TICK_MS)
             }
-            start()
         }
+        breathingFrames = tick
+        tick.run()
+    }
+
+    private fun stopBreathingFrames() {
+        breathingFrames?.let { breathingHandler.removeCallbacks(it) }
+        breathingFrames = null
     }
 
     /**
@@ -1737,6 +1748,9 @@ class OverlayService : Service() {
         private const val CHANNEL_ID = "pause_status"
         private val LEGACY_CHANNELS = listOf("overlay_service", "overlay_service_min")
         private const val NOTIFICATION_ID = 1
+
+        /** Redraw interval for the breathing circle; slow motion, so ~60 fps is not needed. */
+        private const val BREATHING_TICK_MS = 16L
         // The floating bubble is sized and spaced as a fraction of the screen's shorter side
         // (the exact fractions come from the chosen app preset in SettingsStore), so it holds
         // the same look across devices. These dp bounds just keep it sane on extreme screens.
