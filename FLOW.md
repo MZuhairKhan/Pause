@@ -9,11 +9,13 @@ flowchart TD
 
     Onboarded -- No --> Wizard[Setup wizard:<br/>1. Intro &#40;logo + Pause&#41;<br/>2. Language<br/>3. Main permissions<br/>4. Usage access + apps to block<br/>5. Main app &#40;sets bubble size&#41;<br/>6. All set]
     Wizard -->|Get started| Finish[Apply chosen language,<br/>mark onboarding complete,<br/>start overlay if it can draw]
-    Onboarded -- Yes --> Settings[Settings screen]
+    Onboarded -- Yes --> Main[Main screen:<br/>logo, Start/Stop,<br/>missing-permission card]
 
     Finish --> Idle
-    Settings -->|Show the bubble| Idle
-    Settings -->|Hide the bubble| Off
+    Main -->|Show the bubble| Idle
+    Main -->|Hide the bubble| Off
+    Main -->|Tap the gear| Settings[Settings screen:<br/>permissions, bubble, appearance,<br/>breathing, app blocking, about]
+    Settings -->|Back| Main
 
     Idle([Bubble floating - idle]) -->|Tap bubble| Picker[Timer picker]
     Picker -->|Set duration / clock alarm| Running

@@ -9,7 +9,7 @@ Optional app-blocking break:
 "Stop for now" can cover apps you choose (for example TikTok, Instagram, or YouTube) with a full-screen reminder whenever you open them during the break.
 
 Privacy by design:
-• No ads, no analytics, no trackers, and no internet access — nothing ever leaves your device.
+• No ads, no analytics, no trackers, and no internet access. Pause never sends anything itself: if it crashes it offers to open a pre-filled bug report in your browser, and nothing is shared unless you choose to.
 • The core timer does not use the Accessibility Service and reads no usage data.
 • The optional app-blocking break is the only feature that reads which app is in the foreground, only while a break is active, and only after you grant Usage Access. You can skip it entirely.
 

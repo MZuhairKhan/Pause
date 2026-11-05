@@ -5,9 +5,11 @@ import android.app.Application
 import android.view.LayoutInflater
 import android.view.View
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -42,11 +44,46 @@ class SettingsScreenshotTest {
 
     private val app: Application get() = ApplicationProvider.getApplicationContext()
 
+    /** The main screen: logo, Start/Stop, and the gear that leads to Settings. */
+    @Test
+    fun mainScreen() {
+        SettingsStore.setOnboardingComplete(app, true)
+        ActivityScenario.launch(MainActivity::class.java)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/main_en.png")
+    }
+
+    /** Settings, reached through the gear -- everything that used to live on the main screen. */
     @Test
     fun settingsScreen() {
         SettingsStore.setOnboardingComplete(app, true)
         ActivityScenario.launch(MainActivity::class.java)
+        compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
+        compose.waitForIdle()
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/settings_en.png")
+    }
+
+    /** The About page, opened from its row in the settings list. */
+    @Test
+    fun settingsAboutPage() {
+        SettingsStore.setOnboardingComplete(app, true)
+        ActivityScenario.launch(MainActivity::class.java)
+        compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(app.getString(R.string.section_about)).performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/settings_about_en.png")
+    }
+
+    /** The Feedback page: report a bug, suggest a feature, ask a question, help translate. */
+    @Test
+    fun settingsFeedbackPage() {
+        SettingsStore.setOnboardingComplete(app, true)
+        ActivityScenario.launch(MainActivity::class.java)
+        compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(app.getString(R.string.feedback_title)).performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/settings_feedback_en.png")
     }
 }
 
@@ -91,10 +128,20 @@ class FinnishScreenshotTest {
     private val app: Application get() = ApplicationProvider.getApplicationContext()
 
     @Test
+    fun mainScreenFinnish() {
+        RuntimeEnvironment.setQualifiers("+fi")
+        SettingsStore.setOnboardingComplete(app, true)
+        ActivityScenario.launch(MainActivity::class.java)
+        compose.onRoot().captureRoboImage("build/outputs/roborazzi/main_fi.png")
+    }
+
+    @Test
     fun settingsScreenFinnish() {
         RuntimeEnvironment.setQualifiers("+fi")
         SettingsStore.setOnboardingComplete(app, true)
         ActivityScenario.launch(MainActivity::class.java)
+        compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
+        compose.waitForIdle()
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/settings_fi.png")
     }
 
