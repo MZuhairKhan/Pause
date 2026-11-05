@@ -17,9 +17,9 @@ import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.annotation.StringRes
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -28,10 +28,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -76,6 +72,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -88,7 +86,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -97,6 +94,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.Stable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -115,6 +113,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import kotlin.math.roundToInt
@@ -130,6 +129,7 @@ import androidx.core.graphics.drawable.toBitmap
 import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.mzuhairkhan.pause.ui.theme.Accents
 import io.github.mzuhairkhan.pause.ui.theme.PauseTheme
@@ -163,19 +163,39 @@ class MainActivity : AppCompatActivity() {
                             onFinish = { onboarded = true }
                         )
                     } else {
-                        SettingsScreen(
-                            modifier = Modifier.padding(padding),
-                            themeMode = themeMode,
-                            onThemeModeChange = {
-                                themeMode = it
-                                SettingsStore.setThemeMode(context, it)
-                            },
-                            accentColor = accentColor,
-                            onAccentChange = {
-                                accentColor = it
-                                SettingsStore.setAccentColor(context, it)
-                            }
-                        )
+                        // One shared grant holder for both screens, so the main screen's card and
+                        // Settings' Permissions section can't disagree about what's granted.
+                        val grants = rememberPermissionGrants()
+                        var destination by rememberSaveable { mutableStateOf(SettingsDestination.MAIN) }
+                        BackHandler(enabled = destination != SettingsDestination.MAIN) {
+                            destination = destination.parent ?: SettingsDestination.MAIN
+                        }
+
+                        if (destination != SettingsDestination.MAIN) {
+                            SettingsHost(
+                                modifier = Modifier.padding(padding),
+                                destination = destination,
+                                onNavigate = { destination = it },
+                                grants = grants,
+                                themeMode = themeMode,
+                                onThemeModeChange = {
+                                    themeMode = it
+                                    SettingsStore.setThemeMode(context, it)
+                                },
+                                accentColor = accentColor,
+                                onAccentChange = {
+                                    accentColor = it
+                                    SettingsStore.setAccentColor(context, it)
+                                }
+                            )
+                        } else {
+                            MainScreen(
+                                modifier = Modifier.padding(padding),
+                                grants = grants,
+                                accentColor = accentColor,
+                                onOpenSettings = { destination = SettingsDestination.SETTINGS }
+                            )
+                        }
                     }
                 }
             }
@@ -183,48 +203,52 @@ class MainActivity : AppCompatActivity() {
     }
 }
 
-@Composable
-private fun SettingsScreen(
-    modifier: Modifier = Modifier,
-    themeMode: Int,
-    onThemeModeChange: (Int) -> Unit,
-    accentColor: Int,
-    onAccentChange: (Int) -> Unit
+/**
+ * The four permission grant flags, shared between the main screen's card and Settings'
+ * Permissions section so the two can never disagree about what's granted.
+ */
+@Stable
+private class PermissionGrants(
+    overlay: Boolean,
+    notifications: Boolean,
+    battery: Boolean,
+    usage: Boolean
 ) {
+    var overlay by mutableStateOf(overlay)
+    var notifications by mutableStateOf(notifications)
+    var battery by mutableStateOf(battery)
+    var usage by mutableStateOf(usage)
+
+    // Usage access is optional, so only these three gate the Start button and the "All set ✓"
+    // summary; allGranted additionally gates Settings' auto-collapse of that section.
+    val requiredGranted: Boolean get() = overlay && notifications && battery
+    val allGranted: Boolean get() = requiredGranted && usage
+}
+
+/**
+ * Creates the shared [PermissionGrants] and keeps it in sync with the OS. Re-reads on every
+ * ON_RESUME: overlay, battery and usage permissions are granted on external Settings screens
+ * that report nothing back, so the flags would otherwise stay stale at "not granted".
+ */
+@Composable
+private fun rememberPermissionGrants(): PermissionGrants {
     val context = LocalContext.current
-    var overlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
-    var notificationsGranted by remember { mutableStateOf(hasNotificationPermission(context)) }
-    var batteryExempt by remember { mutableStateOf(isBatteryOptimizationIgnored(context)) }
-    val serviceRunning by OverlayService.running.collectAsState()
-    var showCountdown by remember { mutableStateOf(SettingsStore.showCountdown(context)) }
-    var inhale by remember { mutableStateOf(SettingsStore.inhaleSeconds(context)) }
-    var hold by remember { mutableStateOf(SettingsStore.holdSeconds(context)) }
-    var exhale by remember { mutableStateOf(SettingsStore.exhaleSeconds(context)) }
-    var lockSec by remember { mutableStateOf(SettingsStore.lockSeconds(context)) }
-    var snoozeMin by remember { mutableStateOf(SettingsStore.snoozeMinutes(context)) }
-    var blockMinutes by remember { mutableStateOf(SettingsStore.blockMinutes(context)) }
-    var blockedApps by remember { mutableStateOf(SettingsStore.blockedApps(context)) }
-    var usageAccessGranted by remember { mutableStateOf(hasUsageAccess(context)) }
-    var showColorDialog by remember { mutableStateOf(false) }
-    var showAppPicker by remember { mutableStateOf(false) }
-
-    val notificationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        notificationsGranted = granted
+    val grants = remember {
+        PermissionGrants(
+            overlay = Settings.canDrawOverlays(context),
+            notifications = hasNotificationPermission(context),
+            battery = isBatteryOptimizationIgnored(context),
+            usage = hasUsageAccess(context)
+        )
     }
-
-    // Re-read permission state whenever the screen returns to the foreground: overlay, battery
-    // and usage permissions are granted on external Settings screens that report nothing back,
-    // so the rows would otherwise stay stale at "Grant". ON_RESUME also covers first display.
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                overlayGranted = Settings.canDrawOverlays(context)
-                notificationsGranted = hasNotificationPermission(context)
-                batteryExempt = isBatteryOptimizationIgnored(context)
-                usageAccessGranted = hasUsageAccess(context)
+                grants.overlay = Settings.canDrawOverlays(context)
+                grants.notifications = hasNotificationPermission(context)
+                grants.battery = isBatteryOptimizationIgnored(context)
+                grants.usage = hasUsageAccess(context)
                 // Make sure the persistent "Start Pause" notification is present while the
                 // overlay is off (it self-skips when running or without notification access).
                 OverlayService.showStartNotification(context)
@@ -233,237 +257,498 @@ private fun SettingsScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+    return grants
+}
 
-    // The three required permissions drive the "All set ✓" summary and the Start button.
-    // Usage access is optional, so it only gates the *auto-collapse* — the section stays
-    // open (showing the optional row) until everything, including usage access, is granted.
-    val requiredPermissionsGranted = overlayGranted && notificationsGranted && batteryExempt
-    val everyPermissionGranted = requiredPermissionsGranted && usageAccessGranted
+/**
+ * The permission rows themselves, shared by Settings (every row) and the main screen's card
+ * ([onlyMissingRequired], which hides usage access and any already-granted required row).
+ */
+@Composable
+private fun PermissionRows(grants: PermissionGrants, onlyMissingRequired: Boolean) {
+    val context = LocalContext.current
+    val notificationLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        grants.notifications = granted
+    }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        Hero(accentColor)
+    if (!onlyMissingRequired || !grants.overlay) {
+        PermissionRow(
+            label = stringResource(R.string.perm_overlay),
+            granted = grants.overlay,
+            onClick = {
+                val intent = Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:${context.packageName}")
+                )
+                context.startActivity(intent)
+            }
+        )
+    }
+    if (!onlyMissingRequired || !grants.notifications) {
+        PermissionRow(
+            label = stringResource(R.string.perm_notifications),
+            granted = grants.notifications,
+            onClick = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    grants.notifications = true
+                }
+            }
+        )
+    }
+    if (!onlyMissingRequired || !grants.battery) {
+        PermissionRow(
+            label = stringResource(R.string.perm_battery),
+            granted = grants.battery,
+            onClick = {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                }
+                context.startActivity(intent)
+            }
+        )
+    }
+    if (!onlyMissingRequired) {
+        PermissionRow(
+            label = stringResource(R.string.perm_usage),
+            granted = grants.usage,
+            onClick = {
+                context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            }
+        )
+    }
+}
 
-        // "Hide the bubble" read as parking the timer out of sight; it has always ended it.
-        // The label now says so, and the caption spells out what stopping takes with it.
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Button(
-                modifier = Modifier.fillMaxWidth(),
-                // Only the overlay permission is load-bearing: startForeground() succeeds without
-                // POST_NOTIFICATIONS, it just silently skips the notification (canPostNotifications()
-                // already guards that). Requiring it here blocked the bubble entirely for anyone who
-                // denies notifications, with no way to start it at all.
-                enabled = overlayGranted,
-                onClick = {
+/**
+ * The main screen: logo, tagline, the Start/Stop action and (while a required permission is
+ * missing) a card naming it -- the Quick Settings tile routes here for exactly that. Everything
+ * else lives behind the gear, in [SettingsScreen].
+ */
+@Composable
+private fun MainScreen(
+    modifier: Modifier = Modifier,
+    grants: PermissionGrants,
+    accentColor: Int,
+    onOpenSettings: () -> Unit
+) {
+    val context = LocalContext.current
+    val serviceRunning by OverlayService.running.collectAsState()
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // The scrollable content goes first so it sits *behind* the gear in z-order: declared
+        // after, the gear would fully overlay it (both fillMaxSize) and its own scrollable
+        // Column -- which covers the whole box, corner included, regardless of where its content
+        // is centered -- would claim the gear's taps before they ever reached it.
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val viewport = maxHeight
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .heightIn(min = viewport)
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Hero(accentColor)
+                Spacer(Modifier.height(28.dp))
+
+                // "Hide the bubble" read as parking the timer out of sight; it has always ended
+                // it. The label now says so, and the caption spells out what stopping takes with
+                // it.
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        // Only the overlay permission is load-bearing: startForeground() succeeds
+                        // without POST_NOTIFICATIONS, it just silently skips the notification
+                        // (canPostNotifications() already guards that). Requiring it here blocked
+                        // the bubble entirely for anyone who denies notifications, with no way to
+                        // start it at all.
+                        enabled = grants.overlay,
+                        onClick = {
+                            if (serviceRunning) {
+                                OverlayService.stop(context)
+                            } else if (Settings.canDrawOverlays(context)) {
+                                OverlayService.start(context)
+                            } else {
+                                // The cached grant only refreshes on resume; if it was revoked
+                                // while this screen stayed open, correct the flag (disabling the
+                                // button) rather than starting a service that can't draw the
+                                // bubble.
+                                grants.overlay = false
+                            }
+                        }
+                    ) {
+                        Text(if (serviceRunning) stringResource(R.string.stop_overlay) else stringResource(R.string.start_overlay))
+                    }
                     if (serviceRunning) {
-                        OverlayService.stop(context)
-                    } else if (Settings.canDrawOverlays(context)) {
-                        OverlayService.start(context)
-                    } else {
-                        // The cached grant only refreshes on resume; if it was revoked while this
-                        // screen stayed open, correct the flag (disabling the button) rather than
-                        // starting a service that can't draw the bubble.
-                        overlayGranted = false
+                        Text(
+                            text = stringResource(R.string.stop_overlay_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-            ) {
-                Text(if (serviceRunning) stringResource(R.string.stop_overlay) else stringResource(R.string.start_overlay))
-            }
-            if (serviceRunning) {
-                Text(
-                    text = stringResource(R.string.stop_overlay_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+
+                if (!grants.requiredGranted) {
+                    Spacer(Modifier.height(20.dp))
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Text(
+                                stringResource(R.string.permissions_title),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            PermissionRows(grants, onlyMissingRequired = true)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(viewport * 0.08f))
             }
         }
 
-        PermissionsSection(
-            summaryGranted = requiredPermissionsGranted,
-            collapseGranted = everyPermissionGranted
+        IconButton(
+            onClick = onOpenSettings,
+            modifier = Modifier.align(Alignment.TopEnd)
         ) {
-            PermissionRow(
-                label = stringResource(R.string.perm_overlay),
-                granted = overlayGranted,
-                onClick = {
-                    val intent = Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:${context.packageName}")
-                    )
-                    context.startActivity(intent)
-                }
-            )
-            PermissionRow(
-                label = stringResource(R.string.perm_notifications),
-                granted = notificationsGranted,
-                onClick = {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    } else {
-                        notificationsGranted = true
-                    }
-                }
-            )
-            PermissionRow(
-                label = stringResource(R.string.perm_battery),
-                granted = batteryExempt,
-                onClick = {
-                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                        data = Uri.parse("package:${context.packageName}")
-                    }
-                    context.startActivity(intent)
-                }
-            )
-            PermissionRow(
-                label = stringResource(R.string.perm_usage),
-                granted = usageAccessGranted,
-                onClick = {
-                    context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                }
+            Icon(
+                painter = painterResource(R.drawable.ic_settings),
+                contentDescription = stringResource(R.string.settings_title)
             )
         }
+    }
+}
 
-        SettingsSection(stringResource(R.string.section_bubble)) {
-            SwitchRow(
-                stringResource(R.string.show_countdown_title),
-                showCountdown,
-                subtitle = stringResource(R.string.show_countdown_subtitle)
-            ) {
-                showCountdown = it
-                SettingsStore.setShowCountdown(context, it)
-            }
+/** Link targets for the About section, kept as code rather than string resources -- see
+ * [StringResourceIntegrityTest], which rejects links in translations. A Weblate translation can
+ * propose new text but can never redirect where a tap actually goes. Internal (not private) so
+ * [AboutSectionTest] can assert against the exact same constants a tap opens. */
+internal object LinkTargets {
+    const val SOURCE_CODE = "https://github.com/MZuhairKhan/Pause"
+    const val NEW_ISSUE = "https://github.com/MZuhairKhan/Pause/issues/new"
+    const val TRANSLATE = "https://hosted.weblate.org/projects/pause/"
+    const val LICENSE = "GPL-3.0-or-later"
+}
 
-            BubbleSizeChooser()
+@Composable
+private fun AboutInfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** A tappable row showing both the label and the address it opens, so it stays legible even
+ * when nothing on the device can open it. */
+@Composable
+private fun AboutLinkRow(label: String, subtitle: String?, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp)
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+        if (subtitle != null) {
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
 
-        SettingsSection(stringResource(R.string.section_appearance)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf(
-                    stringResource(R.string.theme_system),
-                    stringResource(R.string.theme_light),
-                    stringResource(R.string.theme_dark)
-                ).forEachIndexed { index, label ->
-                    val labelText = @Composable {
-                        Text(label, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
-                    }
-                    if (index == themeMode) {
-                        Button(
-                            onClick = { onThemeModeChange(index) },
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
-                        ) { labelText() }
-                    } else {
-                        OutlinedButton(
-                            onClick = { onThemeModeChange(index) },
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
-                        ) { labelText() }
-                    }
-                }
-            }
+@Composable
+private fun rememberLinkOpener(): (String) -> Unit {
+    val context = LocalContext.current
+    return remember(context) {
+        val open: (String) -> Unit = { url -> openLink(context, url) }
+        open
+    }
+}
 
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Accents.colors.forEachIndexed { index, colorInt ->
-                    AccentChip(
-                        color = colorInt,
-                        name = Accents.names[index],
-                        selected = colorInt == accentColor,
-                        onClick = { onAccentChange(colorInt) }
-                    )
-                }
-            }
+@StringRes
+private fun SettingsDestination.titleRes(): Int = when (this) {
+    SettingsDestination.MAIN, SettingsDestination.SETTINGS -> R.string.settings_title
+    SettingsDestination.PERMISSIONS -> R.string.permissions_title
+    SettingsDestination.BUBBLE -> R.string.section_bubble
+    SettingsDestination.APPEARANCE -> R.string.section_appearance
+    SettingsDestination.WIND_DOWN -> R.string.section_breathing
+    SettingsDestination.APP_BLOCKING -> R.string.section_app_blocking
+    SettingsDestination.FEEDBACK -> R.string.feedback_title
+    SettingsDestination.CREDITS -> R.string.credits_title
+    SettingsDestination.ABOUT -> R.string.section_about
+}
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Color(accentColor))
-                        .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+/**
+ * Everything behind the main screen's gear: the settings list and one small page per category.
+ * [onNavigate] receives where to go, including back to the parent from the header arrow.
+ */
+@Composable
+private fun SettingsHost(
+    modifier: Modifier = Modifier,
+    destination: SettingsDestination,
+    onNavigate: (SettingsDestination) -> Unit,
+    grants: PermissionGrants,
+    themeMode: Int,
+    onThemeModeChange: (Int) -> Unit,
+    accentColor: Int,
+    onAccentChange: (Int) -> Unit
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { onNavigate(destination.parent ?: SettingsDestination.MAIN) }) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_back),
+                    contentDescription = stringResource(R.string.onb_back)
                 )
-                Text(
-                    stringResource(R.string.custom_color),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 12.dp),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                OutlinedButton(onClick = { showColorDialog = true }) { Text(stringResource(R.string.custom_color_pick)) }
             }
-        }
-
-        SettingsSection(stringResource(R.string.section_breathing)) {
-            StepperRow(stringResource(R.string.breathing_in), inhale) {
-                inhale = it
-                SettingsStore.setInhaleSeconds(context, it)
-            }
-            StepperRow(stringResource(R.string.breathing_hold), hold) {
-                hold = it
-                SettingsStore.setHoldSeconds(context, it)
-            }
-            StepperRow(stringResource(R.string.breathing_out), exhale) {
-                exhale = it
-                SettingsStore.setExhaleSeconds(context, it)
-            }
-            MinimumTimeControls(lockSec) {
-                lockSec = it
-                SettingsStore.setLockSeconds(context, it)
-            }
-            StepperRow(
-                stringResource(R.string.snooze_length),
-                snoozeMin,
-                min = SettingsRanges.SNOOZE_MIN_MINUTES,
-                max = SettingsRanges.SNOOZE_MAX_MINUTES,
-                unitRes = R.string.unit_minutes_short
-            ) {
-                snoozeMin = it
-                SettingsStore.setSnoozeMinutes(context, it)
-            }
-        }
-
-        SettingsSection(stringResource(R.string.section_app_blocking), initiallyExpanded = false) {
             Text(
-                stringResource(R.string.app_blocking_desc),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                stringResource(destination.titleRes()),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
             )
-            if (!usageAccessGranted) {
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            when (destination) {
+                SettingsDestination.MAIN, SettingsDestination.SETTINGS ->
+                    SettingsList(grants, themeMode, onOpen = onNavigate)
+                SettingsDestination.PERMISSIONS ->
+                    SettingsCard { PermissionRows(grants, onlyMissingRequired = false) }
+                SettingsDestination.BUBBLE -> BubblePage()
+                SettingsDestination.APPEARANCE ->
+                    AppearancePage(themeMode, onThemeModeChange, accentColor, onAccentChange)
+                SettingsDestination.WIND_DOWN -> WindDownPage()
+                SettingsDestination.APP_BLOCKING -> AppBlockingPage(grants)
+                SettingsDestination.FEEDBACK -> FeedbackPage()
+                SettingsDestination.CREDITS -> CreditsPage()
+                SettingsDestination.ABOUT -> AboutPage()
+            }
+        }
+    }
+}
+
+/** A card holding one page's controls. */
+@Composable
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content
+        )
+    }
+}
+
+/** One tappable row of the settings list: a title, a one-line summary of its current state, and a chevron. */
+@Composable
+private fun SettingsRow(
+    title: String,
+    summary: String?,
+    summaryColor: Color = Color.Unspecified,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (summary != null) {
                 Text(
-                    stringResource(R.string.usage_needed),
+                    summary,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
+                    color = if (summaryColor == Color.Unspecified) MaterialTheme.colorScheme.onSurfaceVariant else summaryColor
                 )
             }
-            StepperRow(stringResource(R.string.break_length), blockMinutes, min = 1, max = 120, unitRes = R.string.unit_minutes_short) {
-                blockMinutes = it
-                SettingsStore.setBlockMinutes(context, it)
+        }
+        Chevron(expanded = false, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * The categories, grouped as One UI's own Settings does: what Pause does first, then the
+ * project (feedback, credits, about). Each summary is read fresh, so it is current when the user
+ * comes back from a page.
+ */
+@Composable
+private fun SettingsList(grants: PermissionGrants, themeMode: Int, onOpen: (SettingsDestination) -> Unit) {
+    val context = LocalContext.current
+    val missing = listOf(grants.overlay, grants.notifications, grants.battery).count { !it }
+    val permissionsSummary =
+        if (missing == 0) stringResource(R.string.all_set)
+        else pluralStringResource(R.plurals.perm_missing, missing, missing)
+
+    val bubbleSummary = stringResource(
+        when (SettingsStore.bubblePreset(context)) {
+            BubblePresets.INSTAGRAM -> R.string.preset_instagram
+            BubblePresets.TIKTOK -> R.string.preset_tiktok
+            BubblePresets.SHORTS -> R.string.preset_shorts
+            else -> R.string.preset_custom
+        }
+    )
+    val themeSummary = stringResource(
+        when (themeMode) {
+            1 -> R.string.theme_light
+            2 -> R.string.theme_dark
+            else -> R.string.theme_system
+        }
+    )
+    val windDownSummary = stringResource(R.string.unit_seconds_short, SettingsStore.lockSeconds(context)) +
+        " · " + stringResource(R.string.unit_minutes_short, SettingsStore.snoozeMinutes(context))
+    val blockedCount = SettingsStore.blockedApps(context).size
+    val appBlockingSummary =
+        (if (blockedCount == 0) stringResource(R.string.apps_chosen_none)
+        else pluralStringResource(R.plurals.apps_chosen, blockedCount, blockedCount)) +
+            " · " + stringResource(R.string.unit_minutes_short, SettingsStore.blockMinutes(context))
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column {
+            SettingsRow(
+                stringResource(R.string.permissions_title), permissionsSummary,
+                summaryColor = if (missing == 0) GrantedGreen else MaterialTheme.colorScheme.error
+            ) { onOpen(SettingsDestination.PERMISSIONS) }
+            HorizontalDivider()
+            SettingsRow(stringResource(R.string.section_bubble), bubbleSummary) { onOpen(SettingsDestination.BUBBLE) }
+            HorizontalDivider()
+            SettingsRow(stringResource(R.string.section_appearance), themeSummary) { onOpen(SettingsDestination.APPEARANCE) }
+            HorizontalDivider()
+            SettingsRow(stringResource(R.string.section_breathing), windDownSummary) { onOpen(SettingsDestination.WIND_DOWN) }
+            HorizontalDivider()
+            SettingsRow(stringResource(R.string.section_app_blocking), appBlockingSummary) { onOpen(SettingsDestination.APP_BLOCKING) }
+        }
+    }
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column {
+            SettingsRow(stringResource(R.string.feedback_title), null) { onOpen(SettingsDestination.FEEDBACK) }
+            HorizontalDivider()
+            SettingsRow(stringResource(R.string.credits_title), null) { onOpen(SettingsDestination.CREDITS) }
+            HorizontalDivider()
+            SettingsRow(stringResource(R.string.section_about), remember { appVersionName(context) }) {
+                onOpen(SettingsDestination.ABOUT)
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    if (blockedApps.isEmpty()) stringResource(R.string.apps_chosen_none)
-                    else pluralStringResource(R.plurals.apps_chosen, blockedApps.size, blockedApps.size),
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium
+        }
+    }
+}
+
+@Composable
+private fun BubblePage() {
+    val context = LocalContext.current
+    var showCountdown by remember { mutableStateOf(SettingsStore.showCountdown(context)) }
+    SettingsCard {
+        SwitchRow(
+            stringResource(R.string.show_countdown_title),
+            showCountdown,
+            subtitle = stringResource(R.string.show_countdown_subtitle)
+        ) {
+            showCountdown = it
+            SettingsStore.setShowCountdown(context, it)
+        }
+
+        BubbleSizeChooser()
+    }
+}
+
+@Composable
+private fun AppearancePage(
+    themeMode: Int,
+    onThemeModeChange: (Int) -> Unit,
+    accentColor: Int,
+    onAccentChange: (Int) -> Unit
+) {
+    var showColorDialog by remember { mutableStateOf(false) }
+
+    SettingsCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf(
+                stringResource(R.string.theme_system),
+                stringResource(R.string.theme_light),
+                stringResource(R.string.theme_dark)
+            ).forEachIndexed { index, label ->
+                val labelText = @Composable {
+                    Text(label, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
+                }
+                if (index == themeMode) {
+                    Button(
+                        onClick = { onThemeModeChange(index) },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+                    ) { labelText() }
+                } else {
+                    OutlinedButton(
+                        onClick = { onThemeModeChange(index) },
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 10.dp)
+                    ) { labelText() }
+                }
+            }
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Accents.colors.forEachIndexed { index, colorInt ->
+                AccentChip(
+                    color = colorInt,
+                    name = Accents.names[index],
+                    selected = colorInt == accentColor,
+                    onClick = { onAccentChange(colorInt) }
                 )
-                OutlinedButton(onClick = { showAppPicker = true }) { Text(stringResource(R.string.choose)) }
             }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(accentColor))
+                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+            )
+            Text(
+                stringResource(R.string.custom_color),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            OutlinedButton(onClick = { showColorDialog = true }) { Text(stringResource(R.string.custom_color_pick)) }
         }
     }
 
@@ -473,6 +758,69 @@ private fun SettingsScreen(
             onPick = onAccentChange,
             onDismiss = { showColorDialog = false }
         )
+    }
+}
+
+@Composable
+private fun WindDownPage() {
+    val context = LocalContext.current
+    var lockSec by remember { mutableStateOf(SettingsStore.lockSeconds(context)) }
+    var snoozeMin by remember { mutableStateOf(SettingsStore.snoozeMinutes(context)) }
+
+    SettingsCard {
+        MinimumTimeControls(lockSec) {
+            lockSec = it
+            SettingsStore.setLockSeconds(context, it)
+        }
+        StepperRow(
+            stringResource(R.string.snooze_length),
+            snoozeMin,
+            min = SettingsRanges.SNOOZE_MIN_MINUTES,
+            max = SettingsRanges.SNOOZE_MAX_MINUTES,
+            unitRes = R.string.unit_minutes_short
+        ) {
+            snoozeMin = it
+            SettingsStore.setSnoozeMinutes(context, it)
+        }
+    }
+}
+
+@Composable
+private fun AppBlockingPage(grants: PermissionGrants) {
+    val context = LocalContext.current
+    var blockMinutes by remember { mutableStateOf(SettingsStore.blockMinutes(context)) }
+    var blockedApps by remember { mutableStateOf(SettingsStore.blockedApps(context)) }
+    var showAppPicker by remember { mutableStateOf(false) }
+
+    SettingsCard {
+        Text(
+            stringResource(R.string.app_blocking_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (!grants.usage) {
+            Text(
+                stringResource(R.string.usage_needed),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        StepperRow(stringResource(R.string.break_length), blockMinutes, min = 1, max = 120, unitRes = R.string.unit_minutes_short) {
+            blockMinutes = it
+            SettingsStore.setBlockMinutes(context, it)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                if (blockedApps.isEmpty()) stringResource(R.string.apps_chosen_none)
+                else pluralStringResource(R.plurals.apps_chosen, blockedApps.size, blockedApps.size),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium
+            )
+            OutlinedButton(onClick = { showAppPicker = true }) { Text(stringResource(R.string.choose)) }
+        }
     }
 
     if (showAppPicker) {
@@ -489,6 +837,77 @@ private fun SettingsScreen(
             },
             onDismiss = { showAppPicker = false }
         )
+    }
+}
+
+/**
+ * Each form opens in the browser, pre-filled where it helps. The device details are collected when
+ * the row is tapped, not when the page opens, since permissions can change in between. Nothing is
+ * sent from here: the user reads the form and presses Submit on GitHub.
+ */
+@Composable
+private fun FeedbackPage() {
+    val context = LocalContext.current
+    val openLink = rememberLinkOpener()
+    fun openForm(template: String, fields: Map<String, String>) =
+        openLink(IssueUrl.build(LinkTargets.NEW_ISSUE, template, fields))
+    // A crash that left no notification (notifications off) is still offered here until it is
+    // reported or dismissed. Looked up again on every resume: the report screen is another
+    // activity, and coming back from it with the row left over led to "no longer available".
+    var lastCrash by remember { mutableStateOf(PendingCrash.latest(context)) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { lastCrash = PendingCrash.latest(context) }
+
+    SettingsCard {
+        lastCrash?.let { crash ->
+            AboutLinkRow(
+                stringResource(R.string.feedback_last_crash),
+                stringResource(R.string.feedback_last_crash_hint)
+            ) { context.startActivity(CrashReportActivity.intent(context, crash)) }
+        }
+        AboutLinkRow(
+            stringResource(R.string.feedback_report_bug),
+            stringResource(R.string.feedback_report_bug_hint)
+        ) { openForm(IssueTemplates.BUG, DeviceInfo.collect(context).fields()) }
+        AboutLinkRow(stringResource(R.string.feedback_suggest), null) {
+            openForm(IssueTemplates.FEATURE, emptyMap())
+        }
+        AboutLinkRow(stringResource(R.string.feedback_question), null) {
+            openForm(IssueTemplates.QUESTION, mapOf(IssueFields.APP_VERSION to appVersionName(context)))
+        }
+        AboutLinkRow(stringResource(R.string.about_translate), LinkTargets.TRANSLATE) {
+            openLink(LinkTargets.TRANSLATE)
+        }
+    }
+}
+
+/** The people in `CONTRIBUTORS.md`, as plain text: nothing in that file is tappable here. */
+@Composable
+private fun CreditsPage() {
+    val context = LocalContext.current
+    val sections = remember { Credits.load(context) }
+    if (sections.isEmpty()) {
+        SettingsCard {
+            Text(stringResource(R.string.credits_unavailable), style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+    sections.forEach { section ->
+        SettingsCard {
+            Text(section.title, style = MaterialTheme.typography.titleMedium)
+            section.entries.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
+        }
+    }
+}
+
+@Composable
+private fun AboutPage() {
+    val context = LocalContext.current
+    val openLink = rememberLinkOpener()
+    SettingsCard {
+        AboutInfoRow(stringResource(R.string.about_version), remember { appVersionName(context) })
+        AboutInfoRow(stringResource(R.string.about_license), LinkTargets.LICENSE)
+        AboutLinkRow(stringResource(R.string.about_source_code), LinkTargets.SOURCE_CODE) {
+            openLink(LinkTargets.SOURCE_CODE)
+        }
     }
 }
 
@@ -909,22 +1328,18 @@ private fun Hero(accentColor: Int) {
 /** A static hourglass logo (mostly-full, not animated) on a soft accent glow. */
 /**
  * The wind-down, in miniature: the same accent circle scaling on the same cycle, with the same
- * phase wording above it. Runs at **real speed** off the user's stored durations -- a sped-up
- * demo would misrepresent how long 4-7-8 actually takes, which is precisely the expectation
- * this page exists to set. Nobody will sit through all 19 seconds, and that is fine; it starts
- * on the inhale so the recognisable part comes first.
+ * phase wording above it. Runs at **real speed** -- a sped-up demo would misrepresent how long
+ * 4-7-8 actually takes, which is precisely the expectation this page exists to set. Nobody will
+ * sit through all 19 seconds, and that is fine; it starts on the inhale so the recognisable part
+ * comes first.
  *
  * [BreathingCycle] does the arithmetic, shared with the overlay's own animator so the preview
  * cannot drift from the thing it is previewing.
  */
 @Composable
 private fun BreathingPreview(accentColor: Int) {
-    val context = LocalContext.current
     val height = 168.dp
-    val inhaleMs = SettingsStore.inhaleSeconds(context) * 1000f
-    val holdMs = SettingsStore.holdSeconds(context) * 1000f
-    val exhaleMs = SettingsStore.exhaleSeconds(context) * 1000f
-    val cycleMs = BreathingCycle.cycleMillis(inhaleMs, holdMs, exhaleMs)
+    val cycleMs = BreathingCycle.CYCLE_MILLIS
 
     val transition = rememberInfiniteTransition(label = "breathing")
     val elapsed by transition.animateFloat(
@@ -936,7 +1351,7 @@ private fun BreathingPreview(accentColor: Int) {
         ),
         label = "cycle"
     )
-    val frame = BreathingCycle.frameAt(elapsed, inhaleMs, holdMs, exhaleMs)
+    val frame = BreathingCycle.frameAt(elapsed)
     val phase = stringResource(
         when (frame.phase) {
             BreathingCycle.Phase.INHALE -> R.string.breathing_in
@@ -1006,100 +1421,6 @@ private fun BubblePreview(accentColor: Int) {
                 update = { it.setImageDrawable(drawable) },
                 modifier = Modifier.size(54.dp)
             )
-        }
-    }
-}
-
-@Composable
-private fun SettingsSection(
-    title: String,
-    initiallyExpanded: Boolean = true,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    var expanded by remember { mutableStateOf(initiallyExpanded) }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.small)
-                .clickable { expanded = !expanded }
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(title, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            Chevron(expanded, MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        AnimatedVisibility(
-            visible = expanded,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    content = content
-                )
-            }
-        }
-    }
-}
-
-/**
- * Permissions section. The green "All set ✓" summary appears once the required permissions
- * are granted ([summaryGranted]); the section only auto-collapses once optional usage access
- * is granted too ([collapseGranted]), so that row stays visible. Re-expands if one is
- * revoked, and collapses by hand at any time.
- */
-@Composable
-private fun PermissionsSection(
-    summaryGranted: Boolean,
-    collapseGranted: Boolean,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    var expanded by remember { mutableStateOf(!collapseGranted) }
-    LaunchedEffect(collapseGranted) { expanded = !collapseGranted }
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.small)
-                .clickable { expanded = !expanded }
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                stringResource(R.string.permissions_title),
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.titleMedium
-            )
-            if (summaryGranted) {
-                Text(
-                    stringResource(R.string.all_set),
-                    color = GrantedGreen,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(Modifier.width(8.dp))
-            }
-            Chevron(expanded, MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        AnimatedVisibility(
-            visible = expanded,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    content = content
-                )
-            }
         }
     }
 }
@@ -1730,7 +2051,7 @@ private fun ClearGlyph(tint: Color, modifier: Modifier = Modifier) {
     }
 }
 
-private fun hasUsageAccess(context: Context): Boolean {
+internal fun hasUsageAccess(context: Context): Boolean {
     val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
     val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         appOps.unsafeCheckOpNoThrow(
@@ -1745,7 +2066,7 @@ private fun hasUsageAccess(context: Context): Boolean {
     return mode == AppOpsManager.MODE_ALLOWED
 }
 
-private fun hasNotificationPermission(context: Context): Boolean {
+internal fun hasNotificationPermission(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
     return ContextCompat.checkSelfPermission(
         context,
@@ -1753,7 +2074,7 @@ private fun hasNotificationPermission(context: Context): Boolean {
     ) == PackageManager.PERMISSION_GRANTED
 }
 
-private fun isBatteryOptimizationIgnored(context: Context): Boolean {
+internal fun isBatteryOptimizationIgnored(context: Context): Boolean {
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     return pm.isIgnoringBatteryOptimizations(context.packageName)
 }

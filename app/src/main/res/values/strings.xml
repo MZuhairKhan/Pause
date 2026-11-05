@@ -65,6 +65,7 @@
     <string name="perm_grant">Grant</string>
     <string name="perm_granted">Granted</string>
     <string name="hero_tagline">A bubble you tap to set a “stop using this app” timer.</string>
+    <string name="settings_title" tools:ignore="MissingTranslation">Settings</string>
 
     <string name="section_bubble">Bubble</string>
     <string name="show_countdown_title">Show countdown on the bubble</string>
@@ -120,6 +121,47 @@
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>
     </plurals>
+
+    <!-- About section. Link *targets* live in code (LinkTargets in MainActivity.kt), never in a
+         string resource: see StringResourceIntegrityTest, which rejects links in translations. -->
+    <string name="section_about" tools:ignore="MissingTranslation">About</string>
+    <string name="about_version" tools:ignore="MissingTranslation">Version</string>
+    <string name="about_license" tools:ignore="MissingTranslation">License</string>
+    <string name="about_source_code" tools:ignore="MissingTranslation">Source code</string>
+    <string name="about_translate" tools:ignore="MissingTranslation">Help translate</string>
+    <string name="about_no_browser" tools:ignore="MissingTranslation">No app found to open this link.</string>
+
+    <!-- Settings list and its Feedback and Credits pages. English only until reviewed. -->
+    <plurals name="perm_missing" tools:ignore="MissingTranslation">
+        <item quantity="one">%1$d missing</item>
+        <item quantity="other">%1$d missing</item>
+    </plurals>
+    <string name="feedback_title" tools:ignore="MissingTranslation">Feedback and bug reports</string>
+    <string name="feedback_report_bug" tools:ignore="MissingTranslation">Report a bug</string>
+    <string name="feedback_report_bug_hint" tools:ignore="MissingTranslation">Opens GitHub with your device details filled in.</string>
+    <string name="feedback_suggest" tools:ignore="MissingTranslation">Suggest a feature</string>
+    <string name="feedback_question" tools:ignore="MissingTranslation">Ask a question</string>
+    <string name="credits_title" tools:ignore="MissingTranslation">Credits</string>
+    <string name="credits_unavailable" tools:ignore="MissingTranslation">The credits could not be loaded.</string>
+
+    <!-- Crash reports. English only until reviewed. -->
+    <string name="crash_channel_name" tools:ignore="MissingTranslation">Crash reports</string>
+    <string name="crash_channel_description" tools:ignore="MissingTranslation">Offers to report a crash. Nothing is sent unless you choose to.</string>
+    <string name="crash_notification_title" tools:ignore="MissingTranslation">Pause stopped unexpectedly</string>
+    <string name="crash_notification_text" tools:ignore="MissingTranslation">Tap to review and report it.</string>
+    <string name="crash_title" tools:ignore="MissingTranslation">Pause stopped unexpectedly</string>
+    <string name="crash_intro" tools:ignore="MissingTranslation">This is exactly what would be shared. Nothing leaves your phone unless you choose to report or share it.</string>
+    <string name="crash_note_label" tools:ignore="MissingTranslation">What were you doing? (optional)</string>
+    <string name="crash_report_github" tools:ignore="MissingTranslation">Report on GitHub</string>
+    <string name="crash_copy" tools:ignore="MissingTranslation">Copy report</string>
+    <string name="crash_share" tools:ignore="MissingTranslation">Share…</string>
+    <string name="crash_discard" tools:ignore="MissingTranslation">Don\'t send</string>
+    <string name="crash_copied" tools:ignore="MissingTranslation">Report copied.</string>
+    <string name="crash_copied_for_github" tools:ignore="MissingTranslation">Full report copied. Paste it into the form if more is needed.</string>
+    <string name="crash_unavailable" tools:ignore="MissingTranslation">This report is no longer available.</string>
+    <string name="crash_close" tools:ignore="MissingTranslation">Close</string>
+    <string name="feedback_last_crash" tools:ignore="MissingTranslation">Report the last crash</string>
+    <string name="feedback_last_crash_hint" tools:ignore="MissingTranslation">Pause stopped unexpectedly. Review it and choose what to do.</string>
 
     <!-- First-run setup wizard -->
     <string name="onb_welcome_title">Welcome to Pause</string>

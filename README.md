@@ -8,7 +8,7 @@ Tap a draggable bubble that floats over any app. Pick a **duration** (5 / 10 / 1
 
 Optionally, a **"Stop for now"** break covers apps you choose with a full-screen reminder whenever you open them.
 
-No ads, no analytics, no trackers, no internet permission. The core timer doesn't use the Accessibility Service and reads no usage data. The optional break is the only feature that reads which app is in the foreground, only while a break is active, and only after you grant Usage Access.
+No ads, no analytics, no trackers, no internet permission. If Pause crashes it saves a report on your phone and offers to open a pre-filled bug report in your browser; nothing is sent unless you choose to. The core timer doesn't use the Accessibility Service and reads no usage data. The optional break is the only feature that reads which app is in the foreground, only while a break is active, and only after you grant Usage Access.
 
 ## Install
 

@@ -1,0 +1,23 @@
+name: Question
+description: Ask how something in Pause works
+labels: [question]
+body:
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I read the README and CONTRIBUTING.md.
+          required: true
+        - label: I searched open and closed issues.
+          required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: Pause version

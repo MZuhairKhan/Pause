@@ -3,6 +3,7 @@ package io.github.mzuhairkhan.pause
 import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -36,48 +37,53 @@ class SetupSmokeTest {
 
     private val app: Application get() = ApplicationProvider.getApplicationContext()
 
-    private fun launchSettings() {
+    /** Launches onto the main screen, where Start lives now. */
+    private fun launchMain() {
         SettingsStore.setOnboardingComplete(app, true)
         ActivityScenario.launch(MainActivity::class.java)
         compose.waitForIdle()
     }
 
-    /** The settings screen renders, and its main action uses the current wording. */
+    /** Launches onto the main screen, then taps the gear through to Settings. */
+    private fun launchSettings() {
+        launchMain()
+        compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
+        compose.waitForIdle()
+    }
+
+    /** The main screen renders with its current Start wording, and the gear reaches Settings. */
     @Test
-    fun settingsScreenShowsBubbleControls() {
-        launchSettings()
-        // Near the top, so it should be on screen even on a small display.
+    fun mainScreenShowsStartAndTheGearOpensSettings() {
+        launchMain()
         compose.onNodeWithText(app.getString(R.string.start_overlay)).assertIsDisplayed()
+
+        compose.onNodeWithContentDescription(app.getString(R.string.settings_title)).performClick()
+        compose.waitForIdle()
         compose.onNodeWithText(app.getString(R.string.section_bubble))
             .performScrollTo()
             .assertIsDisplayed()
     }
 
     /**
-     * Sections are disclosure panels that start *expanded*, so tapping the header collapses.
-     * This walks collapse then expand, checking the renamed "Minimum exercise time" row follows.
+     * Each category is its own page now, so this opens the wind-down page, checks the "Minimum
+     * exercise time" row is on it, and that Back returns to the list without it.
      *
      * The row lives behind a non-zero lock, so it's seeded away from zero: another test in the
      * same process could otherwise have skipped it and taken the row with it.
      */
     @Test
-    fun breathingSectionCollapsesAndExpands() {
+    fun windDownRowOpensItsPageAndBackReturns() {
         SettingsStore.setLockSeconds(app, SettingsDefaults.LOCK_SECONDS)
         launchSettings()
-
-        val header = app.getString(R.string.section_breathing)
         val row = app.getString(R.string.no_skip_lock)
 
-        // Expanded by default, so the row is there before anything is tapped.
+        compose.onNodeWithText(app.getString(R.string.section_breathing)).performScrollTo().performClick()
+        compose.waitForIdle()
         compose.onNodeWithText(row).performScrollTo().assertIsDisplayed()
 
-        compose.onNodeWithText(header).performScrollTo().performClick()
+        compose.onNodeWithContentDescription(app.getString(R.string.onb_back)).performClick()
         compose.waitForIdle()
         compose.onNodeWithText(row).assertDoesNotExist()
-
-        compose.onNodeWithText(header).performScrollTo().performClick()
-        compose.waitForIdle()
-        compose.onNodeWithText(row).performScrollTo().assertIsDisplayed()
     }
 
     // The "Start button works without notification permission" regression lives in
