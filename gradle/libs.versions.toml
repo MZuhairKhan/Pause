@@ -11,7 +11,7 @@ roborazzi = "1.60.0"  # 1.66+ ships Kotlin 2.3 metadata; Kotlin 2.1 reads only u
 robolectric = "4.16.1"
 androidxTestJunit = "1.3.0"
 espressoCore = "3.7.0"
-acra = "5.13.1"  # 5.14 is built on Kotlin 2.4; 5.13.1 is the newest on Kotlin 2.2, which Kotlin 2.1 can still read
+acra = "5.14.2"  # 5.14 is built on Kotlin 2.4; 5.13.1 is the newest on Kotlin 2.2, which Kotlin 2.1 can still read
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
